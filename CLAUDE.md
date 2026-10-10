@@ -1,0 +1,75 @@
+# numbersgame: standing rules
+
+numbersgame is a number merge puzzle game (same core mechanic as "2248") for Android, built in Godot 4. Bart Basi owns the project. The main Claude Code session is the Development Manager (DM): it plans, launches every agent, integrates, commits, and is the only one who talks to Bart. The full kickoff brief is in docs/BRIEF.md. Read it before starting any phase.
+
+## Fixed decisions (ask Bart before revisiting any of these)
+
+- Engine: Godot 4.7.2 stable (`4.7.2.stable.official.ed1daf0bf`), Compatibility renderer.
+- Language: GDScript, statically typed everywhere (typed variables, parameters and return values). No C#, no GDExtension. project.godot treats untyped declarations as errors.
+- Platform for v1: Android, portrait only. Develop and iterate in the Godot editor on Windows.
+- Repo: github.com/bartbasi/numbersgame, private. Nothing is created on GitHub and nothing is pushed until Bart approves at Hard Stop 2.
+- Assets: nothing paid, nothing third party. Every visual and every sound is made in code (StyleBoxFlat, Theme resources, `_draw()`, shaders, Tweens, AudioStreamWAV filled by code). No image files, no audio files, no asset store downloads, no addons. Font files are an open question until Hard Stop 1; until then use Godot's built-in font or SystemFont.
+- Network: none. No accounts, ads, analytics or leaderboards. Release builds request no Android permissions.
+- Skins: built in only for v1. No import of any kind.
+- Level goals: not in v1. Keep game rules separate from UI so they can be added later, but build nothing for them.
+- Boosters are paid from the current run's score. Score can never go below zero.
+- Out of scope: level goals, player-made skins, file import, anything online, ads, in-app purchases, iOS, Windows and Linux builds, store listings, release signing keys, Play Console work.
+
+## Ownership
+
+Each agent edits only what it owns, plus any path its task brief from the DM explicitly grants for that task. Godot's `.uid` files belong to whoever owns the file next to them.
+
+| Path | Owner |
+|---|---|
+| CLAUDE.md, docs/BRIEF.md, docs/ARCHITECTURE.md, .claude/agents/, .gitattributes | DM |
+| scenes/main.tscn, tests/run_tests.gd, tests/base_test.gd | DM |
+| README.md, project.godot, export_presets.cfg, .gitignore, scripts/ (build and install scripts) | platform-dev |
+| docs/GDD.md (rules, balance, acceptance test list) | lead-game-designer |
+| docs/DESIGN_SYSTEM.md, docs/ASSETS.md, docs/design/, tools/ | senior-graphic-designer |
+| docs/reviews/qa-*.md | qa-reviewer |
+| docs/reviews/security-*.md | security-reviewer |
+| src/core/, tests/core/ | core-logic-dev |
+| src/board/, scenes/board/, tests/board/ | board-input-dev |
+| src/boosters/, scenes/boosters/, tests/boosters/ | boosters-dev |
+| src/ui/, src/save/, scenes/ui/, tests/ui/, tests/save/ | ui-systems-dev |
+| src/audio/, scenes/audio/, tests/audio/ | audio-dev |
+| src/skins/, scenes/skins/, tests/skins/ | tile-board-artist |
+| src/design/, scenes/design/, tests/design/ | ui-motion-artist |
+
+Autoload and input map entries in project.godot are added by the DM during integration, so two agents never edit that file at once.
+
+## Rules for every session and agent
+
+- docs/ARCHITECTURE.md (written in Phase 2) is the contract. Build against it. If you need the contract or another area's code changed, stop and ask the DM. Never edit another area's files.
+- Agents never commit. The DM commits after each integration step, once tests pass.
+- Keep it simple. No features, settings or abstractions beyond the brief. Extra ideas go to the DM as suggestions for Bart.
+- Priority for every decision and fix: security and bugs first, then fun and polish.
+- No em dashes and no double hyphens in prose: docs, UI text, code comments, commit messages. Write plainly, like a person. Command line flags inside code formatting are fine.
+- If anything is unclear, conflicts, or would force a guess, stop and ask. Do not pick an interpretation silently.
+- Hard stops: Phase 2 does not start until Bart signs off at Hard Stop 1. Nothing goes to GitHub until Bart approves at Hard Stop 2.
+- Every agent finishes with a short report: what changed (file list), how it was proven (command and result, screenshot path, or test names), open questions, and any contract change requests.
+
+## Commands
+
+Run Godot commands from the repo root in the Bash tool.
+
+```bash
+godot --headless --path . --import                            # build the class cache (fresh clone, or after adding a class_name)
+godot --headless --path . --quit                              # project opens and runs
+godot --headless --path . --script res://tests/run_tests.gd   # all tests; exit code 0 means every test passed
+```
+
+## Writing tests
+
+- Put tests in `tests/<area>/test_*.gd`. Each file starts with `extends "res://tests/base_test.gd"`.
+- Every method named `test_*` runs on a fresh instance. Optional hooks: `before_each()`, `after_each()`.
+- Helpers: `assert_true`, `assert_false`, `assert_eq`, `assert_ne`, `assert_near`, `fail`.
+- A script error raised while a test runs (a null access, for example) counts as a failure.
+- Tests are synchronous. Seed every RandomNumberGenerator so results repeat.
+
+## Environment notes (this Windows machine)
+
+- `godot` on PATH is a WinGet link to the main Godot 4.7.2 exe. It works from Bash with real exit codes. In PowerShell the same exe does not wait or return an exit code unless its output is piped, so prefer Bash.
+- Do not use `godot_console.exe`. It fails with "CreateProcess failed, error 193" because a stray installer log file named `C:\Users\Bart` breaks the wrapper's unquoted path.
+- Android SDK: `C:\Android\Sdk`. adb is at `C:\Android\Sdk\platform-tools\adb.exe` and is not on PATH. JDK 17 (Temurin) is on PATH. The Android debug keystore lives outside the repo in Godot's editor settings folder.
+- docs/ has a `.gdignore`, so Godot never imports the design screenshots into the game.
