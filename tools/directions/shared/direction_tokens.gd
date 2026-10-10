@@ -1,0 +1,296 @@
+extends RefCounted
+## Design tokens for one Phase 1 direction. This is the single source of truth
+## for the direction's colors, tile ramp, type, shape and motion. Each
+## direction's tokens.gd extends this script and fills every field in _init().
+##
+## Artists read values from here and never hardcode a color, size or timing.
+## The contrast checker (res://tools/contrast_check.gd) reads the same values.
+## If a value you need is missing, ask the senior-graphic-designer.
+##
+## Phase 1 prototype code. Nothing under tools/ ships with the game.
+## Load it with preload, not class_name, so tools/ adds nothing to the global
+## class list that Phase 2 code will use:
+##     const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
+
+## Lowest and highest tile values the ramp covers. Ramp index 0 is value 2,
+## index 16 is value 131072.
+const RAMP_LOW: int = 2
+const RAMP_HIGH: int = 131072
+const RAMP_SIZE: int = 17
+
+## Text case rules for a type role.
+const CASE_NONE: String = "none"
+const CASE_UPPER: String = "upper"
+const CASE_LOWER: String = "lower"
+
+## The type roles every direction defines.
+const TYPE_ROLES: PackedStringArray = ["display", "title", "body", "label", "tile"]
+
+## The motion names every direction defines.
+const MOTION_NAMES: PackedStringArray = [
+	"spawn", "fall", "chain_add", "merge_travel", "merge_pop",
+	"button_press", "button_release", "dialog_in", "screen_fade",
+	"target_pulse", "score_count",
+]
+
+## Absolute path to a .ttf or .otf file outside the repo. When set, every role
+## uses that file instead of the system font. Only the capture tool sets this,
+## for the Hard Stop 1 font comparison.
+static var override_font_path: String = ""
+static var _override_font: FontFile = null
+
+## Short id, also the folder name under tools/directions/.
+var id: String = ""
+## Name shown to Bart.
+var display_name: String = ""
+
+## Named palette colors, for example "bg", "ink", "accent". Every key is
+## documented in the direction's tokens.gd.
+var palette: Dictionary[String, Color] = {}
+
+## Tile fill and number color for each value from 2 to 131072, in ramp order.
+var tile_fill: Array[Color] = []
+var tile_ink: Array[Color] = []
+## Values above 131072 use these.
+var beyond_fill: Color = Color.BLACK
+var beyond_ink: Color = Color.WHITE
+
+## Every text color on its background, as drawn on screen. Built with pair().
+## Text may only be drawn with a pair listed here. The contrast checker holds
+## each pair to its minimum ratio.
+var text_pairs: Array[Dictionary] = []
+
+## SystemFont preference list. On Windows this resolves to Segoe UI, on
+## Android to Roboto. Plain "sans-serif" alone gives Arial on Windows.
+var font_names: PackedStringArray = PackedStringArray(["Roboto", "Segoe UI", "sans-serif"])
+
+## Type roles. Each entry holds:
+##   size: int, px on the 1080 px wide canvas (not used for "tile")
+##   weight: int, 100 to 900
+##   tracking: int, extra px between glyphs
+##   case: one of CASE_NONE, CASE_UPPER, CASE_LOWER
+var type_roles: Dictionary[String, Dictionary] = {}
+
+## Tile number font size as a fraction of the tile side (or orb diameter),
+## by label length: index 0 is a 1 character label, index 3 is 4 characters.
+var tile_number_scale: PackedFloat32Array = PackedFloat32Array()
+
+## Shape, layout and spacing numbers. Keys are documented in tokens.gd.
+## Lengths are px on the 1080 px wide canvas unless the comment says fraction.
+var shape: Dictionary[String, float] = {}
+
+## Motion specs. Each entry holds:
+##   duration: float seconds (for loops, the period)
+##   trans: int, a Tween.TransitionType
+##   ease: int, a Tween.EaseType
+## plus any extra numbers documented in tokens.gd.
+var motion: Dictionary[String, Dictionary] = {}
+
+var _font_cache: Dictionary[String, Font] = {}
+
+
+## Sets override_font_path. Scripts that hold this file in a const cannot
+## assign the static var directly, so they call this.
+static func use_font_file(path: String) -> void:
+	override_font_path = path
+	_override_font = null
+
+
+## Ramp index for a tile value: 0 for 2, 16 for 131072, RAMP_SIZE for any
+## power of two above 131072, and -1 for anything that is not a power of two
+## of at least 2.
+static func ramp_index(value: int) -> int:
+	if value < RAMP_LOW or (value & (value - 1)) != 0:
+		return -1
+	if value > RAMP_HIGH:
+		return RAMP_SIZE
+	var index: int = 0
+	var v: int = value
+	while v > RAMP_LOW:
+		v = v >> 1
+		index += 1
+	return index
+
+
+## Tile fill color for a value.
+func fill_for(value: int) -> Color:
+	var index: int = ramp_index(value)
+	if index < 0:
+		push_error("%s: %d is not a tile value" % [id, value])
+		return Color.MAGENTA
+	if index >= RAMP_SIZE:
+		return beyond_fill
+	return tile_fill[index]
+
+
+## Number color for a value.
+func ink_for(value: int) -> Color:
+	var index: int = ramp_index(value)
+	if index < 0:
+		push_error("%s: %d is not a tile value" % [id, value])
+		return Color.MAGENTA
+	if index >= RAMP_SIZE:
+		return beyond_ink
+	return tile_ink[index]
+
+
+## A named palette color. Logs an error for an unknown name.
+func color(token: String) -> Color:
+	if not palette.has(token):
+		push_error("%s: unknown palette token '%s'" % [id, token])
+		return Color.MAGENTA
+	return palette[token]
+
+
+## A shape, layout or spacing number. Logs an error for an unknown key.
+func num(key: String) -> float:
+	if not shape.has(key):
+		push_error("%s: unknown shape token '%s'" % [id, key])
+		return 0.0
+	return shape[key]
+
+
+## A motion spec. Logs an error for an unknown name.
+func motion_spec(motion_name: String) -> Dictionary:
+	if not motion.has(motion_name):
+		push_error("%s: unknown motion '%s'" % [id, motion_name])
+		return {"duration": 0.2, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT}
+	return motion[motion_name]
+
+
+## Duration in seconds of a motion.
+func duration(motion_name: String) -> float:
+	var spec: Dictionary = motion_spec(motion_name)
+	return float(spec.get("duration", 0.2))
+
+
+## Font size in px for a type role.
+func font_size(role: String) -> int:
+	return int(_role(role).get("size", 40))
+
+
+## Font size in px for a tile number, given the tile side (or orb diameter)
+## and the label text.
+func tile_font_size(tile_side: float, label: String) -> int:
+	if tile_number_scale.is_empty():
+		push_error("%s: tile_number_scale is empty" % id)
+		return 32
+	var length_index: int = clampi(label.length(), 1, tile_number_scale.size()) - 1
+	return maxi(1, roundi(tile_side * tile_number_scale[length_index]))
+
+
+## Applies the role's case rule to a text.
+func cased(role: String, text: String) -> String:
+	var rule: String = String(_role(role).get("case", CASE_NONE))
+	if rule == CASE_UPPER:
+		return text.to_upper()
+	if rule == CASE_LOWER:
+		return text.to_lower()
+	return text
+
+
+## The font for a type role: weight and tracking applied, cached.
+func font(role: String) -> Font:
+	if _font_cache.has(role):
+		return _font_cache[role]
+	var spec: Dictionary = _role(role)
+	var weight: int = int(spec.get("weight", 400))
+	var variation: FontVariation = FontVariation.new()
+	var file: FontFile = _load_override_font()
+	if file != null:
+		variation.base_font = file
+		# The weight axis must be keyed by its integer tag. The string key
+		# "wght" is silently ignored in Godot 4.7.
+		var weight_tag: int = TextServerManager.get_primary_interface().name_to_tag("wght")
+		variation.variation_opentype = {weight_tag: weight}
+	else:
+		var system: SystemFont = SystemFont.new()
+		system.font_names = font_names
+		system.font_weight = weight
+		variation.base_font = system
+	variation.spacing_glyph = int(spec.get("tracking", 0))
+	_font_cache[role] = variation
+	return variation
+
+
+## Builds one entry for text_pairs.
+##   pair_name: where this pair appears, for the checker's output
+##   fg: palette token for the text color
+##   bg: palette token for the background
+##   over: only when bg has alpha below 1, the token it sits over (a palette
+##     token, or "tile:<value>" for a tile fill). Use the worst case.
+##   min_ratio: 4.5 for all text
+func pair(pair_name: String, fg: String, bg: String, over: String = "", min_ratio: float = 4.5) -> Dictionary:
+	return {"name": pair_name, "fg": fg, "bg": bg, "over": over, "min": min_ratio}
+
+
+## Resolves a color reference: a palette token, "tile:<value>" for a tile
+## fill, or "ink:<value>" for a tile number color. Returns ok = false for an
+## unknown reference.
+func resolve(ref: String) -> Dictionary:
+	if ref.begins_with("tile:") or ref.begins_with("ink:"):
+		var parts: PackedStringArray = ref.split(":")
+		var value: int = parts[1].to_int()
+		if ramp_index(value) < 0:
+			return {"ok": false, "color": Color.MAGENTA}
+		var picked: Color = fill_for(value) if parts[0] == "tile" else ink_for(value)
+		return {"ok": true, "color": picked}
+	if palette.has(ref):
+		return {"ok": true, "color": palette[ref]}
+	return {"ok": false, "color": Color.MAGENTA}
+
+
+## Checks that every field is filled. Returns a list of problems, empty when
+## the tokens are complete.
+func validate() -> PackedStringArray:
+	var problems: PackedStringArray = PackedStringArray()
+	if id.is_empty() or display_name.is_empty():
+		problems.append("id and display_name must be set")
+	if tile_fill.size() != RAMP_SIZE:
+		problems.append("tile_fill has %d colors, needs %d" % [tile_fill.size(), RAMP_SIZE])
+	if tile_ink.size() != RAMP_SIZE:
+		problems.append("tile_ink has %d colors, needs %d" % [tile_ink.size(), RAMP_SIZE])
+	for role: String in TYPE_ROLES:
+		if not type_roles.has(role):
+			problems.append("missing type role '%s'" % role)
+	if tile_number_scale.size() != 4:
+		problems.append("tile_number_scale needs 4 entries (1 to 4 characters)")
+	for motion_name: String in MOTION_NAMES:
+		if not motion.has(motion_name):
+			problems.append("missing motion '%s'" % motion_name)
+			continue
+		var spec: Dictionary = motion[motion_name]
+		for key: String in ["duration", "trans", "ease"]:
+			if not spec.has(key):
+				problems.append("motion '%s' has no %s" % [motion_name, key])
+	if text_pairs.is_empty():
+		problems.append("text_pairs is empty")
+	for entry: Dictionary in text_pairs:
+		for key: String in ["fg", "bg"]:
+			if not bool(resolve(String(entry[key]))["ok"]):
+				problems.append("pair '%s' uses unknown %s token '%s'" % [entry["name"], key, entry[key]])
+		var over: String = String(entry["over"])
+		if not over.is_empty() and not bool(resolve(over)["ok"]):
+			problems.append("pair '%s' uses unknown over token '%s'" % [entry["name"], over])
+	return problems
+
+
+func _role(role: String) -> Dictionary:
+	if not type_roles.has(role):
+		push_error("%s: unknown type role '%s'" % [id, role])
+		return {}
+	return type_roles[role]
+
+
+static func _load_override_font() -> FontFile:
+	if override_font_path.is_empty():
+		return null
+	if _override_font == null:
+		var file: FontFile = FontFile.new()
+		var err: Error = file.load_dynamic_font(override_font_path)
+		if err != OK:
+			push_error("could not load font file %s (error %d)" % [override_font_path, err])
+			override_font_path = ""
+			return null
+		_override_font = file
+	return _override_font

@@ -22,3 +22,6 @@ android/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Artist review captures from Phase 1. Working files only; the final screenshots in docs/design/ are committed.
+docs/design/review/
