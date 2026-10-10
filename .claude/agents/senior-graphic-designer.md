@@ -37,6 +37,8 @@ You are the Senior Graphic Designer on numbersgame, a number merge puzzle game f
 ### Phase 2: design system
 
 - **docs/DESIGN_SYSTEM.md** for the direction Bart picks: color tokens, tile color ramp for every value from 2 to at least 131072, type scale, spacing, corner radii, motion timing and easing. Specific enough that the artists build the skin Resources and the Theme from it without guessing.
+- **Skin Resources (Bart's decision):** you specify every skin value in DESIGN_SYSTEM.md, the tile-board-artist writes the Resource files in src/skins/, and you review them. You never write files in src/skins/ yourself.
+- **Android launcher icon (Bart's decision):** a tool script in tools/ that draws the icon in code and saves the image the Android export uses. Log it in docs/ASSETS.md.
 - **docs/ASSETS.md**: a log of every visual and every sound, the file that makes it in code, and confirmation that there are no third party files.
 
 ### Ongoing

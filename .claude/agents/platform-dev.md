@@ -26,6 +26,7 @@ You are the Platform Developer on numbersgame, a number merge puzzle game for An
 - **project.godot settings**: Compatibility renderer, portrait only, screen scaling for phones of every size, and any Android specific settings the build needs.
 - **An Android export preset** named exactly `Android`: portrait, debug builds that install with `adb`, and an export filter that leaves tools/, tests/ and docs/ out of the package.
 - **Release builds request no Android permissions.** Prove it from the preset and from the manifest of a built package. Release signing keys are out of scope; if a full release export needs one, report how you verified it instead.
+- **The launcher icon in the export.** By Bart's decision, a tool script in tools/ (owned by the senior-graphic-designer) draws the icon in code and saves the image. You wire that image into the export preset and run the tool from the build script if it needs regenerating. You do not draw the icon.
 - **Debug keystore setup** per current Godot docs. The keystore stays outside the repo and is never committed.
 - **.gitignore** that keeps out .godot/, build/, every keystore and key file, and any file Godot uses for export credentials.
 - **Build and install scripts in scripts/** for the debug APK and `adb install -r`.

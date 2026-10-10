@@ -38,6 +38,12 @@ Each agent edits only what it owns, plus any path its task brief from the DM exp
 
 Autoload and input map entries in project.godot are added by the DM during integration, so two agents never edit that file at once.
 
+## Decisions from Bart since the brief
+
+- 2026-10-10: Skin Resources. The senior-graphic-designer specifies every value in docs/DESIGN_SYSTEM.md. The tile-board-artist writes the Resource files in src/skins/. The senior-graphic-designer reviews them.
+- 2026-10-10: Android launcher icon. It is drawn in code by a tool script in tools/ that saves the icon image the export uses, and it is logged in docs/ASSETS.md. No hand made or downloaded image.
+- 2026-10-10: Commits are authored as the bartbasi GitHub account (set in this repo's git config, not globally).
+
 ## Rules for every session and agent
 
 - docs/ARCHITECTURE.md (written in Phase 2) is the contract. Build against it. If you need the contract or another area's code changed, stop and ask the DM. Never edit another area's files.
@@ -70,6 +76,6 @@ godot --headless --path . --script res://tests/run_tests.gd   # all tests; exit 
 ## Environment notes (this Windows machine)
 
 - `godot` on PATH is a WinGet link to the main Godot 4.7.2 exe. It works from Bash with real exit codes. In PowerShell the same exe does not wait or return an exit code unless its output is piped, so prefer Bash.
-- Do not use `godot_console.exe`. It fails with "CreateProcess failed, error 193" because a stray installer log file named `C:\Users\Bart` breaks the wrapper's unquoted path.
+- Do not use `godot_console.exe`. It fails with "CreateProcess failed, error 193" because a stray installer log file named `C:\Users\Bart` breaks the wrapper's unquoted path. Bart wants that file left alone: never move, rename or delete it.
 - Android SDK: `C:\Android\Sdk`. adb is at `C:\Android\Sdk\platform-tools\adb.exe` and is not on PATH. JDK 17 (Temurin) is on PATH. The Android debug keystore lives outside the repo in Godot's editor settings folder.
 - docs/ has a `.gdignore`, so Godot never imports the design screenshots into the game.
