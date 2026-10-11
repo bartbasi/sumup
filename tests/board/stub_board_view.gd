@@ -5,10 +5,14 @@ extends SkinBoardView
 ## Not a test file: the runner only loads files named test_*.gd.
 ##
 ## Fixed geometry: cell (0, 0)'s pitch box starts at ORIGIN and cells are
-## PITCH apart, whatever the view's size.
+## PITCH apart, whatever the view's size. Each tile is a TILE square centered
+## in its pitch box, so tiles have 20 px gaps between them. The D-07 join
+## radius (0.42 of the pitch, 42 px) reaches just past a tile's sides
+## (40 px) but not its corners (about 57 px).
 
 const ORIGIN: Vector2 = Vector2(20.0, 30.0)
 const PITCH: Vector2 = Vector2(100.0, 100.0)
+const TILE: Vector2 = Vector2(80.0, 80.0)
 
 ## Effect lengths in seconds by method name, for example &"play_merge".
 var durations: Dictionary[StringName, float] = {}
@@ -82,7 +86,7 @@ func set_swap_selected(cell: Vector2i) -> void:
 
 
 func cell_rect(cell: Vector2i) -> Rect2:
-	return Rect2(ORIGIN + Vector2(cell) * PITCH, PITCH)
+	return Rect2(ORIGIN + (Vector2(cell) + Vector2(0.5, 0.5)) * PITCH - TILE * 0.5, TILE)
 
 
 func grid_origin() -> Vector2:

@@ -99,6 +99,29 @@ func test_every_skin_plays_a_hammer_to_the_end() -> void:
 		_assert_view_shows_the_session(skin_id)
 
 
+func test_every_skin_takes_a_tap_anywhere_on_the_tile_and_none_in_a_gap() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		_start(skin_id, F.board_p(), 5000)
+		_session.press_booster(BoosterRules.HAMMER)
+		var view: SkinBoardView = _view()
+		var left: Rect2 = view.cell_rect(Vector2i(1, 4))
+		var tile: Rect2 = view.cell_rect(Vector2i(2, 4))
+		assert_true(left.end.x < tile.position.x, "%s: tiles have a gap between them" % skin_id)
+		var gap: Vector2 = view.position + Vector2((left.end.x + tile.position.x) * 0.5, tile.get_center().y)
+		_board._gui_input(BF.touch(0, gap, true))
+		_board._gui_input(BF.touch(0, gap, false))
+		assert_eq(_session.state.score, 5000, "%s: a tap in the gap picks nothing" % skin_id)
+		var corner_local: Vector2 = tile.position + tile.size * 0.05
+		var miss: Vector2i = BoardGeometry.cell_at(corner_local, view.grid_origin(), view.cell_pitch(), 5, 8, _session.config.join_radius)
+		assert_eq(miss, Vector2i(-1, -1), "%s: the corner is outside the join circle" % skin_id)
+		var corner: Vector2 = view.position + corner_local
+		_board._gui_input(BF.touch(0, corner, true))
+		_board._gui_input(BF.touch(0, corner, false))
+		assert_eq(_session.state.score, 4872, "%s: a tap near the tile's corner applies Hammer" % skin_id)
+		_settle()
+		_assert_view_shows_the_session(skin_id)
+
+
 func test_switching_skins_live_keeps_the_board() -> void:
 	_start(SkinCatalog.DEFAULT_ID, F.board_p(), 0)
 	for skin_id: StringName in [&"slate", &"nova", &"gumdrop"]:

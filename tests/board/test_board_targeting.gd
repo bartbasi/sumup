@@ -3,7 +3,8 @@ extends "res://tests/base_test.gd"
 ## on one tile applies Hammer and Double (AT-110), Swap selects then swaps
 ## (AT-111, AT-69), lifting elsewhere picks nothing, taps off the tiles do
 ## nothing (AT-66), no chains while targeting (AT-62), and the view mirrors
-## targeting_changed.
+## targeting_changed. A tap counts anywhere on the visible tile (its
+## cell_rect), corners included; gaps between tiles pick nothing.
 
 const F := preload("res://tests/core/core_fixtures.gd")
 const BF := preload("res://tests/board/board_fixtures.gd")
@@ -25,6 +26,11 @@ func _targeting(board: PackedInt64Array, booster: StringName) -> void:
 
 func _last(list: Array) -> Variant:
 	return list.back() if not list.is_empty() else null
+
+
+## What the D-07 join circle would hit at a board point on the stub view.
+func _join_hit(at: Vector2) -> Vector2i:
+	return BoardGeometry.cell_at(at, BF.StubBoardView.ORIGIN, BF.StubBoardView.PITCH, 5, 8, rig.session.config.join_radius)
 
 
 # Hammer and Double act on one tap (AT-110).
@@ -118,6 +124,62 @@ func test_at_66_taps_off_the_tiles_do_nothing_while_targeting() -> void:
 	assert_eq(rig.session.targeting_booster(), BoosterRules.HAMMER, "Hammer stays active")
 	assert_true(rig.session.state.equals(before), "nothing charged")
 	assert_eq(rig.view().pressed.size(), 0, "no press feedback")
+
+
+# A tap is anywhere on the visible tile (its cell_rect), not the D-07 circle.
+
+func test_a_tap_near_a_tile_corner_picks_that_tile() -> void:
+	_targeting(F.board_p(), BoosterRules.HAMMER)
+	var corner: Vector2 = rig.point(Vector2i(2, 4), Vector2(37.0, -37.0))
+	assert_eq(_join_hit(corner), NO_CELL, "the corner is outside the join circle")
+	rig.down_at(corner)
+	assert_eq(_last(rig.view().pressed), Vector2i(2, 4), "press feedback on the tile")
+	rig.up_at(corner)
+	assert_eq(rig.session.state.score, 4872, "Hammer applied")
+	assert_eq(rig.view().clears, [BF.cells([Vector2i(2, 4)])], "on that tile")
+
+
+func test_a_tap_that_drifts_inside_the_tile_still_taps() -> void:
+	_targeting(F.board_p(), BoosterRules.DOUBLE)
+	rig.down_at(rig.point(Vector2i(0, 0), Vector2(-35.0, 35.0)))
+	rig.move_to(rig.point(Vector2i(0, 0), Vector2(30.0, -36.0)))
+	rig.up_at(rig.point(Vector2i(0, 0), Vector2(36.0, -38.0)))
+	assert_eq(rig.session.state.value_at(Vector2i(0, 0)), 4, "the tile is doubled")
+
+
+func test_a_tap_in_a_gap_picks_nothing_even_within_the_join_radius() -> void:
+	_targeting(F.board_p(), BoosterRules.HAMMER)
+	var before: RunState = rig.session.state.copy()
+	var side_gap: Vector2 = rig.point(Vector2i(1, 1), Vector2(41.0, 0.0))
+	var corner_gap: Vector2 = rig.point(Vector2i(1, 1), Vector2(50.0, 50.0))
+	assert_eq(_join_hit(side_gap), Vector2i(1, 1), "the join circle reaches into this gap")
+	for gap: Vector2 in [side_gap, corner_gap]:
+		rig.down_at(gap)
+		rig.up_at(gap)
+	assert_true(rig.session.state.equals(before), "nothing picked, nothing charged")
+	assert_eq(rig.view().pressed.size(), 0, "no press feedback in a gap")
+	assert_eq(rig.session.targeting_booster(), BoosterRules.HAMMER, "Hammer stays active")
+
+
+func test_a_lift_on_a_neighbor_tile_picks_nothing() -> void:
+	_targeting(F.board_p(), BoosterRules.DOUBLE)
+	var before: RunState = rig.session.state.copy()
+	var down: Vector2 = rig.point(Vector2i(1, 1), Vector2(38.0, 0.0))
+	var lift: Vector2 = rig.point(Vector2i(2, 1), Vector2(-38.0, 0.0))
+	rig.down_at(down)
+	rig.move_to(lift)
+	assert_eq(_last(rig.view().pressed), NO_CELL, "no press feedback on the neighbor")
+	rig.up_at(lift)
+	assert_true(rig.session.state.equals(before), "a lift 24 px away on the next tile picks nothing")
+	assert_eq(rig.session.targeting_booster(), BoosterRules.DOUBLE, "Double stays active")
+
+
+func test_press_feedback_covers_the_whole_tile() -> void:
+	_targeting(F.board_p(), BoosterRules.HAMMER)
+	rig.down_at(rig.point(Vector2i(3, 3), Vector2(-39.0, -39.0)))
+	rig.move_to(rig.point(Vector2i(3, 3), Vector2(45.0, 0.0)))
+	rig.move_to(rig.point(Vector2i(3, 3), Vector2(39.0, 39.0)))
+	assert_eq(rig.view().pressed, BF.cells([Vector2i(3, 3), NO_CELL, Vector2i(3, 3)]), "on at a corner, off in the gap, on at the opposite corner")
 
 
 func test_at_62_no_chains_while_targeting() -> void:

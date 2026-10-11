@@ -240,6 +240,21 @@ func test_the_chain_line_follows_the_finger() -> void:
 	assert_eq(rig.chain_events.size(), events, "moving inside a tile changes no chain")
 
 
+func test_chains_use_the_join_circle_not_the_tile_rect() -> void:
+	# A tile corner is on the tile but outside the D-07 circle: it starts no
+	# chain. A gap point inside the circle joins the tile.
+	rig = BF.rig(F.board_p(), 0)
+	var corner: Vector2 = rig.point(Vector2i(1, 6), Vector2(-37.0, -37.0))
+	assert_true(rig.view().cell_rect(Vector2i(1, 6)).has_point(corner), "the corner is on the tile")
+	rig.down_at(corner)
+	assert_true(rig.session.is_dragging(), "the drag is open")
+	assert_eq(rig.chain_events.size(), 0, "a tile corner is not over the tile for chains")
+	rig.move(Vector2i(1, 6))
+	assert_eq(rig.last_chain(), _chain([Vector2i(1, 6)]), "the tile joins once the finger reaches its circle")
+	rig.move_to(rig.point(Vector2i(2, 6), Vector2(-41.0, 0.0)))
+	assert_eq(rig.last_chain(), _chain([Vector2i(1, 6), Vector2i(2, 6)]), "a point in the gap within the radius joins")
+
+
 # The joinable highlight (D-40).
 
 func test_at_105_hl1_to_hl3_highlight_through_the_board() -> void:

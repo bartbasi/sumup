@@ -16,9 +16,12 @@ class_name BoardController extends Control
 ## commits a chain of 2 or more, anywhere on or off the board (D-06), and
 ## cancels a shorter one with no penalty.
 ##
-## Targeting (D-43). A finger down on a tile shows press feedback while the
-## finger stays on that tile. Lifting on the same tile calls
-## session.tap_cell(); lifting anywhere else does nothing.
+## Targeting (D-43). A tap is a finger down and up inside the same tile's
+## cell_rect, anywhere on the visible tile: D-07's smaller circle only keeps
+## diagonal drags off side tiles, which a tap does not need. A finger down on
+## a tile shows press feedback while the finger stays on that tile. Lifting
+## on the same tile calls session.tap_cell(); lifting in a gap, on another
+## tile or off the board does nothing.
 ##
 ## Moves. On run_started and move_resolved the board plays the move's
 ## effects in the order of DESIGN_SYSTEM.md 3.6 and waits for the lengths the
@@ -218,7 +221,7 @@ func _pointer_down(pointer: int, point: Vector2) -> void:
 		_gesture = Gesture.PRESS
 		_pointer = pointer
 		_press_booster = _session.targeting_booster()
-		_pressed = _cell_at(local)
+		_pressed = _tile_at(local)
 		_show_press(_pressed)
 	elif _session.begin_drag():
 		_gesture = Gesture.CHAIN
@@ -236,7 +239,7 @@ func _pointer_move(point: Vector2) -> void:
 		Gesture.CHAIN:
 			_drag_chain(local)
 		Gesture.PRESS:
-			_show_press(_pressed if _cell_at(local) == _pressed else NO_CELL)
+			_show_press(_pressed if _tile_at(local) == _pressed else NO_CELL)
 
 
 func _pointer_up(point: Vector2, canceled: bool) -> void:
@@ -247,7 +250,7 @@ func _pointer_up(point: Vector2, canceled: bool) -> void:
 			var cell: Vector2i = _pressed
 			_reset_gesture()
 			_show_press(NO_CELL)
-			if not canceled and cell != NO_CELL and _view != null and _cell_at(_to_view(point)) == cell:
+			if not canceled and cell != NO_CELL and _view != null and _tile_at(_to_view(point)) == cell:
 				_session.tap_cell(cell)
 		_:
 			_reset_gesture()
@@ -541,9 +544,26 @@ func _to_view(point: Vector2) -> Vector2:
 	return point - _view.position
 
 
+## Chains: the tile within the D-07 join radius of local, else (-1, -1).
 func _cell_at(local: Vector2) -> Vector2i:
 	var config: GameConfig = _session.config
 	return BoardGeometry.cell_at(local, _view.grid_origin(), _view.cell_pitch(), config.columns, config.rows, config.join_radius)
+
+
+## Targeting taps: the tile whose cell_rect holds local, else (-1, -1). Gaps
+## between tiles and points off the board hit no tile.
+func _tile_at(local: Vector2) -> Vector2i:
+	var config: GameConfig = _session.config
+	var pitch: Vector2 = _view.cell_pitch()
+	if not (pitch.x > 0.0 and pitch.y > 0.0) or not local.is_finite():
+		return NO_CELL
+	# Tiles sit inside their pitch boxes, so only the box's own tile can hold
+	# the point.
+	var box: Vector2 = (local - _view.grid_origin()) / pitch
+	var cell: Vector2i = Vector2i(clampi(floori(box.x), 0, config.columns - 1), clampi(floori(box.y), 0, config.rows - 1))
+	if _view.cell_rect(cell).has_point(local):
+		return cell
+	return NO_CELL
 
 
 func _cell_count() -> int:
