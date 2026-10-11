@@ -1,28 +1,28 @@
 extends SceneTree
-## Tile label size check for the design directions.
+## Tile label size check for the skins that ship.
 ##
 ## Run from the repo root:
 ##     godot --headless --path . --script res://tools/label_check.gd
 ##
 ## docs/GDD.md section 14.1 (with assumption A-1) asks that on the smallest
 ## tile, 56 dp, every label fits inside the tile and its digits are at least
-## 12 dp tall. For every direction this script takes the tile font and the
-## label scale from the token file and, for each label length from 1 to 4
+## 12 dp tall. For every skin in SkinCatalog.IDS this script loads the SkinData
+## resource the game uses (through SkinCatalog.get_skin), takes its tile font
+## (skin.font("tile")) and label scale, and for each label length from 1 to 4
 ## characters:
 ##   - measures the real digit height from the glyph outlines (the shortest
 ##     of the ten digits), and checks it is at least 12 dp on a 56 dp tile
 ##   - measures the widest label of that length, over every value from 2 to
-##     2^49, and checks it fits within the direction's label_fit share of the
+##     2^49, and checks it fits within the skin's label_fit share of the
 ##     tile side
 ## Prints every result. Exits with code 0 when all pass and 1 otherwise.
 ##
-## The font is the one the capture uses (SystemFont: Segoe UI on Windows).
-## Roboto has slightly taller digits (cap height 0.711 of the size against
-## Segoe UI's 0.700), so a pass here holds on Android too. To check a font
-## file instead (for the font comparison), add: -- --font <absolute path>
+## Each skin is measured in its own font: Outfit from its font file for
+## Gumdrop and Nova, the system font for Slate. Here the system font resolves
+## to Segoe UI (Windows). Roboto, the Android system font, has slightly taller
+## digits (cap height 0.711 of the size against Segoe UI's 0.700), so a pass
+## here holds on Android too.
 
-const Directions: GDScript = preload("res://tools/directions/shared/directions.gd")
-const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd")
 
 ## GDD section 18: SMALLEST_TILE_DP and MIN_LABEL_DIGIT_HEIGHT_DP.
@@ -38,34 +38,49 @@ var _checked: int = 0
 
 
 func _initialize() -> void:
-	var args: PackedStringArray = OS.get_cmdline_user_args()
-	var font_index: int = args.find("--font")
-	if font_index >= 0 and font_index + 1 < args.size():
-		DirectionTokens.use_font_file(args[font_index + 1])
-		print("Using font file %s" % args[font_index + 1])
+	if OS.get_cmdline_user_args().has("--font"):
+		print("The --font option is no longer used: each skin is measured in its own font.")
 	print("Label size check. On a %d dp tile, digits need %d dp or more and every label must fit." % [int(SMALLEST_TILE_DP), int(MIN_DIGIT_DP)])
 	var labels_by_length: Array[PackedStringArray] = [PackedStringArray(), PackedStringArray(), PackedStringArray(), PackedStringArray()]
 	for power: int in range(1, HIGHEST_POWER + 1):
 		var label: String = MockState.tile_label(1 << power)
 		if label.length() < 1 or label.length() > 4:
 			print("  FAIL label for 2^%d is '%s', more than 4 characters" % [power, label])
+			_checked += 1
 			_failed += 1
 			continue
 		labels_by_length[label.length() - 1].append(label)
-	for direction_id: String in Directions.IDS:
-		_check_direction(Directions.load_tokens(direction_id), labels_by_length)
+	for skin_id: StringName in SkinCatalog.IDS:
+		_check_skin(skin_id, labels_by_length)
 	print("")
 	print("%s: %d checks, %d failed." % ["PASS" if _failed == 0 else "FAIL", _checked, _failed])
 	quit(0 if _failed == 0 else 1)
 
 
-func _check_direction(tokens: DirectionTokens, labels_by_length: Array[PackedStringArray]) -> void:
+func _check_skin(skin_id: StringName, labels_by_length: Array[PackedStringArray]) -> void:
 	print("")
-	print("%s: tile font weight %d, labels fit within %d%% of the tile side" % [tokens.display_name, int(tokens.type_roles["tile"]["weight"]), roundi(tokens.num("label_fit") * 100.0)])
-	var font: Font = tokens.font("tile")
+	var skin: SkinData = SkinCatalog.get_skin(skin_id)
+	if skin == null or skin.id != skin_id:
+		_fail_skin(skin_id, "skin resource missing, broken, or not this skin")
+		return
+	if not skin.type_roles.has(&"tile") or skin.tile_number_scale.size() != 4 or not skin.numbers.has(&"label_fit"):
+		_fail_skin(skin_id, "the tile type role, tile_number_scale or label_fit is missing")
+		return
+	if not skin.font_path.is_empty() and not ResourceLoader.exists(skin.font_path):
+		_fail_skin(skin_id, "font file %s is missing" % skin.font_path)
+		return
+	var font: Font = skin.font(&"tile")
+	# A variable font reports its default instance name ("Outfit Thin"), so
+	# name the file instead; for the system font, name what it resolved to.
+	var source: String = skin.font_path
+	if source.is_empty():
+		source = "system font, here %s" % font.get_font_name()
+	print("%s: %s, tile weight %d, labels fit within %d%% of the tile side" % [
+		skin.display_name, source, int(skin.type_roles[&"tile"].get("weight", 0)),
+		roundi(skin.num(&"label_fit") * 100.0)])
 	var digit_share: float = _digit_height(font) / float(MEASURE_SIZE)
 	for length_index: int in 4:
-		var scale: float = tokens.tile_number_scale[length_index]
+		var scale: float = skin.tile_number_scale[length_index]
 		var size_dp: float = SMALLEST_TILE_DP * scale
 		var digit_dp: float = size_dp * digit_share
 		var widest: String = ""
@@ -76,7 +91,7 @@ func _check_direction(tokens: DirectionTokens, labels_by_length: Array[PackedStr
 				widest_share = share
 				widest = label
 		var digit_ok: bool = digit_dp >= MIN_DIGIT_DP
-		var fit_ok: bool = widest_share <= tokens.num("label_fit")
+		var fit_ok: bool = widest_share <= skin.num(&"label_fit")
 		_checked += 2
 		if not digit_ok:
 			_failed += 1
@@ -87,7 +102,14 @@ func _check_direction(tokens: DirectionTokens, labels_by_length: Array[PackedStr
 			roundi(widest_share * 100.0), "" if fit_ok else "(too wide)"])
 
 
+func _fail_skin(skin_id: StringName, problem: String) -> void:
+	_checked += 1
+	_failed += 1
+	print("  FAIL %s: %s" % [skin_id, problem])
+
+
 ## Height of the shortest digit glyph at MEASURE_SIZE, from its outline.
+## 0 when a digit cannot be measured, which fails every digit check.
 func _digit_height(font: Font) -> float:
 	var server: TextServer = TextServerManager.get_primary_interface()
 	var shortest: float = INF

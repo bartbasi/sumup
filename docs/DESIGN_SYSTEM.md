@@ -1034,35 +1034,38 @@ Shared since Phase 1:
 
 ## 9. Launcher icon
 
-Drawn in code by **tools/launcher_icon.gd** (built in Phase 3 by the senior-graphic-designer). The script runs with a window, renders each layer in a SubViewport, saves the PNGs and quits. MSAA 8x is allowed here: the icon is a fixed image, not a live frame.
+Drawn in code by **tools/launcher_icon.gd** (senior-graphic-designer). Run it from the repo root with `godot --path . res://tools/launcher_icon.tscn`. It runs with a window, saves the PNGs and quits.
+- The rope, tiles, ring and labels are drawn with `_draw()` into a SubViewport at 4 times the output size with no antialiasing, and every 4 by 4 block is averaged into one pixel (16 samples per pixel, better than MSAA and the same on every renderer).
+- The background glow is worked out per pixel.
+- It also checks that the foreground stays inside the safe circle (9.2) and writes a review sheet to docs/design/review/launcher-icon-check.png (ignored by git).
 
 ### 9.1 Files
 
-Godot's Android export takes these and scales them to every density itself:
+The tool writes these to **launcher/** at the repo root, and only this tool writes there. Godot's Android export takes them and scales them to every density itself:
 
 | Export setting | File | Size | Content |
 |---|---|---|---|
-| launcher_icons/main_192x192 | main_192.png | 192 x 192 | legacy icon: the background and foreground composited, corners rounded at 22% of the side, transparent outside |
+| launcher_icons/main_192x192 | main_192.png | 192 x 192 | legacy icon: the 72 dp the launcher shows (9.2), background and foreground composited, corners rounded at 22% of the side, transparent outside |
 | launcher_icons/adaptive_foreground_432x432 | adaptive_foreground_432.png | 432 x 432 | the foreground layer on transparent |
-| launcher_icons/adaptive_background_432x432 | adaptive_background_432.png | 432 x 432 | the background layer, full bleed |
+| launcher_icons/adaptive_background_432x432 | adaptive_background_432.png | 432 x 432 | the background layer, full bleed, opaque |
 | launcher_icons/adaptive_monochrome_432x432 | adaptive_monochrome_432.png | 432 x 432 | the foreground silhouettes in white on transparent, for Android 13 themed icons |
 
-The same main_192.png can serve as the project icon. The output folder is a DM decision (see the Phase 2 report). The files are generated, so regenerating them must give the same pixels.
+The same main_192.png can serve as the project icon. The files are generated, so regenerating them gives the same pixels: two runs write byte for byte identical files.
 
 ### 9.2 Geometry
 
-Adaptive icons are 108 by 108 dp. The launcher masks them to a shape that always keeps the inner 66 dp circle. At 432 px, 4 px are 1 dp: the safe circle has a radius of 132 px around (216, 216), and everything that matters stays inside it.
+Adaptive icons are 108 by 108 dp. The launcher shows the inner 72 dp (288 px) through a mask shape that always keeps the inner 66 dp circle. At 432 px, 4 px are 1 dp: the safe circle has a radius of 132 px around (216, 216), and everything that matters stays inside it. The tool measures it: the foreground reaches 131.1 px from the center, the monochrome layer 130.4 px.
 
 ### 9.3 Design: Gumdrop, the default skin
 
-- **Background:** Gumdrop bg #150820, with a radial glow of surface #2B183D centered at (216, 196), radius 260, fading to bg.
+- **Background:** Gumdrop bg #150820, with a radial glow of surface #2B183D centered at (216, 196), radius 260, fading to bg with a smooth (smoothstep) falloff.
 - **Foreground:** two Gumdrop 2 tiles about to merge, joined by the rope.
-  - **Tiles:** mint #8FFFD0 faces, side 92, corner radius 0.30, lips 0.075 of the side in the fill darkened 34%.
-  - **Placement:** tile A is centered at (160, 164) and turned -6 degrees; tile B is centered at (272, 268) and turned 5 degrees. About 20 px of gap stays between them, and the farthest corner sits about 130 px from the center, inside the safe circle.
+  - **Tiles:** mint #8FFFD0 faces, side 92, corner radius 0.30, lips 0.075 of the side in the fill darkened 34%. Drawn as in 4.7: the lip is the full 92 px tile shape, the face sits on top of it raised by the lip depth, so the lip shows along the tile's own bottom. Lip and face turn together.
+  - **Placement:** tile A is centered at (160, 164) and turned -6 degrees (counter-clockwise); tile B is centered at (272, 268) and turned 5 degrees (clockwise). About 20 px of gap stays between them, and the farthest corner sits about 130 px from the center, inside the safe circle.
   - **Rope:** the white rope #FFF7FC, 24 wide, round caps, from A's center to B's center, drawn under both tiles so it shows in the gap.
-  - **Label:** "2" on each tile in Outfit Black (900), 44 px, #1C0D2B, centered on the face.
-  - **Ring:** tile B has the chained ring, 5 px #FFF7FC just outside its face.
-- **Monochrome:** the two tile silhouettes and the rope in white, the labels cut out (transparent).
-- **Legacy 192:** the full composition scaled to 192, corners rounded at 22%.
+  - **Label:** "2" on each tile in Outfit Black (900), 44 px (the 1 character tile label size), #1C0D2B. Its ink box is centered on the face and it turns with the tile.
+  - **Ring:** tile B has the chained ring, 5 px #FFF7FC just outside its face, as in 4.7. B is not pressed in: both tiles keep the 0.075 lip.
+- **Monochrome:** the two tile silhouettes (lip and face) and the rope in white, the labels cut out (transparent). No ring.
+- **Legacy 192:** the 72 dp the launcher shows (the 288 px square around the center) with background and foreground composited, scaled to 192, corners rounded at 22%. So the legacy icon matches the adaptive icon as a launcher shows it, rather than shrinking the art into the 18 dp margins no launcher shows.
 
-It reads as "two equal tiles join" at every launcher size, and its colors match the default skin. The tool reads every color from Gumdrop's SkinData, not from its own copies.
+It reads as "two equal tiles join" at every launcher size, and its colors match the default skin. The tool reads every color from Gumdrop's SkinData, not from its own copies, and also takes the corner radius (`tile_radius`), the lip darkening (`lip_darken`), the tile font and the label size from it.

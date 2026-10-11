@@ -1,5 +1,5 @@
 extends SceneTree
-## Tile ramp distinctness check.
+## Tile ramp distinctness check for the skins that ship.
 ##
 ## Run from the repo root:
 ##     godot --headless --path . --script res://tools/ramp_check.gd
@@ -7,17 +7,17 @@ extends SceneTree
 ## Small tile clearing (GDD D-38) keeps about ten consecutive values on the
 ## board, and the four values of the spawn window are the common ones. So any
 ## four consecutive tiles must look clearly different at a glance. For every
-## skin this measures the OKLab distance between tile fills:
+## skin in SkinCatalog.IDS this loads the SkinData resource the game uses
+## (through SkinCatalog.get_skin) and measures the OKLab distance between
+## tile fills:
 ##   - neighbors (one value and its double) at least 0.17
 ##   - two steps apart (times 4) at least 0.12
 ##   - three steps apart (times 8) at least 0.09
 ##   - every tile fill against the background at least 0.15
 ## OKLab distance is close to how different two colors look; 0.02 is about
-## the smallest visible step. Prints every pair. Exits with code 0 when all
-## pass and 1 otherwise.
+## the smallest visible step. Prints every neighbor pair and every failure.
+## Exits with code 0 when all pass and 1 otherwise.
 
-const Directions: GDScript = preload("res://tools/directions/shared/directions.gd")
-const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd")
 
 const MIN_BY_STEP: PackedFloat32Array = [0.17, 0.12, 0.09]
@@ -30,27 +30,34 @@ var _failed: int = 0
 func _initialize() -> void:
 	print("Ramp distinctness check, OKLab distance between tile fills.")
 	print("Needed: neighbors %.2f, times 4 %.2f, times 8 %.2f, against the background %.2f." % [MIN_BY_STEP[0], MIN_BY_STEP[1], MIN_BY_STEP[2], MIN_AGAINST_BG])
-	for direction_id: String in Directions.IDS:
-		_check(Directions.load_tokens(direction_id))
+	for skin_id: StringName in SkinCatalog.IDS:
+		_check(skin_id)
 	print("")
 	print("%s: %d pairs checked, %d failed." % ["PASS" if _failed == 0 else "FAIL", _checked, _failed])
 	quit(0 if _failed == 0 else 1)
 
 
-func _check(tokens: DirectionTokens) -> void:
+func _check(skin_id: StringName) -> void:
 	print("")
-	print(tokens.display_name)
-	var bg: Vector3 = oklab(tokens.color("bg"))
-	var count: int = tokens.tile_fill.size()
+	var skin: SkinData = SkinCatalog.get_skin(skin_id)
+	if skin == null or skin.id != skin_id:
+		_record(false, "  %s: skin resource missing, broken, or not this skin" % skin_id, true)
+		return
+	if skin.tile_fill.size() != SkinData.RAMP_SIZE or not skin.palette.has(&"bg"):
+		_record(false, "  %s: tile_fill needs %d colors and the palette needs bg" % [skin_id, SkinData.RAMP_SIZE], true)
+		return
+	print("%s (%s)" % [skin.display_name, skin.resource_path])
+	var bg: Vector3 = oklab(skin.color(&"bg"))
+	var count: int = skin.tile_fill.size()
 	var worst: PackedFloat32Array = [INF, INF, INF]
 	for i: int in count:
-		var a: Vector3 = oklab(tokens.tile_fill[i])
+		var a: Vector3 = oklab(skin.tile_fill[i])
 		_record(a.distance_to(bg) >= MIN_AGAINST_BG, "  %s against the background: %.3f" % [MockState.tile_label(2 << i), a.distance_to(bg)], false)
 		for step: int in [1, 2, 3]:
 			var j: int = i + step
 			if j >= count:
 				continue
-			var distance: float = a.distance_to(oklab(tokens.tile_fill[j]))
+			var distance: float = a.distance_to(oklab(skin.tile_fill[j]))
 			worst[step - 1] = minf(worst[step - 1], distance)
 			var ok: bool = distance >= MIN_BY_STEP[step - 1]
 			_record(ok, "  %s and %s (times %d): %.3f" % [MockState.tile_label(2 << i), MockState.tile_label(2 << j), 1 << step, distance], step == 1)

@@ -1,22 +1,19 @@
 extends SceneTree
-## Contrast checker for the design directions.
+## Contrast checker for the skins that ship.
 ##
 ## Run from the repo root:
 ##     godot --headless --path . --script res://tools/contrast_check.gd
 ##
-## For every direction listed in res://tools/directions/shared/directions.gd it
-## checks:
+## For every skin in SkinCatalog.IDS it loads the SkinData resource the game
+## uses (src/skins/<id>/<id>.tres, through SkinCatalog.get_skin) and checks:
 ##   1. every tile fill against its number color, for each value from 2 to
 ##      131072, plus the rule for values above 131072
-##   2. every text pair in the direction's tokens (text color on background)
+##   2. every text pair the skin lists (text color on background)
 ## using the WCAG 2 contrast ratio and relative luminance formula. A color
 ## with alpha is first composited over what sits behind it. Every pair is
 ## printed with its ratio. Exits with code 0 when every pair reaches its
-## minimum (4.5:1 for all text), and 1 when any pair fails or a token file is
-## incomplete.
-
-const Directions: GDScript = preload("res://tools/directions/shared/directions.gd")
-const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
+## minimum (4.5:1 for all text), and 1 when any pair fails or a skin is
+## missing or incomplete.
 
 ## Minimum contrast for tile numbers and all text (WCAG 2 level AA, normal text).
 const MIN_RATIO: float = 4.5
@@ -29,61 +26,68 @@ var _failed: int = 0
 
 func _initialize() -> void:
 	print("Contrast check, WCAG 2 relative luminance. Tile numbers and text need %.1f:1 or better." % MIN_RATIO)
-	for direction_id: String in Directions.IDS:
-		_check_direction(direction_id)
+	for skin_id: StringName in SkinCatalog.IDS:
+		_check_skin(skin_id)
 	print("")
 	var verdict: String = "PASS" if _failed == 0 else "FAIL"
-	print("%s: %d pairs checked in %d directions, %d failed." % [verdict, _checked, Directions.IDS.size(), _failed])
+	print("%s: %d pairs checked in %d skins, %d failed." % [verdict, _checked, SkinCatalog.IDS.size(), _failed])
 	quit(0 if _failed == 0 else 1)
 
 
-func _check_direction(direction_id: String) -> void:
+func _check_skin(skin_id: StringName) -> void:
 	print("")
-	var tokens: DirectionTokens = Directions.load_tokens(direction_id)
-	if tokens == null:
-		_report_problem(direction_id, "token file missing or broken")
+	var skin: SkinData = SkinCatalog.get_skin(skin_id)
+	if skin == null:
+		_report_problem(skin_id, "skin resource missing or broken")
 		return
-	print("%s (%s)" % [tokens.display_name, direction_id])
+	print("%s (%s)" % [skin.display_name, skin.resource_path])
 	var before: int = _failed
 	var count_before: int = _checked
-	for problem: String in tokens.validate():
-		_report_problem(direction_id, problem)
+	if skin.id != skin_id:
+		_report_problem(skin_id, "the resource says its id is '%s'" % skin.id)
+	for problem: String in skin.validate():
+		_report_problem(skin_id, problem)
 	# Tile numbers on tile fills.
-	if tokens.tile_fill.size() == DirectionTokens.RAMP_SIZE and tokens.tile_ink.size() == DirectionTokens.RAMP_SIZE:
-		var value: int = DirectionTokens.RAMP_LOW
-		for index: int in DirectionTokens.RAMP_SIZE:
-			_check_pair("tile %d" % value, tokens.tile_ink[index], tokens.tile_fill[index], MIN_RATIO)
+	if skin.tile_fill.size() == SkinData.RAMP_SIZE and skin.tile_ink.size() == SkinData.RAMP_SIZE:
+		var value: int = SkinData.RAMP_LOW
+		for index: int in SkinData.RAMP_SIZE:
+			_check_pair("tile %d" % value, skin.tile_ink[index], skin.tile_fill[index], MIN_RATIO)
 			value *= 2
-		_check_pair("tiles above 131072 (%d)" % BEYOND_SAMPLE, tokens.ink_for(BEYOND_SAMPLE), tokens.fill_for(BEYOND_SAMPLE), MIN_RATIO)
+		_check_pair("tiles above 131072 (%d)" % BEYOND_SAMPLE, skin.ink_for(BEYOND_SAMPLE), skin.fill_for(BEYOND_SAMPLE), MIN_RATIO)
 	# Text on backgrounds.
-	for entry: Dictionary in tokens.text_pairs:
-		_check_text_pair(tokens, entry)
-	print("  %s: %d pairs, %d failed" % [direction_id, _checked - count_before, _failed - before])
+	for entry: Dictionary in skin.text_pairs:
+		_check_text_pair(skin, entry)
+	print("  %s: %d pairs, %d failed" % [skin_id, _checked - count_before, _failed - before])
 
 
-func _check_text_pair(tokens: DirectionTokens, entry: Dictionary) -> void:
-	var pair_name: String = String(entry["name"])
-	var fg_ref: Dictionary = tokens.resolve(String(entry["fg"]))
-	var bg_ref: Dictionary = tokens.resolve(String(entry["bg"]))
+func _check_text_pair(skin: SkinData, entry: Dictionary) -> void:
+	var pair_name: String = String(entry.get("name", ""))
+	var fg_name: String = String(entry.get("fg", ""))
+	var bg_name: String = String(entry.get("bg", ""))
+	if pair_name.is_empty() or not entry.has("min"):
+		_report_problem(skin.id, "a text pair has no name or no minimum: %s" % entry)
+		return
+	var fg_ref: Dictionary = resolve(skin, fg_name)
+	var bg_ref: Dictionary = resolve(skin, bg_name)
 	if not bool(fg_ref["ok"]) or not bool(bg_ref["ok"]):
-		_report_problem(tokens.id, "pair '%s' has an unknown token" % pair_name)
+		_report_problem(skin.id, "pair '%s' has an unknown token" % pair_name)
 		return
 	var bg: Color = bg_ref["color"]
 	if bg.a < 1.0:
-		var over_name: String = String(entry["over"])
+		var over_name: String = String(entry.get("over", ""))
 		if over_name.is_empty():
-			_report_problem(tokens.id, "pair '%s': background has alpha, so it needs an 'over' token" % pair_name)
+			_report_problem(skin.id, "pair '%s': background has alpha, so it needs an 'over' token" % pair_name)
 			return
-		var over_ref: Dictionary = tokens.resolve(over_name)
+		var over_ref: Dictionary = resolve(skin, over_name)
 		var under: Color = over_ref["color"]
-		if under.a < 1.0:
-			_report_problem(tokens.id, "pair '%s': the 'over' token must be opaque" % pair_name)
+		if not bool(over_ref["ok"]) or under.a < 1.0:
+			_report_problem(skin.id, "pair '%s': the 'over' token must exist and be opaque" % pair_name)
 			return
 		bg = composite(bg, under)
 	var fg: Color = fg_ref["color"]
 	if fg.a < 1.0:
 		fg = composite(fg, bg)
-	var label: String = "%s (%s on %s)" % [pair_name, entry["fg"], entry["bg"]]
+	var label: String = "%s (%s on %s)" % [pair_name, fg_name, bg_name]
 	_check_pair(label, fg, bg, float(entry["min"]))
 
 
@@ -96,10 +100,26 @@ func _check_pair(label: String, fg: Color, bg: Color, minimum: float) -> void:
 	print("  %s %6.2f:1  %s  #%s on #%s" % ["PASS" if ok else "FAIL", value, label, fg.to_html(false).to_upper(), bg.to_html(false).to_upper()])
 
 
-func _report_problem(direction_id: String, problem: String) -> void:
+func _report_problem(skin_id: StringName, problem: String) -> void:
 	_checked += 1
 	_failed += 1
-	print("  FAIL  %s: %s" % [direction_id, problem])
+	print("  FAIL  %s: %s" % [skin_id, problem])
+
+
+## Resolves a color reference in a skin: a palette token, "tile:<value>" for
+## a tile fill, or "ink:<value>" for a tile number color. Returns ok = false
+## for an unknown reference.
+static func resolve(skin: SkinData, ref: String) -> Dictionary:
+	if ref.begins_with("tile:") or ref.begins_with("ink:"):
+		var parts: PackedStringArray = ref.split(":")
+		var value: int = parts[1].to_int()
+		if SkinData.ramp_index(value) < 0:
+			return {"ok": false, "color": Color.MAGENTA}
+		var picked: Color = skin.fill_for(value) if parts[0] == "tile" else skin.ink_for(value)
+		return {"ok": true, "color": picked}
+	if skin.palette.has(StringName(ref)):
+		return {"ok": true, "color": skin.palette[StringName(ref)]}
+	return {"ok": false, "color": Color.MAGENTA}
 
 
 ## WCAG 2 contrast ratio between two opaque colors, from 1 to 21.
