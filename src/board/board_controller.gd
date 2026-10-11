@@ -27,9 +27,10 @@ class_name BoardController extends Control
 ## effects in the order of DESIGN_SYSTEM.md 3.6 and waits for the lengths the
 ## view returns:
 ##   chain   merge travel, then the pop and the small tile clear together,
-##           then the falls, then the spawns as the falls land
-##   Hammer  clear, fall, spawn
-##   Double  value change, then clear, fall and spawn if small tiles cleared
+##           then the falls and the spawns together
+##   Hammer  clear, then fall and spawn together
+##   Double  value change, then, if small tiles cleared, the clear, then
+##           fall and spawn together
 ##   Swap    swap. Shuffle and Undo: rearrange. New run: spawn. Resume: none
 ## Then it calls set_board(cells_after), session.move_shown() and emits
 ## animation_finished. No input is taken meanwhile (D-35). A move whose
@@ -417,17 +418,13 @@ func _run_stage(move: MoveResult, stage: int) -> float:
 					_merge_tail = 0.0
 					return wait
 				2:
-					return _play_fall(move)
-				3:
-					return _play_spawn(move)
+					return _play_fall_and_spawn(move)
 		MoveResult.Kind.HAMMER:
 			match stage:
 				0:
 					return _play_clear(move.emptied)
 				1:
-					return _play_fall(move)
-				2:
-					return _play_spawn(move)
+					return _play_fall_and_spawn(move)
 		MoveResult.Kind.SWAP:
 			if stage == 0 and move.targets.size() == 2:
 				return _length(_view.play_swap(move.targets[0], move.targets[1]))
@@ -441,9 +438,7 @@ func _run_stage(move: MoveResult, stage: int) -> float:
 				1:
 					return _play_clear(move.cleared_small)
 				2:
-					return _play_fall(move)
-				3:
-					return _play_spawn(move)
+					return _play_fall_and_spawn(move)
 		MoveResult.Kind.NEW_RUN:
 			# A resumed run has no spawn cells: the board just appears.
 			if stage == 0:
@@ -457,16 +452,17 @@ func _play_clear(cells: Array[Vector2i]) -> float:
 	return _length(_view.play_clear(cells))
 
 
-## Tiles fall into the emptied cells. play_fall moves the values inside the
-## view, so it always runs before the spawn.
-func _play_fall(move: MoveResult) -> float:
-	if move.fall_from.is_empty():
-		return 0.0
-	return _length(_view.play_fall(move.fall_from, move.fall_to))
+## Falls and spawns start at the same moment (DESIGN_SYSTEM.md 3.6); the
+## view draws new tiles under falling ones and staggers them itself. Returns
+## the longer of the two. play_fall moves the values inside the view, so it
+## is always called first.
+func _play_fall_and_spawn(move: MoveResult) -> float:
+	var fall: float = 0.0
+	if not move.fall_from.is_empty():
+		fall = _length(_view.play_fall(move.fall_from, move.fall_to))
+	return maxf(fall, _play_spawn(move))
 
 
-## New tiles start as the falls land (DESIGN_SYSTEM.md 3.6), so a new tile
-## never pops in over a tile still falling out of its cell.
 func _play_spawn(move: MoveResult) -> float:
 	if move.spawn_cells.is_empty():
 		return 0.0

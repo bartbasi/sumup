@@ -3,7 +3,7 @@ extends "res://tests/base_test.gd"
 ## D-35): the effect order per move kind, waiting for the lengths the view
 ## returns, set_board(cells_after), move_shown() and animation_finished,
 ## input closed meanwhile (AT-97), the small tile clear inside the move
-## (AT-104), spawns that start as the falls land, new and resumed runs,
+## (AT-104), falls and spawns that start together, new and resumed runs,
 ## and the live skin switch.
 
 const F := preload("res://tests/core/core_fixtures.gd")
@@ -167,15 +167,11 @@ func test_a_chain_waits_for_each_step() -> void:
 	# Next step after the longer of the rest of the merge (0.5 - travel) and the clear (0.2).
 	var rest: float = maxf(0.5 - travel, 0.2)
 	rig.advance(rest - 0.01)
-	assert_eq(_effects().size(), 2, "the falls wait for the pop and the clear")
+	assert_eq(_effects().size(), 2, "fall and spawn wait for the pop and the clear")
 	rig.advance(0.02)
-	assert_eq(_effects(), PackedStringArray(["play_merge", "play_clear", "play_fall"]), "the falls start")
-	rig.advance(0.29)
-	assert_eq(_effects().size(), 3, "the spawns wait for the falls (0.3) to land")
-	rig.advance(0.02)
-	assert_eq(_effects(), PackedStringArray(["play_merge", "play_clear", "play_fall", "play_spawn"]), "the spawns start as the falls land")
+	assert_eq(_effects(), PackedStringArray(["play_merge", "play_clear", "play_fall", "play_spawn"]), "fall and spawn start together")
 	rig.advance(0.39)
-	assert_true(rig.board.is_animating(), "the spawn (0.4) still runs")
+	assert_true(rig.board.is_animating(), "the spawn (0.4), the longer of the two, still runs")
 	assert_true(rig.session.is_waiting_for_view(), "the session still waits")
 	assert_eq(rig.finished, 0, "not finished")
 	rig.advance(0.02)
@@ -190,13 +186,9 @@ func test_a_hammer_waits_for_its_clear() -> void:
 	rig.tap(Vector2i(2, 4))
 	assert_eq(_effects(), PackedStringArray(["play_clear"]), "the clear starts")
 	rig.advance(0.21)
-	assert_eq(_effects(), PackedStringArray(["play_clear", "play_fall"]), "then the fall")
+	assert_eq(_effects(), PackedStringArray(["play_clear", "play_fall", "play_spawn"]), "then fall and spawn together")
 	rig.advance(0.29)
-	assert_eq(_effects().size(), 2, "the spawn waits for the fall (0.3)")
-	rig.advance(0.02)
-	assert_eq(_effects(), PackedStringArray(["play_clear", "play_fall", "play_spawn"]), "then the spawn")
-	rig.advance(0.09)
-	assert_eq(rig.finished, 0, "the spawn (0.1) still runs")
+	assert_eq(rig.finished, 0, "the fall (0.3), the longer of the two, still runs")
 	rig.advance(0.02)
 	_assert_shown("timed Hammer")
 
@@ -210,10 +202,10 @@ func test_a_double_waits_for_its_value_change_before_clearing() -> void:
 	rig.advance(0.31)
 	assert_eq(_effects(), PackedStringArray(["play_value_change", "play_clear"]), "then the clear")
 	rig.advance(0.21)
-	assert_eq(_effects(), PackedStringArray(["play_value_change", "play_clear", "play_fall"]), "then the fall")
-	rig.advance(0.11)
-	assert_eq(_effects().size(), 4, "then the spawn")
-	rig.advance(0.11)
+	assert_eq(_effects(), PackedStringArray(["play_value_change", "play_clear", "play_fall", "play_spawn"]), "then fall and spawn together")
+	rig.advance(0.09)
+	assert_eq(rig.finished, 0, "the spawn (0.1) still runs")
+	rig.advance(0.02)
 	_assert_shown("timed Double")
 
 

@@ -50,9 +50,12 @@ const BOARD: Array[int] = [
 const CHAIN: Array[Vector2i] = [
 	Vector2i(1, 4), Vector2i(2, 4), Vector2i(3, 3), Vector2i(3, 2), Vector2i(2, 1), Vector2i(1, 2),
 ]
-## The finger, in cell units from the grid origin: just past the last chain
-## tile, heading down, so the line's tail shows in the gap.
-const DRAG_CELLS: Vector2 = Vector2(1.2, 3.12)
+## The finger, in cell units from the grid origin: off the board to the
+## left, so the tail shows stopping at the board's edge (DESIGN_SYSTEM.md 3.6).
+const DRAG_CELLS: Vector2 = Vector2(-0.18, 2.95)
+## The ring that marks the finger on the board page.
+const FINGER_RADIUS: float = 28.0
+const FINGER_STROKE: float = 3.0
 const SWAP_SELECTED: Vector2i = Vector2i(1, 5)
 const SWAP_PRESSED: Vector2i = Vector2i(3, 6)
 ## No finger (SkinBoardView.set_chain).
@@ -67,6 +70,8 @@ var _captions: PackedStringArray = PackedStringArray()
 var _caption_spots: PackedVector2Array = PackedVector2Array()
 var _caption_widths: PackedFloat32Array = PackedFloat32Array()
 var _overlay: Control = null
+## Where the finger is on the page, or NO_DRAG.
+var _finger: Vector2 = NO_DRAG
 
 
 func _ready() -> void:
@@ -103,7 +108,7 @@ func _build_board_page(targeting: bool) -> void:
 	var width: float = _canvas_width() - 2.0 * _skin.num(&"board_margin")
 	var top: float = SAFE_TOP + _skin.num(&"hud_height") + _skin.num(&"space_s")
 	var title: String = "%s: Swap, first tile selected, finger on a second" if targeting \
-			else "%s: chain, preview and joinable highlight"
+			else "%s: chain, preview, joinable, finger off the board"
 	_caption(title % _skin.display_name, Vector2(PAGE_MARGIN, PAGE_TOP))
 	var board: CommonBoardView = _make_board(5, 8, Vector2(_skin.num(&"board_margin"), top), width)
 	board.set_board(_board_cells())
@@ -120,7 +125,9 @@ func _build_board_page(targeting: bool) -> void:
 	var values: PackedInt64Array = PackedInt64Array()
 	for cell: Vector2i in chain:
 		values.append(cells[CoreRules.index_of(cell, config.columns)])
-	board.set_chain(chain, board.grid_origin() + DRAG_CELLS * board.cell_pitch())
+	var finger: Vector2 = board.grid_origin() + DRAG_CELLS * board.cell_pitch()
+	board.set_chain(chain, finger)
+	_finger = board.position + finger
 	board.set_joinable(CoreRules.joinable_cells(cells, chain, config))
 	board.set_preview(CoreRules.merge_result(values))
 	board.advance_effects(maxf(_skin.duration(&"chain_add"), _skin.duration(&"joinable_in")))
@@ -191,9 +198,11 @@ func _build_effects_page() -> void:
 	y += _line_height() + CAPTION_GAP * 2.0
 	var slot: float = (_canvas_width() - 2.0 * PAGE_MARGIN - FRAME_GAP * float(FRAME_COUNT - 1)) / float(FRAME_COUNT)
 	var effects: PackedStringArray = ["merge", "clear", "fall", "spawn"]
-	for effect: String in effects:
+	var names: PackedStringArray = ["Merge", "Clear", "Fall", "Fall and spawn together"]
+	for e: int in effects.size():
+		var effect: String = effects[e]
 		var times: PackedFloat32Array = _frame_times(effect)
-		_caption("%s, %.2f s in all" % [effect.capitalize(), _visual_length(effect)], Vector2(PAGE_MARGIN, y))
+		_caption("%s, %.2f s in all" % [names[e], _visual_length(effect)], Vector2(PAGE_MARGIN, y))
 		y += _line_height() + CAPTION_GAP
 		var height: float = 0.0
 		for i: int in times.size():
@@ -242,9 +251,14 @@ func _frame_times(effect: String) -> PackedFloat32Array:
 			times.append(length * (peak if peak >= 0.0 else _curve_progress(&"fall", 0.95)))
 			times.append(length * 0.97)
 		"spawn":
+			# The first frame catches the falling tile just leaving the cell
+			# a new tile grows into, behind it.
+			var fall: float = _skin.duration(&"fall")
 			var total: float = _visual_length(effect)
-			for share: float in [0.15, 0.35, 0.6, 0.85]:
-				times.append(total * share)
+			times.append(fall * _curve_progress(&"fall", 0.3))
+			times.append(fall * _curve_progress(&"fall", 0.75))
+			times.append(total * 0.6)
+			times.append(total * 0.9)
 	return times
 
 
@@ -303,9 +317,13 @@ func _freeze(board: CommonBoardView, effect: String, at: float) -> void:
 			var to: Array[Vector2i] = [Vector2i(0, 2), Vector2i(1, 2), Vector2i(1, 1)]
 			board.play_fall(from, to)
 		"spawn":
-			board.set_board(PackedInt64Array([0, 0, 0, 0, 0, 0]))
-			var cells: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(0, 2), Vector2i(1, 2)]
-			board.play_spawn(cells, PackedInt64Array([2, 4, 8, 16, 2, 4]))
+			# Falls and spawns start together (DESIGN_SYSTEM.md 3.6).
+			board.set_board(PackedInt64Array([16, 32, 0, 64, 0, 0]))
+			var from: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 1), Vector2i(1, 0)]
+			var to: Array[Vector2i] = [Vector2i(0, 2), Vector2i(1, 2), Vector2i(1, 1)]
+			board.play_fall(from, to)
+			var cells: Array[Vector2i] = [Vector2i(0, 0), Vector2i(0, 1), Vector2i(1, 0)]
+			board.play_spawn(cells, PackedInt64Array([2, 4, 8]))
 	board.advance_effects(at)
 
 
@@ -321,7 +339,8 @@ func _visual_length(effect: String) -> float:
 		"fall":
 			return _skin.duration(&"fall")
 		"spawn":
-			return _skin.duration(&"spawn") + float(_skin.motion_spec(&"spawn").get("stagger", 0.0)) * 5.0
+			var spawn: float = _skin.duration(&"spawn") + float(_skin.motion_spec(&"spawn").get("stagger", 0.0)) * 2.0
+			return maxf(_skin.duration(&"fall"), spawn)
 	return 0.0
 
 
@@ -418,3 +437,5 @@ func _draw_captions() -> void:
 		var baseline: Vector2 = _caption_spots[i] + Vector2(0.0, font.get_ascent(font_size))
 		var align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER if _caption_widths[i] > 0.0 else HORIZONTAL_ALIGNMENT_LEFT
 		_overlay.draw_string(font, baseline, _captions[i], align, _caption_widths[i] if _caption_widths[i] > 0.0 else -1.0, font_size, color)
+	if _finger != NO_DRAG:
+		_overlay.draw_arc(_finger, FINGER_RADIUS, 0.0, TAU, 48, color, FINGER_STROKE, true)

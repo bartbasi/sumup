@@ -38,16 +38,19 @@ const LAYER_TOP: int = 2
 const NO_DRAG: Vector2 = Vector2(-1.0, -1.0)
 const HALF_CELL: Vector2 = Vector2(0.5, 0.5)
 
-## Draw order of tile items: resting tiles, tiles leaving (cleared or gone in
-## a Shuffle or Undo), moving tiles, chain tiles travelling into a merge, the
-## tile they travel into, the tile a merge lands on, Swap's selected tile.
-const RANK_REST: int = 0
-const RANK_LEAVING: int = 1
-const RANK_MOVING: int = 2
-const RANK_TRAVEL: int = 3
-const RANK_HOLD: int = 4
-const RANK_TOP: int = 5
-const RANK_SELECTED: int = 6
+## Draw order of tile items: new tiles still growing in (under everything,
+## so a new tile appears from behind a tile falling away, DESIGN_SYSTEM.md
+## 3.6), resting tiles, tiles leaving (cleared or gone in a Shuffle or Undo),
+## moving tiles, chain tiles travelling into a merge, the tile they travel
+## into, the tile a merge lands on, Swap's selected tile.
+const RANK_SPAWN: int = 0
+const RANK_REST: int = 1
+const RANK_LEAVING: int = 2
+const RANK_MOVING: int = 3
+const RANK_TRAVEL: int = 4
+const RANK_HOLD: int = 5
+const RANK_TOP: int = 6
+const RANK_SELECTED: int = 7
 const RANK_STEP: int = 4096
 ## An item's look key: label index, chained, joinable, press, selection,
 ## flash, glow, moving, layout epoch.
@@ -649,6 +652,12 @@ func _line_has_tail() -> bool:
 	return true
 
 
+## The rect the end of the tail to the finger is kept inside, in local px:
+## the board view's rect. A skin with a tray keeps it on the tray.
+func _tail_bounds() -> Rect2:
+	return Rect2(Vector2.ZERO, size)
+
+
 ## Whether travelling chain tiles follow the chain path (true) or slide
 ## straight into the result (false).
 func _travel_follows_path() -> bool:
@@ -768,7 +777,10 @@ func _build_line_points() -> int:
 		_line_owner[_line_count] = i
 		_line_count += 1
 	if _line_has_tail() and _drag != NO_DRAG:
-		_line_points[_line_count] = _drag
+		# The chain stays when the finger leaves the board (AT-19); only the
+		# drawn tail stops at the board's edge.
+		var bounds: Rect2 = _tail_bounds()
+		_line_points[_line_count] = _drag.clamp(bounds.position, bounds.position + bounds.size.max(Vector2.ZERO))
 		_line_owner[_line_count] = count - 1
 		_line_count += 1
 	return _line_count
@@ -959,6 +971,8 @@ func _sync_items() -> void:
 			rank = RANK_MOVING
 		elif fx.layer == TileFx.LAYER_TOP:
 			rank = RANK_TOP
+		elif fx.spawning:
+			rank = RANK_SPAWN
 		if index == selected:
 			rank = RANK_SELECTED
 		_sync_item(index, _cells[index], _centers[index], fx, chain, join, press, select, _item_turn(index), rank, fx.layer != TileFx.LAYER_REST)
@@ -1250,6 +1264,8 @@ func _update_effects() -> bool:
 			continue
 		if effect.is_ghost():
 			effect.fx.reset()
+		if effect.kind == BoardEffect.SPAWN:
+			_fx[effect.index].spawning = true
 		if progress < 0.0:
 			if effect.kind == BoardEffect.SPAWN:
 				_fx[effect.index].hidden = true

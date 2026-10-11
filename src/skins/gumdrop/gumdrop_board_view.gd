@@ -116,6 +116,12 @@ func _item_turn(index: int) -> float:
 	return _wobble * (wave * 2.0 - 1.0) * select
 
 
+## The tail to the finger stays on the tray: its round end reaches the
+## tray's outer edge and no further (DESIGN_SYSTEM.md 4.7).
+func _tail_bounds() -> Rect2:
+	return _board_rect.grow(-skin.num(&"chain_width") * _unit * 0.5)
+
+
 func _top_animates() -> bool:
 	for effect: BoardEffect in _effects:
 		if effect.kind == BoardEffect.BURST:

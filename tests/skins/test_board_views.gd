@@ -225,6 +225,55 @@ func test_the_line_runs_to_the_finger_in_local_pixels_where_the_skin_has_a_tail(
 		assert_eq(board._build_line_points(), 2, "%s no finger, no tail" % skin_id)
 
 
+func test_the_tail_stops_at_the_board_edge_but_the_chain_stays() -> void:
+	# DESIGN_SYSTEM.md 3.6 and AT-19: the finger left the board. The tail's
+	# round end reaches the edge (Gumdrop: the tray) and no further.
+	for skin_id: StringName in [&"gumdrop", &"nova"]:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var board: CommonBoardView = _board(skin_id)
+		board.set_board(_filled(2))
+		var chain: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 1)]
+		var edge: Rect2 = board.board_rect() if skin_id == &"gumdrop" else Rect2(Vector2.ZERO, board.size)
+		var half: float = skin.num(&"chain_width") * board.tile_side() / _reference_side(skin) * 0.5
+		var inside: Rect2 = edge.grow(-half)
+		for finger: Vector2 in [Vector2(-500.0, 99999.0), Vector2(5000.0, -300.0), Vector2(0.0, 0.0)]:
+			board.set_chain(chain, finger)
+			assert_eq(board._build_line_points(), 3, "%s the chain and its tail stay" % skin_id)
+			var tail: Vector2 = board._line_points[2]
+			var kept: bool = tail.x >= inside.position.x - EPSILON and tail.x <= inside.end.x + EPSILON 					and tail.y >= inside.position.y - EPSILON and tail.y <= inside.end.y + EPSILON
+			assert_true(kept, "%s tail end %s for a finger at %s stays inside %s" % [skin_id, tail, finger, inside])
+		var on_board: Vector2 = board.cell_center(Vector2i(2, 3))
+		board.set_chain(chain, on_board)
+		board._build_line_points()
+		assert_eq(board._line_points[2], on_board, "%s a finger on the board is not moved" % skin_id)
+
+
+func test_new_tiles_draw_under_falling_tiles() -> void:
+	# DESIGN_SYSTEM.md 3.6: falls and spawns start together, and a new tile
+	# appears from behind the tile falling away from its cell.
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var board: CommonBoardView = _board(skin_id)
+		var cells: PackedInt64Array = _filled(4)
+		cells[CoreRules.index_of(Vector2i(0, 7), COLUMNS)] = 0
+		board.set_board(cells)
+		var from: Array[Vector2i] = []
+		var to: Array[Vector2i] = []
+		for row: int in range(6, -1, -1):
+			from.append(Vector2i(0, row))
+			to.append(Vector2i(0, row + 1))
+		board.play_fall(from, to)
+		var spawned: Array[Vector2i] = [Vector2i(0, 0)]
+		var length: float = board.play_spawn(spawned, PackedInt64Array([8]))
+		board.advance_effects(0.01)
+		var new_tile: int = CoreRules.index_of(Vector2i(0, 0), COLUMNS)
+		for index: int in COLUMNS * ROWS:
+			if index != new_tile and board._item_shown[index] != 0:
+				assert_true(board._item_order[new_tile] < board._item_order[index], "%s the new tile draws under tile %d" % [skin_id, index])
+		board.advance_effects(maxf(length, skin.duration(&"fall")) + EPSILON)
+		assert_true(board._item_order[new_tile] >= CommonBoardView.RANK_REST * CommonBoardView.RANK_STEP, "%s a grown tile rests with the others" % skin_id)
+
+
 func test_the_preview_sits_on_the_gap_crossing() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var board: CommonBoardView = _board(skin_id)

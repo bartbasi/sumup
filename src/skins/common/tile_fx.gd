@@ -31,6 +31,9 @@ var glow: float = 1.0
 var flash: bool = false
 ## Hidden tiles are not drawn at all.
 var hidden: bool = false
+## A new tile still growing in. It draws under every other tile, so it seems
+## to appear from behind a tile falling away from its cell.
+var spawning: bool = false
 var layer: int = LAYER_REST
 
 
@@ -43,13 +46,14 @@ func reset() -> void:
 	glow = 1.0
 	flash = false
 	hidden = false
+	spawning = false
 	layer = LAYER_REST
 
 
 ## True when the tile is at rest on its cell with its plain look.
 func is_rest() -> bool:
 	return offset == Vector2.ZERO and scale == Vector2.ONE and rotation == 0.0 \
-			and alpha == 1.0 and glow == 1.0 and not flash and not hidden and layer == LAYER_REST
+			and alpha == 1.0 and glow == 1.0 and not flash and not hidden and not spawning and layer == LAYER_REST
 
 
 ## True when a scale this small would make the draw transform singular.

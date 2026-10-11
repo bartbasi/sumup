@@ -167,13 +167,13 @@ func _init() -> void:
 	}
 
 	motion = {
-		"spawn": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "from_scale": 0.2, "stagger": 0.03},
+		"spawn": {"duration": 0.24, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "from_scale": 0.2, "stagger": 0.03},
 		"fall": {"duration": 0.26, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "squash": 0.12},
 		"chain_add": {"duration": 0.10, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT, "press_scale": 0.94},
 		"chain_remove": {"duration": 0.10, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT},
 		"joinable_in": {"duration": 0.12, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT},
 		"merge_travel": {"duration": 0.18, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN},
-		"merge_pop": {"duration": 0.34, "trans": Tween.TRANS_ELASTIC, "ease": Tween.EASE_OUT, "peak_scale": 1.22},
+		"merge_pop": {"duration": 0.28, "trans": Tween.TRANS_ELASTIC, "ease": Tween.EASE_OUT, "peak_scale": 1.22},
 		"clear": {"duration": 0.28, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN, "burst_dots": 6.0, "burst_dot_size": 0.07, "burst_reach": 0.6, "burst_fade": 0.36},
 		"clear_notice": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "hold": 1.6, "out": 0.20, "from_scale": 0.6},
 		"press": {"duration": 0.08, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT},

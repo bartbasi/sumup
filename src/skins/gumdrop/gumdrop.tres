@@ -275,7 +275,7 @@ motion = Dictionary[StringName, Dictionary]({
 "trans": 1
 },
 &"merge_pop": {
-"duration": 0.34,
+"duration": 0.28,
 "ease": 1,
 "peak_scale": 1.22,
 "trans": 6
@@ -306,7 +306,7 @@ motion = Dictionary[StringName, Dictionary]({
 "trans": 1
 },
 &"spawn": {
-"duration": 0.3,
+"duration": 0.24,
 "ease": 1,
 "from_scale": 0.2,
 "stagger": 0.03,

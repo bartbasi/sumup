@@ -89,6 +89,12 @@ func _draw_item(tile: RID, under: RID, value: int, chain_amount: float, join: fl
 	_tiles.draw_orb(tile, Transform2D.IDENTITY, value, chain_amount, join)
 
 
+## The beam's tail to the finger stays on the board: its round end reaches
+## the board view's edge and no further (DESIGN_SYSTEM.md 6.7).
+func _tail_bounds() -> Rect2:
+	return Rect2(Vector2.ZERO, size).grow(-skin.num(&"chain_width") * _unit * 0.5)
+
+
 func _back_animates() -> bool:
 	for effect: BoardEffect in _effects:
 		if effect.kind == BoardEffect.CLEAR:
