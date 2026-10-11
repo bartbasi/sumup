@@ -1082,7 +1082,12 @@ row 7:   8  32   8  32   8
 
 **AT-16. Other chain tiles are ignored.** Type: Both. Setup: Board P, chain (1,6), (2,6), (3,6), (2,5). Action: move onto (2,6). Expected: no change. Chain 2, 2, 4, 8. Preview 16.
 
-**AT-17. Lifting commits.** Type: Both. Setup: Board P, score 0. Action: drag (1,6), (2,6), (3,6), (2,5), lift. Expected: score 16. The result 16 lands on (2,5) and falls to (2,6). Column 2, rows 1 to 7: 2, 8, 2, 8, 2, 16, 32. Cells (1,0), (2,0) and (3,0) hold new tiles from 2, 4, 8, 16. Undo is usable, and its snapshot is Board P with 16 points.
+**AT-17. Lifting commits.** Type: Both. Setup: Board P, score 1,000. Action: drag (1,6), (2,6), (3,6), (2,5), lift. Expected:
+- Score 1,016. The result 16 lands on (2,5) and falls to (2,6).
+- Column 2, rows 1 to 7: 2, 8, 2, 8, 2, 16, 32.
+- Cells (1,0), (2,0) and (3,0) hold new tiles from 2, 4, 8, 16.
+- The Undo snapshot is Board P with 16 points.
+- Undo is usable at cost 64, because 1,016 minus 16 is 1,000, which is at least 64 (D-28).
 
 **AT-18. Lifting off the board commits.** Type: Play. Setup: any board with two touching equal tiles. Action: drag across the pair, slide the finger off the board, lift. Expected: the chain commits.
 
@@ -1234,7 +1239,11 @@ row 7:   8  32   8  32   8
 
 **AT-77. Undo after a chain and a Hammer.** Type: Unit. Setup: as AT-76. Action: commit the same chain, Hammer on (4,0), Undo. Expected: after the Hammer, score 520 and Undo enabled. After Undo, the board equals the setup board (the hammered tile is back) and the score is 232.
 
-**AT-78. Undo is one step and needs a chain.** Type: Unit. Setup: a new run. Action: check Undo; commit any chain; Undo; check Undo; commit another chain; check Undo. Expected: disabled at the start, disabled right after the Undo, enabled again after the next chain.
+**AT-78. Undo is one step and needs a chain.** Type: Unit. Setup: a new run with seed 1, then set the score to 1,000 (TH1), so the score is never what blocks Undo. Action: check Undo; commit any two tile chain; Undo; check Undo; commit another chain; check Undo. Expected:
+- Undo is disabled at the start, because there is no snapshot.
+- After the two tile chain, Undo is accepted at cost 64. A two tile chain on a starting board makes at most 32, so B is 128. The score becomes 936.
+- Undo is disabled right after the Undo, because there is no snapshot.
+- Undo is enabled again after the next chain.
 
 **AT-79. Undo affordability uses the score without the chain's points.** Type: Unit. Setup: Board D with (0,7) = 2, (1,7) = 2, (2,7) = 4, (3,7) = 8, (4,7) = 16, (4,6) = 32, (3,6) = 32. Score 30. Action: commit that path in that order, then call Undo on the rules model. Expected: after the commit, score 126, H = 64, Undo cost 64, Undo disabled. The call is refused and the score stays 126.
 
@@ -1266,7 +1275,7 @@ row 7:   8  32   8  32   8
 
 ### 19.12 Saving and flow
 
-**AT-91. Resume after the app is killed.** Type: Play. Setup: a run in progress with an Undo snapshot. Note the board, score, Best Score, Best Tile, run highest tile and Undo cost. Action: swipe the app away from recent apps, reopen it. Expected: the same board and score, the same records, the same run highest tile, Undo enabled at the same cost.
+**AT-91. Resume after the app is killed.** Type: Play. Setup: a run in progress right after a chain, with Undo enabled (score minus that chain's points is at least the Undo cost, D-28). Note the board, score, Best Score, Best Tile, run highest tile and Undo cost. Action: swipe the app away from recent apps, reopen it. Expected: the same board and score, the same records, the same run highest tile, Undo enabled at the same cost.
 
 **AT-92. Killed during an animation.** Type: Play. Setup: a run in progress. Action: commit a long chain and kill the app before its animation ends. Reopen. Expected: the chain's result and points are there.
 
