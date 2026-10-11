@@ -245,6 +245,20 @@ Each has a duration (seconds; for loops the period), a transition and an ease (G
 
 **Move sequence.** A committed chain plays: chain tiles `merge_travel` into the last tile, then `merge_pop` and `clear` together, then `fall` and `spawn` together (new tiles start as the falls land, staggered by `spawn.stagger` per tile in fill order). The clear notice appears with the clear and holds on its own. Input reopens when every tile is at rest.
 
+**Booster effects.** No booster has motion of its own; each reuses the names above:
+- *Hammer:* the smashed tile plays `clear`, then `fall` and `spawn` as after a chain.
+- *Double:* the tile plays the skin's `merge_pop` look with its new value, then any small tile `clear`, `fall` and `spawn`.
+- *Swap:* both tiles slide to each other's cell on `fall`'s duration and curve.
+- *Shuffle and Undo:* each tile slides on `fall`'s duration and curve from the nearest old tile of the same value. A value with no old tile left spawns in (`spawn`). An old tile that nothing takes shrinks away on `clear`, without Gumdrop's burst.
+
+**Effect lengths and input.** A board effect reports how long it holds input: until every tile is at rest on its cell. Decorative tails run on without holding input:
+- Gumdrop's candy burst after a clear
+- Nova's glow bloom after a merge, a Double or a spawn
+
+So Nova's merge holds input for `merge_travel` only and its Double for none. Gumdrop's and Slate's merge pop moves or recolors the tile, so it holds input; it runs together with the clear.
+
+**Targeting looks the same for every booster.** The press feedback and Swap's selection are the only targeting marks on the board. Ending targeting clears both.
+
 ---
 
 ## 4. Gumdrop (default)
@@ -403,7 +417,7 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 **Tile states**
 - *Normal:* as above.
 - *Chained:* pressed in. The lip shrinks to `lip_pressed`, the face moves down with it, the tile is scaled to `press_scale` 0.94, and a `chain_ring` ring in chain sits just outside the face. It stays this way while the tile is in the chain.
-- *Joinable (D-40):* the tile lifts by `joinable_lift` (lip deeper, face higher) and gets a `joinable_ring` lemon ring with a `target_edge_width` target_edge outline outside it, so it reads on every tile and on the tray. It eases in over `joinable_in` and moves as the chain changes. Never on a chained tile.
+- *Joinable (D-40):* the tile lifts by `joinable_lift` (lip deeper, face higher) and gets a `joinable_ring` lemon ring with a `target_edge_width` target_edge outline outside it. The outline keeps the ring apart from a light neighboring tile; on the tray it nearly vanishes, and there the lemon ring reads on its own. It eases in over `joinable_in` and moves as the chain changes. Never on a chained tile.
 - *Press feedback (D-43):* while a finger is down on a tile in targeting mode, the tile presses in (lip_pressed) and gets a `target_ring` ring in target with a target_edge outline. It means only "this is the tile under your finger".
 - *Selected (Swap's first tile):* lifted by `target_lift` with the same double ring, wobbling by `wobble_degrees` on the `target_pulse` loop.
 - *Special (64K up):* a candy rim round the face, `special_rim_width` wide, in `special_rim_segments` segments cycling the tier 1 and 2 fills.
@@ -419,15 +433,16 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 **Merge preview**
 - A mini tile of the result (`preview_scale` of the tile side, with its lip) and a `preview_ring` ring in chain.
 - It sits centered on the gap crossing at the top left corner of the last chain tile, or the top right corner when that tile is in column 0. It covers only the rounded corners of the four tiles round the crossing, never a label.
+- In row 0 that crossing is on the board's top edge, so the preview reaches above the tray. That is fine: it stays above the finger, the board does not clip it, and it stays well clear of the score.
 
 **Merge, spawn and fall**
 - Merge: chain tiles get sucked along the chain into the last tile (`merge_travel`, back ease in). The result pops to `peak_scale` and settles elastically (`merge_pop`).
 - Spawn: tiles pop in from `from_scale` with a back ease, `stagger` per tile in fill order.
-- Fall: back ease out, with a `squash` on landing (scale y 1 - squash, x 1 + squash / 2, then back).
+- Fall: back ease out, with a `squash` on landing (scale y 1 - squash, x 1 + squash / 2, then back). A tile stops on its cell and never sinks into the tile below: the back curve's overshoot is spent as the landing squash.
 
 **Small tile clear (D-38)**
-- Every cleared tile squashes and shrinks to nothing (`clear`, back ease in).
-- At the end it bursts into `burst_dots` candy dots in its own fill color, each `burst_dot_size` of the tile side across. They fly out `burst_reach` of the tile side, evenly spaced round the circle, and fade over `burst_fade` seconds.
+- Every cleared tile squashes and shrinks to nothing (`clear`, back ease in). The squash is the back curve's own dip, about 10% before it shrinks, so it needs no amount of its own.
+- At the end it bursts into `burst_dots` candy dots in its own fill color, each `burst_dot_size` of the tile side across. They fly out `burst_reach` of the tile side on `clear`'s transition eased out, evenly spaced round the circle, and fade linearly over `burst_fade` seconds. The burst is a decorative tail: it starts when the clear ends and does not hold input (3.6).
 - All cleared tiles clear together.
 
 **Clear notice (AT-104)**
@@ -586,7 +601,7 @@ The disabled pair also covers disabled buttons and chips: they have no fill, so 
 - Tile number: `number_inset` 0.11, `number_plate` 6.
 - Chain line: `line_edge` 3, `node_size` 24.
 - Joinable and selected: `joinable_node_stroke` 3 (the hollow node's stroke; `joinable_ring` is the frame), `selected_frame` 4.
-- Brackets and frame: `target_bracket` 0.30, `special_inset` 0.06.
+- Brackets and frames: `target_bracket` 0.30, `special_inset` 0.06, `frame_inset` 0.03 (fractions of the tile side).
 - Merge flash: `flash_cut` 0.05.
 - Bar: `strip_height` 192.
 - Toggle: `toggle_knob_inset` 10.
@@ -623,10 +638,10 @@ A committed chain settles in about 0.45 s.
 - The label sits top left, its cap top `number_inset` of the side from the top and left edges.
 
 **Tile states**
-- *Chained:* a `chain_ring` frame in chain, inset inside the tile edge, plus a filled `node_size` square node in chain at the center.
-- *Joinable (D-40):* a `joinable_ring` frame in joinable, inset like the chain frame, plus a hollow `node_size` square at the center with a `joinable_node_stroke` stroke. It means "the line can come here".
+- *Chained:* a `chain_ring` frame in chain whose outer edge sits `frame_inset` of the side inside the tile edge, plus a filled `node_size` square node in chain at the center. The band of tile fill outside the frame is what keeps an ink_dark frame visible on a light block; drawn at the very edge it melts into the dark gap.
+- *Joinable (D-40):* a `joinable_ring` frame in joinable, inset `frame_inset` like the chain frame, plus a hollow `node_size` square at the center with a `joinable_node_stroke` stroke. It means "the line can come here".
 - *Press feedback (D-43):* four corner brackets in target, `target_ring` thick, arms `target_bracket` of the side, hugging the outside of the tile edge with no offset.
-- *Selected (Swap's first tile):* the same brackets plus a `selected_frame` frame in target inside the edge. They hold still.
+- *Selected (Swap's first tile):* the same brackets plus a `selected_frame` frame in target just inside the edge (no inset, so it reads as one mark with the brackets). They hold still.
 - *Marks on blocks:* paper vanishes on the light blocks. On tier 2 and 3 tiles the chained frame, the joinable frame and the hollow node draw in ink_dark instead of chain and joinable. Every node, filled or hollow, gets a `line_edge` outline in chain_edge, like the chain line, so it reads on any tile.
 - *Special (32K up):* an inner hairline frame in ink_dark, `hairline` thick, inset `special_inset`.
 
@@ -815,6 +830,7 @@ Disabled buttons and chips have no fill (a faint ring), so their text sits on wh
 - Orbits: `orbit_offset` 0.10, `joinable_orbit` 0.05, `orbit_dashes` 24, `orbit_dash_fill` 0.55, `orbit_breath` 0.05, `orbit_turn` 0.08.
 - Glow multipliers: `joinable_glow` 1.25, `chain_glow` 1.4, `target_glow` 1.5, `spawn_bloom` 0.6.
 - Corona: `ray_count` 12, `ray_inner` 1.08, `ray_outer` 1.24, `ray_width` 3, `ray_lighten` 0.35, `ray_alpha` 0.6.
+- Dark rim: `dark_rim_from` 131072 (the value from which the chained rim draws in ink_dark).
 - Ring buttons: `ring_button` 136, `ring_width` 3.
 - Disabled: `disabled_ring_alpha` 0.35, `disabled_ring_dashes` 16, `disabled_icon_alpha` 0.6.
 - Star dust: `star_count` 70, `star_alpha_min` 0.08, `star_alpha_max` 0.35, `star_size_min` 1.5, `star_size_max` 3.5, `star_seed` 20261010, `star_clearance` 24.
@@ -834,7 +850,7 @@ Disabled buttons and chips have no fill (a faint ring), so their text sits on wh
 | joinable_in | 0.20 | sine, out | |
 | merge_travel | 0.24 | cubic, in out | orbs glide along the beam path |
 | merge_pop | 0.40 | sine, out | peak_glow 1.8; the glow tail does not block input |
-| clear | 0.36 | sine, in | to_scale 0.4, sparks 8, spark_size 4 px, spark_reach 0.7 (of the orb diameter) |
+| clear | 0.36 | sine, in | to_scale 0.4, sparks 8, spark_size 8 px, spark_reach 0.7 (of the orb diameter) |
 | clear_notice | 0.40 | sine, out | from_offset 16 (rises 16 px), from_alpha 0, hold 1.8, out 0.30 |
 | press | 0.10 | sine, out | |
 | button_press | 0.10 | sine, out | press_scale 0.96 |
@@ -857,7 +873,7 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 - The glow is one radial gradient texture made once and drawn tinted.
 
 **Orb states**
-- *Chained:* a `chain_ring` rim in chain and glow times `chain_glow`.
+- *Chained:* a `chain_ring` rim in chain and glow times `chain_glow`. From `dark_rim_from` (the white hole) the rim is ink_dark, because a white rim on a white orb vanishes.
 - *Joinable (D-40):* a thin solid orbit in joinable, `joinable_ring` wide, at radius times (1 + `joinable_orbit`), and glow times `joinable_glow`. It eases in over `joinable_in`.
 - *Press feedback (D-43):* a dashed orbit in target, `target_ring` wide, at radius times (1 + `orbit_offset`), `orbit_dashes` dashes, and glow times `target_glow`.
 - *Selected (Swap's first tile):* the dashed orbit turning `orbit_turn` per loop and breathing by `orbit_breath` on `target_pulse`.
@@ -874,6 +890,7 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 **Merge preview**
 - A small orb with its glow, `preview_scale` of the orb diameter.
 - It sits on the gap crossing at the top left of the last chain orb (top right in column 0), clear of the four orbs round it.
+- In row 0 that crossing is on the board's top edge, so the preview reaches above the board. That is fine: it stays above the finger, and the board does not clip it.
 
 **Merge, spawn and fall**
 - Merge: orbs glide along the beam path into the last orb (`merge_travel`). It blooms to `peak_glow` times its glow and settles (`merge_pop`).
@@ -881,7 +898,8 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 - Fall: cubic ease out.
 
 **Small tile clear (D-38)**
-- Every cleared orb dims and shrinks to `to_scale` (`clear`, sine in) while `sparks` sparks in its fill color, `spark_size` px across, drift out `spark_reach` of the orb diameter and fade.
+- Every cleared orb dims and shrinks to `to_scale` (`clear`, sine in) while `sparks` sparks in its fill lightened by `ray_lighten`, `spark_size` px across, drift out `spark_reach` of the orb diameter and fade.
+- The sparks draw under the orbs, so they show in the gaps and never cross a number.
 - Its glow goes out with it.
 
 **Clear notice (AT-104)**
