@@ -36,6 +36,7 @@ func _restart() -> App:
 
 
 func _service() -> SaveService:
+	U.settle(_app)
 	return SaveService.new(_dir)
 
 
@@ -44,6 +45,7 @@ func _saved_run() -> RunState:
 
 
 func _profile_bytes() -> PackedByteArray:
+	U.settle(_app)
 	return U.SaveFixtures.read_bytes(_dir.path_join("profile.json"))
 
 
@@ -151,10 +153,11 @@ func test_lifecycle_events_save_the_run() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 700))
 	var app: App = _start()
 	U.shown(app)
-	DirAccess.remove_absolute(_dir.path_join("run.json"))
+	U.settle(app)
 	for what: int in [Node.NOTIFICATION_APPLICATION_PAUSED, Node.NOTIFICATION_APPLICATION_FOCUS_OUT, Node.NOTIFICATION_WM_CLOSE_REQUEST]:
 		DirAccess.remove_absolute(_dir.path_join("run.json"))
 		app.notification(what)
+		assert_true(FileAccess.file_exists(_dir.path_join("run.json")), "written at once on notification %d" % what)
 		assert_true(app.session.state.equals(_saved_run()), "saved on notification %d" % what)
 
 
@@ -171,6 +174,7 @@ func test_at_50_run_end_deletes_the_run_saves_the_profile_and_shows_the_end_pane
 	var panel: EndPanel = app.top_panel() as EndPanel
 	assert_not_null(panel, "the end of run panel shows")
 	assert_eq(panel.score_text(), "300", "final score 300")
+	assert_eq(panel.reason_text(), "No moves left.", "QA4-01: it says no moves were left (GDD 12.2 step 3)")
 	assert_eq(panel.tile_values()[1], 1024, "this run's highest tile 1024")
 	app.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	app.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
@@ -185,6 +189,7 @@ func test_at_54_an_ended_run_does_not_come_back() -> void:
 	var offer: OfferPanel = app.game_screen().offer_panel()
 	offer.end_run_button().pressed.emit()
 	assert_not_null(app.top_panel() as EndPanel, "End run shows the end of run panel")
+	assert_eq((app.top_panel() as EndPanel).reason_text(), "", "with no 'No moves left.': something was still usable")
 	assert_false(_service().has_run(), "the run is deleted")
 	var reopened: App = _restart()
 	assert_not_null(reopened.main_menu(), "reopening shows the menu, not that run")
@@ -200,6 +205,7 @@ func test_end_panel_new_game_and_main_menu() -> void:
 	assert_true(app.session.is_run_in_progress(), "a new run starts")
 	assert_eq(app.session.state.score, 0, "at 0")
 
+	U.settle(app)
 	U.save_game(_dir, RunState.create(U.board_d1024(), 300))
 	var again: App = _restart()
 	U.shown(again)
@@ -341,6 +347,42 @@ func test_back_on_the_end_panel_quits_after_saving() -> void:
 	app.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	assert_eq(_quits.size(), 1, "back quits")
 	assert_false(_service().has_run(), "without saving the ended run")
+
+
+func _escape(echo: bool = false) -> InputEventKey:
+	var key: InputEventKey = InputEventKey.new()
+	key.keycode = KEY_ESCAPE
+	key.pressed = true
+	key.echo = echo
+	return key
+
+
+func test_qa4_05_escape_does_what_back_does_on_desktop() -> void:
+	U.save_game(_dir, RunState.create(U.board_d1024(), 5000))
+	var app: App = _start()
+	U.shown(app)
+	assert_true(app.session.is_offer_open(), "the offer hides the HUD's pause button")
+	app._unhandled_key_input(_escape())
+	assert_true(app.top_panel() is PausePanel, "Escape opens Pause from the offer")
+	app._unhandled_key_input(_escape(true))
+	assert_true(app.top_panel() is PausePanel, "a held key's repeats do nothing")
+	var other: InputEventKey = _escape()
+	other.keycode = KEY_A
+	app._unhandled_key_input(other)
+	assert_true(app.top_panel() is PausePanel, "other keys do nothing")
+	app._unhandled_key_input(_escape())
+	assert_true(app.open_panels().is_empty(), "Escape again resumes, like back")
+	app.session.press_booster(&"hammer")
+	app._unhandled_key_input(_escape())
+	assert_eq(app.session.targeting_booster(), &"", "Escape cancels targeting first")
+	assert_true(app.open_panels().is_empty(), "without opening Pause")
+	assert_true(_quits.is_empty(), "never an exit on the board")
+
+
+func test_qa4_05_escape_on_the_menu_quits_like_back() -> void:
+	var app: App = _start()
+	app._unhandled_key_input(_escape())
+	assert_eq(_quits.size(), 1, "the same back order: the menu quits after saving")
 
 
 # Flow 7: settings

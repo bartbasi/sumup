@@ -10,11 +10,13 @@ class_name App extends Control
 ##   saved run goes straight into play through session.resume; otherwise the
 ##   main menu shows (Bart's decision).
 ## - Saving: on save_requested, the run (only while one is in progress) and
-##   the profile. The same on app pause, focus loss and close, after the drag
-##   and targeting are cancelled (GDD 13.1).
+##   the profile are queued, so SaveService writes them off the move's frame.
+##   On app pause, focus loss and close, after the drag and targeting are
+##   cancelled (GDD 13.1), they are written at once, after anything queued.
 ## - Run end: the saved run is deleted, the profile saved, EndPanel shown.
 ## - Back: cancel targeting; else close the top panel (closing Pause
 ##   resumes); else on the play screen open Pause; else quit after saving.
+##   On desktop, Escape does the same.
 ## - Skin switch: a new theme, apply_skin on every live screen and panel, and
 ##   a cross-fade from a still of the old look over the new skin's
 ##   skin_switch motion.
@@ -206,22 +208,31 @@ func _ask_new_game() -> void:
 
 # Session events.
 
+## A move resolved (D-33). The data is checked and encoded now; the files are
+## written off this frame by SaveService's writer, well before the move's
+## animation ends (QA4-02).
 func _on_save_requested() -> void:
-	_save_all()
+	if session.is_run_in_progress() and not save.queue_run(session.state):
+		push_warning("App: the run could not be saved")
+	if not save.queue_profile(settings, records):
+		push_warning("App: the profile could not be saved")
 
 
-## The run and the profile; the run only while one is in progress, so an
-## ended run is never written again.
+## The run and the profile, written now after anything queued; the run only
+## while one is in progress, so an ended run is never written again. For app
+## pause, focus loss, close and quit, when the process may end at any moment.
 func _save_all() -> void:
-	if session.is_run_in_progress():
-		save.save_run(session.state)
-	save.save_profile(settings, records)
+	if session.is_run_in_progress() and not save.save_run(session.state):
+		push_warning("App: the run could not be saved")
+	if not save.save_profile(settings, records):
+		push_warning("App: the profile could not be saved")
 
 
 ## Flow 6: delete the saved run, save the profile, show the end of run panel.
+## delete_run waits for any queued write, so the ended run cannot come back.
 func _on_run_ended(summary: RunSummary) -> void:
 	save.delete_run()
-	save.save_profile(settings, records)
+	_queue_profile()
 	_close_all_panels()
 	var panel: EndPanel = _open_panel(END_SCENE) as EndPanel
 	panel.setup(skin)
@@ -240,7 +251,12 @@ func _leave_to_menu() -> void:
 
 func _on_sound_changed(on: bool) -> void:
 	audio.set_enabled(on)
-	save.save_profile(settings, records)
+	_queue_profile()
+
+
+func _queue_profile() -> void:
+	if not save.queue_profile(settings, records):
+		push_warning("App: the profile could not be saved")
 
 
 func _on_skin_changed(skin_id: StringName) -> void:
@@ -254,7 +270,7 @@ func _on_skin_changed(skin_id: StringName) -> void:
 	for panel: Control in _panels:
 		panel.call(&"apply_skin", skin)
 	_fade_still()
-	save.save_profile(settings, records)
+	_queue_profile()
 
 
 ## A still of the current frame on top of everything, so the switch reads as
@@ -292,6 +308,10 @@ func _fade_still() -> void:
 
 func _notification(what: int) -> void:
 	match what:
+		NOTIFICATION_PREDELETE:
+			# Nothing queued is lost when the App goes away.
+			if save != null:
+				save.flush()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_CLOSE_REQUEST:
 			if session != null:
 				_interrupt()
@@ -299,6 +319,20 @@ func _notification(what: int) -> void:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			if session != null:
 				_on_back()
+
+
+## QA4-05: on desktop, Escape does what Android's back button does (flow 10),
+## so Pause can be reached while the offer hides the HUD. Android sends its
+## back button as NOTIFICATION_WM_GO_BACK_REQUEST and never takes this path.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if session == null or OS.has_feature("android"):
+		return
+	var key: InputEventKey = event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_ESCAPE:
+		return
+	if is_inside_tree():
+		get_viewport().set_input_as_handled()
+	_on_back()
 
 
 ## Drops a drag and targeting with no penalty (GDD 13.1).

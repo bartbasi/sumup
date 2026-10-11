@@ -27,6 +27,8 @@ const OFFER_NO_RESCUE: String = "No rescue left. Pick a booster or end the run."
 const END_RUN: String = "End run"
 
 const RUN_OVER: String = "Run over"
+## GDD 12.2 step 3: the run ended at once because nothing was usable (QA4-01).
+const NO_MOVES_LEFT: String = "No moves left."
 const MAIN_MENU: String = "Main menu"
 const NEW_BEST: String = "New best"
 

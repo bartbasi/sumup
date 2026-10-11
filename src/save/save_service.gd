@@ -20,6 +20,19 @@ class_name SaveService extends RefCounted
 ## file when it is good,
 ## else a good <name>.tmp, which it then renames into place. So a kill at any
 ## moment leaves the old save or the new one.
+##
+## Queued writes (QA4-02). queue_run and queue_profile check and encode the
+## data at once on the calling thread, which is cheap, and leave the file work
+## to one WorkerThreadPool task, so a move's save never stalls its frame:
+## - one write at a time, in one task that drains the queue;
+## - the newest data for a file wins: a queued file not yet written is
+##   replaced, never written twice;
+## - a queued file whose bytes match what was last written is skipped;
+## - every other call (the synchronous saves, delete_run and the reads) first
+##   waits for the task, so nothing ever interleaves and reads see every
+##   earlier save. flush() waits on its own, for app pause, focus loss and
+##   close.
+## Call the service from one thread only (the main thread in the game).
 
 const RUN_FILE: String = "run.json"
 const PROFILE_FILE: String = "profile.json"
@@ -47,6 +60,25 @@ class FileRead extends RefCounted:
 
 var _directory: String = ""
 
+## The write queue, the only thing the writer task holds. The task never
+## touches the service, so a service dropped mid write stays safe: it waits
+## for its task when it is freed. mutex guards the other fields.
+class WriteQueue extends RefCounted:
+	var directory: String = ""
+	var mutex: Mutex = Mutex.new()
+	## Bytes waiting to be written, by file name.
+	var pending: Dictionary[String, PackedByteArray] = {}
+	## The bytes last handed to a write, by file name, dropped when that
+	## write fails. Lets an unchanged file be skipped.
+	var written: Dictionary[String, PackedByteArray] = {}
+	## True while a writer is draining the queue.
+	var writing: bool = false
+
+
+var _q: WriteQueue = WriteQueue.new()
+## The writer task started last; only the calling thread touches it.
+var _task_id: int = -1
+
 
 ## directory must be inside user://. Tests pass a temp folder there. Any other
 ## folder is a programming error: the service then refuses every call and
@@ -54,23 +86,44 @@ var _directory: String = ""
 func _init(directory: String = _ROOT) -> void:
 	if directory.begins_with(_ROOT) and not directory.contains(".."):
 		_directory = directory
+		_q.directory = directory
 	else:
 		push_error("SaveService: refusing a save folder outside user://: %s" % directory)
 
 
-## Writes the run. Returns false, and leaves the last good save in place, when
-## the state would not load back (SaveCodec refuses it) or the write fails.
-@warning_ignore("integer_division")
+## Writes the run now, after any queued write. Returns false, and leaves the
+## last good save in place, when the state would not load back (SaveCodec
+## refuses it) or the write fails.
 func save_run(state: RunState) -> bool:
-	if _directory.is_empty() or state == null or state.columns < 1:
+	flush()
+	var bytes: PackedByteArray = _run_bytes(state)
+	if bytes.is_empty():
 		return false
-	var data: Dictionary = SaveCodec.run_to_data(state)
-	var shape: GameConfig = GameConfig.new()
-	shape.columns = state.columns
-	shape.rows = state.cells.size() / state.columns
-	if SaveCodec.data_to_run(data, shape) == null:
+	return _write_now(RUN_FILE, bytes)
+
+
+## Checks and encodes the run now and queues the write. Returns false, and
+## queues nothing, when the state would not load back. A write that fails
+## later is reported with push_warning and leaves the last good save.
+func queue_run(state: RunState) -> bool:
+	var bytes: PackedByteArray = _run_bytes(state)
+	if bytes.is_empty():
 		return false
-	return _write_atomic(RUN_FILE, data)
+	_queue(RUN_FILE, bytes)
+	return true
+
+
+## Waits until every queued write is on disk (or has failed and been
+## reported).
+func flush() -> void:
+	_reap()
+	_q.mutex.lock()
+	var left: bool = not _q.pending.is_empty() and not _q.writing
+	if left:
+		_q.writing = true
+	_q.mutex.unlock()
+	if left:
+		_drain(_q)
 
 
 ## The saved run, or null when there is none or it is invalid. A file whose
@@ -80,6 +133,7 @@ func save_run(state: RunState) -> bool:
 func load_run(config: GameConfig) -> RunState:
 	if _directory.is_empty():
 		return null
+	flush()
 	var main_path: String = _path(RUN_FILE)
 	var temp_path: String = main_path + TEMP_SUFFIX
 	var main: FileRead = _read_json(main_path)
@@ -101,11 +155,16 @@ func load_run(config: GameConfig) -> RunState:
 	return null
 
 
-## Deletes the saved run. The temp file goes first, so a kill between the two
+## Deletes the saved run, after any queued write, so a queued run can never
+## land after the delete. The temp file goes first, so a kill between the two
 ## steps can never leave a lone temp file that would bring an ended run back.
 func delete_run() -> void:
 	if _directory.is_empty():
 		return
+	flush()
+	_q.mutex.lock()
+	_q.written.erase(RUN_FILE)
+	_q.mutex.unlock()
 	var main_path: String = _path(RUN_FILE)
 	_remove(main_path + TEMP_SUFFIX)
 	_remove(main_path)
@@ -116,14 +175,31 @@ func delete_run() -> void:
 func has_run() -> bool:
 	if _directory.is_empty():
 		return false
+	flush()
 	var main_path: String = _path(RUN_FILE)
 	return FileAccess.file_exists(main_path) or FileAccess.file_exists(main_path + TEMP_SUFFIX)
 
 
+## Writes the profile now, after any queued write.
 func save_profile(settings: Settings, records: Records) -> bool:
 	if _directory.is_empty() or settings == null or records == null:
 		return false
-	return _write_atomic(PROFILE_FILE, SaveCodec.profile_to_data(settings, records))
+	flush()
+	var bytes: PackedByteArray = _encode(SaveCodec.profile_to_data(settings, records))
+	if bytes.is_empty():
+		return false
+	return _write_now(PROFILE_FILE, bytes)
+
+
+## Encodes the profile now and queues the write, like queue_run.
+func queue_profile(settings: Settings, records: Records) -> bool:
+	if _directory.is_empty() or settings == null or records == null:
+		return false
+	var bytes: PackedByteArray = _encode(SaveCodec.profile_to_data(settings, records))
+	if bytes.is_empty():
+		return false
+	_queue(PROFILE_FILE, bytes)
+	return true
 
 
 ## Applies the saved profile to settings and records. Each part that is
@@ -133,6 +209,7 @@ func save_profile(settings: Settings, records: Records) -> bool:
 func load_profile(settings: Settings, records: Records) -> void:
 	if _directory.is_empty():
 		return
+	flush()
 	var main_path: String = _path(PROFILE_FILE)
 	var temp_path: String = main_path + TEMP_SUFFIX
 	var data: Variant = null
@@ -209,18 +286,108 @@ static func _nesting_within(bytes: PackedByteArray, max_depth: int) -> bool:
 	return true
 
 
-## Writes data to <file_name>.tmp, checks it, then renames it over the real
-## file. A failed write or check deletes the broken temp file. A failed rename
-## keeps it, because on Windows the real file may already be gone and the temp
-## file is then the newest good copy.
-func _write_atomic(file_name: String, data: Dictionary) -> bool:
+## The run as file bytes, or empty when the state would not load back.
+@warning_ignore("integer_division")
+func _run_bytes(state: RunState) -> PackedByteArray:
+	if _directory.is_empty() or state == null or state.columns < 1:
+		return PackedByteArray()
+	var data: Dictionary = SaveCodec.run_to_data(state)
+	var shape: GameConfig = GameConfig.new()
+	shape.columns = state.columns
+	shape.rows = state.cells.size() / state.columns
+	if SaveCodec.data_to_run(data, shape) == null:
+		return PackedByteArray()
+	return _encode(data)
+
+
+## data as file bytes, or empty when it would pass the size limit and so
+## never load back.
+static func _encode(data: Dictionary) -> PackedByteArray:
 	var bytes: PackedByteArray = JSON.stringify(data, "\t", false).to_utf8_buffer()
 	if bytes.size() > MAX_BYTES:
+		return PackedByteArray()
+	return bytes
+
+
+## Writes on the calling thread (the queue is empty: the caller flushed).
+func _write_now(file_name: String, bytes: PackedByteArray) -> bool:
+	var ok: bool = _write_file(_directory, file_name, bytes)
+	_q.mutex.lock()
+	if ok:
+		_q.written[file_name] = bytes
+	else:
+		_q.written.erase(file_name)
+	_q.mutex.unlock()
+	return ok
+
+
+## Queues bytes for file_name, replacing older bytes still waiting, and
+## starts the writer task when none is running.
+func _queue(file_name: String, bytes: PackedByteArray) -> void:
+	_q.mutex.lock()
+	if not _q.pending.has(file_name) and _q.written.has(file_name) and _q.written[file_name] == bytes:
+		_q.mutex.unlock()
+		return
+	_q.pending[file_name] = bytes
+	var start: bool = not _q.writing
+	if start:
+		_q.writing = true
+	_q.mutex.unlock()
+	if start:
+		_reap()
+		_task_id = WorkerThreadPool.add_task(_drain.bind(_q), false, "SaveService writes")
+
+
+## The writer: takes one queued file at a time and writes it, until the
+## queue is empty. Runs on a worker thread, or on the caller during flush.
+## Static, and holding only the queue, so it never needs the service.
+static func _drain(queue: WriteQueue) -> void:
+	while true:
+		queue.mutex.lock()
+		if queue.pending.is_empty():
+			queue.writing = false
+			queue.mutex.unlock()
+			return
+		var file_name: String = queue.pending.keys()[0]
+		var bytes: PackedByteArray = queue.pending[file_name]
+		queue.pending.erase(file_name)
+		queue.written[file_name] = bytes
+		queue.mutex.unlock()
+		if not _write_file(queue.directory, file_name, bytes):
+			queue.mutex.lock()
+			if queue.written.has(file_name) and queue.written[file_name] == bytes:
+				queue.written.erase(file_name)
+			queue.mutex.unlock()
+			push_warning("SaveService: could not save %s; the last good save stays" % file_name)
+
+
+## Waits for the writer task started last, which drains the whole queue.
+func _reap() -> void:
+	if _task_id >= 0:
+		WorkerThreadPool.wait_for_task_completion(_task_id)
+		_task_id = -1
+
+
+func _notification(what: int) -> void:
+	# A service dropped with writes queued waits for its writer here, so
+	# nothing queued is lost and the task is cleaned up. Inline, because
+	# methods cannot be called on an object being deleted.
+	if what == NOTIFICATION_PREDELETE and _task_id >= 0:
+		WorkerThreadPool.wait_for_task_completion(_task_id)
+		_task_id = -1
+
+
+## Writes bytes to <file_name>.tmp in directory, checks it, then renames it
+## over the real file. A failed write or check deletes the broken temp file.
+## A failed rename keeps it, because on Windows the real file may already be
+## gone and the temp file is then the newest good copy. Safe on any thread.
+static func _write_file(directory: String, file_name: String, bytes: PackedByteArray) -> bool:
+	if directory.is_empty() or bytes.is_empty():
 		return false
-	if not DirAccess.dir_exists_absolute(_directory):
-		if DirAccess.make_dir_recursive_absolute(_directory) != OK:
+	if not DirAccess.dir_exists_absolute(directory):
+		if DirAccess.make_dir_recursive_absolute(directory) != OK:
 			return false
-	var main_path: String = _path(file_name)
+	var main_path: String = directory.path_join(file_name)
 	var temp_path: String = main_path + TEMP_SUFFIX
 	var file: FileAccess = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
@@ -234,7 +401,7 @@ func _write_atomic(file_name: String, data: Dictionary) -> bool:
 
 
 ## True when the file at path holds exactly bytes.
-func _file_holds(path: String, bytes: PackedByteArray) -> bool:
+static func _file_holds(path: String, bytes: PackedByteArray) -> bool:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return false
@@ -245,10 +412,10 @@ func _file_holds(path: String, bytes: PackedByteArray) -> bool:
 
 ## Finishes a rename that a kill interrupted. If it fails, the temp file stays
 ## and the next load finds it again.
-func _promote(temp_path: String, main_path: String) -> void:
+static func _promote(temp_path: String, main_path: String) -> void:
 	DirAccess.rename_absolute(temp_path, main_path)
 
 
-func _remove(path: String) -> void:
+static func _remove(path: String) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)

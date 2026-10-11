@@ -35,9 +35,11 @@ static func start_app(folder: String, quits: Array[int]) -> App:
 	return app
 
 
+## Frees the App. Its queued saves are flushed first, as on a real exit.
 static func stop_app(app: App) -> void:
 	if app == null or not is_instance_valid(app):
 		return
+	settle(app)
 	if app.get_parent() != null:
 		app.get_parent().remove_child(app)
 	app.free()
@@ -88,6 +90,13 @@ static func board_p() -> PackedInt64Array:
 ## A snapshot board with a valid move, for states that need Undo.
 static func snapshot_board() -> PackedInt64Array:
 	return with_cell(board_d(), Vector2i(1, 7), 8)
+
+
+## Waits for the App's queued saves, before a test reads the files through
+## another SaveService or writes to them itself.
+static func settle(app: App) -> void:
+	if app != null and is_instance_valid(app) and app.save != null:
+		app.save.flush()
 
 
 ## Lets the session finish showing the last move, as the board would.

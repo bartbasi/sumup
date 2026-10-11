@@ -36,6 +36,8 @@ var _preview: SkinTileView = null
 var _chain_context: String = ""
 var _chain_preview: int = 0
 var _shown_score: int = -1
+## True from a chain's move_resolved to the status_changed that follows it.
+var _chain_points_pending: bool = false
 
 
 func _init() -> void:
@@ -144,8 +146,15 @@ func _show_status(count: bool) -> void:
 		return
 	var score: int = _session.state.score
 	_hud.set_scores(score, _session.records.best_score)
-	if count and _shown_score >= 0 and score > _shown_score and is_inside_tree():
-		Motion.count_up(_hud.score_label(), _skin, _shown_score, score)
+	# Count up only for the points a chain just added. Any other change shows
+	# at once; that call also replaces a count still running, so a stale count
+	# can never overwrite the score.
+	var from: int = score
+	if count and _chain_points_pending and _shown_score >= 0 and score > _shown_score:
+		from = _shown_score
+	_chain_points_pending = false
+	if is_inside_tree():
+		Motion.count_up(_hud.score_label(), _skin, from, score)
 	_shown_score = score
 	var statuses: Array[BoosterStatus] = _session.booster_statuses()
 	_bar.show_boosters(statuses)
@@ -205,6 +214,7 @@ func _on_run_started(_result: MoveResult) -> void:
 
 ## AT-104: the HUD shows which values a move cleared.
 func _on_move_resolved(result: MoveResult) -> void:
+	_chain_points_pending = result.kind == MoveResult.Kind.CHAIN
 	if not result.cleared_values.is_empty():
 		_hud.show_clear_notice(result.cleared_values, _board.get_global_rect())
 

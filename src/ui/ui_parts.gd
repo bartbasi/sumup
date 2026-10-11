@@ -6,8 +6,8 @@ extends RefCounted
 ## A Theme cannot set text case or alignment, so the builders case text with
 ## the skin's rule for the variation's type role, and the two Slate rules of
 ## the contract live here: SignalLabel takes the label role in Slate (the title
-## role elsewhere), and Slate left aligns its primary buttons and its text
-## blocks (DESIGN_SYSTEM.md 5 and 7).
+## role elsewhere), and Slate left aligns the text of every button but a chip,
+## and its text blocks (DESIGN_SYSTEM.md 5.7 and 7, Alignment).
 
 ## The type role behind each variation the screens use.
 const ROLES: Dictionary[StringName, StringName] = {
@@ -61,14 +61,15 @@ static func paragraph(skin: SkinData, variation: StringName, text: String, align
 	return made
 
 
-## A button in a variation. Slate's primary buttons are left aligned.
+## A button in a variation. In Slate every button but a chip left aligns its
+## text (DESIGN_SYSTEM.md 7, Alignment).
 static func button(skin: SkinData, variation: StringName, text: String) -> Button:
 	var made: Button = Button.new()
 	made.theme_type_variation = variation
 	made.text = skin.cased(role(skin, variation), text)
 	made.focus_mode = Control.FOCUS_NONE
 	made.custom_minimum_size = Vector2(0.0, skin.num(&"button_height"))
-	if variation == &"PrimaryButton" and align_start(skin):
+	if variation != &"ChipButton" and align_start(skin):
 		made.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	return made
 

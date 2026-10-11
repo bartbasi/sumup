@@ -626,7 +626,14 @@ func delete_run() -> void
 func has_run() -> bool
 func save_profile(settings: Settings, records: Records) -> bool
 func load_profile(settings: Settings, records: Records) -> void
+## Writes off the frame (QA4-02). Each checks and encodes on the calling thread, then one WorkerThreadPool task
+## writes, one file at a time, newest bytes winning, unchanged bytes skipped. Returns false when the data would not load back.
+func queue_run(state: RunState) -> bool
+func queue_profile(settings: Settings, records: Records) -> bool
+func flush() -> void                                        # waits until every queued write is done
 ```
+
+Every other SaveService method waits for queued writes first, so nothing interleaves and a deleted run never comes back. Use one SaveService per folder, called from one thread. The App queues the save for each move, and saves synchronously (after a flush) on app pause, focus loss and close.
 
 ## 11. Screens and app flow (src/ui/, scenes/ui/, ui-systems-dev)
 

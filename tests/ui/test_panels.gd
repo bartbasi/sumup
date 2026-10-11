@@ -154,6 +154,38 @@ func test_end_panel_without_a_new_best() -> void:
 	assert_true(_has_text(panel, "best score"), "Nova's captions are lowercase")
 
 
+func test_qa4_01_end_panel_says_no_moves_left() -> void:
+	var summary: RunSummary = _summary(false)
+	summary.no_moves_left = true
+	for skin_id: StringName in SkinCatalog.IDS:
+		var panel: EndPanel = _end_panel(skin_id, summary)
+		assert_eq(panel.reason_text(), SkinCatalog.get_skin(skin_id).cased(&"body", "No moves left."), "%s: the reason, cased" % skin_id)
+		var reason: Label = panel.find_child("Reason", true, false) as Label
+		assert_eq(reason.theme_type_variation, &"MutedLabel", "%s: muted body style" % skin_id)
+		var expected: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT if skin_id == &"slate" else HORIZONTAL_ALIGNMENT_CENTER
+		assert_eq(reason.horizontal_alignment, expected, "%s: aligned like the title" % skin_id)
+		var content: Node = reason.get_parent()
+		assert_eq(reason.get_index(), 1, "%s: right under the title" % skin_id)
+		assert_true(content.get_child(0) is Label, "%s: the title first" % skin_id)
+
+
+func test_qa4_01_no_reason_after_end_run() -> void:
+	var panel: EndPanel = _end_panel(&"gumdrop", _summary(true))
+	assert_eq(panel.reason_text(), "", "End run ends with something usable: no reason line")
+	assert_null(panel.find_child("Reason", true, false), "and no label")
+
+
+func test_qa4_04_new_best_sits_on_the_best_score_row() -> void:
+	var panel: EndPanel = _end_panel(&"gumdrop", _summary(true))
+	var badge: Control = panel.new_best_badge()
+	assert_not_null(badge, "the badge shows")
+	assert_eq(badge.get_parent().name, &"BestScore", "on the Best score row")
+	var row: Node = badge.get_parent()
+	assert_true(_has_text(row, "76,410"), "beside the Best Score")
+	var score: Label = panel.find_child("FinalScore", true, false) as Label
+	assert_false(score.get_parent() == row, "not with the final score")
+
+
 func test_end_panel_buttons() -> void:
 	var panel: EndPanel = _end_panel(&"slate", _summary(false))
 	panel.new_game_chosen.connect(_record.bind("new game"))
@@ -275,12 +307,18 @@ func test_slate_rules() -> void:
 	var nova: SkinData = SkinCatalog.get_skin(&"nova")
 	assert_eq(UiParts.role(slate, &"SignalLabel"), &"label", "Slate's signal label is the label role")
 	assert_eq(UiParts.role(nova, &"SignalLabel"), &"title", "elsewhere the title role")
-	var slate_button: Button = UiParts.button(slate, &"PrimaryButton", "Go")
-	var nova_button: Button = UiParts.button(nova, &"PrimaryButton", "Go")
-	assert_eq(slate_button.alignment, HORIZONTAL_ALIGNMENT_LEFT, "Slate left aligns primary buttons")
-	assert_eq(nova_button.alignment, HORIZONTAL_ALIGNMENT_CENTER, "others center them")
-	slate_button.free()
-	nova_button.free()
+	var made: Array[Button] = []
+	for variation: StringName in [&"PrimaryButton", &"SecondaryButton"]:
+		var slate_button: Button = UiParts.button(slate, variation, "Go")
+		var nova_button: Button = UiParts.button(nova, variation, "Go")
+		assert_eq(slate_button.alignment, HORIZONTAL_ALIGNMENT_LEFT, "Slate left aligns %s text" % variation)
+		assert_eq(nova_button.alignment, HORIZONTAL_ALIGNMENT_CENTER, "others center %s text" % variation)
+		made.append_array([slate_button, nova_button])
+	var chip: Button = UiParts.button(slate, &"ChipButton", "Go")
+	assert_eq(chip.alignment, HORIZONTAL_ALIGNMENT_CENTER, "Slate chips keep centered text")
+	made.append(chip)
+	for button: Button in made:
+		button.free()
 
 
 func test_safe_area() -> void:
