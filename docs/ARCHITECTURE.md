@@ -40,6 +40,8 @@ A line down means "may use". core uses nothing else. boosters uses core. save us
 - **Global class names.** Every public class below has the listed `class_name`. After adding or renaming a class_name, run `godot --headless --path . --import` once. If another agent runs import at the same moment and you then see "could not find type" errors, run import again. Phase 1 prototype code in tools/ keeps using preload and adds no class names.
 - **Signals** are listed with typed arguments. Emit only the signals listed. Connect with typed callables.
 - **Errors.** Rules refuse bad input by returning a refused result and changing nothing. They never clamp, never crash, never `assert` on player input. `push_error` is for programming errors only.
+- **Overflow.** Real play never comes near 2^63, but a hand edited save can hold tiles up to 2^62. Any move whose tile value, score or points would pass 2^63 minus 1 is refused and changes nothing (core uses `&"invalid_chain"`, boosters `&"bad_target"`). A booster whose cost would pass that limit counts as not affordable. `merge_result` returns 0 for such a sum.
+- **Packed arrays are shared.** In Godot 4.7, `var b: PackedInt64Array = a` makes b share a's data, so writing `b[0]` changes `a`. Call `duplicate()` before changing an array you did not create, and assign the result back.
 
 ## 4. Data model (src/core/, core-logic-dev)
 
