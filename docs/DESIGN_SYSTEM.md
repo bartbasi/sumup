@@ -1,6 +1,6 @@
 # numbersgame Design System
 
-Owner: senior-graphic-designer. Status: Phase 2, for building in Phase 3.
+Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place.
 
 This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the SkinData resources (src/skins/<id>/<id>.tres) from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
 
@@ -184,6 +184,13 @@ Every skin defines every shared name below. Anything else a skin needs is an **e
 
 Outfit is a variable font: weights are set on its `wght` axis by integer tag (the string key "wght" is ignored in Godot 4.7). The system font is a SystemFont asking for Roboto, then Segoe UI, then sans-serif. Phones then use Roboto and Windows uses Segoe UI; plain sans-serif alone gives Arial on Windows.
 
+**Font metrics for placing text.** Components that place text by its letters rather than its line box use two font metrics, held once as named constants in src/design/ and checked against the real fonts by a test. They are not tokens.
+
+| Metric | Value | Measured (Phase 3) |
+|---|---|---|
+| Cap height, share of the font size | 0.70 | 0.688 to 0.712 over every skin's display, body and label fonts |
+| Comma depth below the baseline, share of the font size | 0.18, an upper bound | Outfit 0.126 (weight 300) to 0.172 (weight 900); Segoe UI 0.125 |
+
 ### 3.5 Shape, layout and sizes
 
 | Name | Meaning |
@@ -231,6 +238,10 @@ Each has a duration (seconds; for loops the period), a transition and an ease (G
 | target_pulse | loop on the active booster and Swap's selected tile; 0 means still |
 | score_count | the score counting up |
 | skin_switch | switching skins live in Settings |
+
+**Exits.** `dialog_out` plays `dialog_in`'s extras backwards (back down `from_offset`, back to `from_scale`) and always ends at alpha 0, so an exit never ends visible.
+
+**Clear notice exit.** The notice fades out over `clear_notice.out` on the skin's `screen_fade` curve, because Gumdrop's back curve would overshoot alpha. Slate uses `clear_notice`'s own curve both ways (5.7).
 
 **Move sequence.** A committed chain plays: chain tiles `merge_travel` into the last tile, then `merge_pop` and `clear` together, then `fall` and `spawn` together (new tiles start as the falls land, staggered by `spawn.stagger` per tile in fill order). The clear notice appears with the clear and holds on its own. Input reopens when every tile is at rest.
 
@@ -354,6 +365,8 @@ Closest pairs (ramp check): neighbors 0.206, times 4 0.141, times 8 0.210.
 - HUD and dock: `hud_top_row` 96, `hud_button_face` 96, `pill_height` 96, `pill_radius` 48, `dock_height` 184, `dock_radius` 64.
 - Buttons: `button_lip` 10, `button_lip_pressed` 3, `active_raise` 6, `focus_width` 5, `focus_gap` 6.
 - Toggle: `toggle_knob_lip` 5.
+- Every other lip (badges and the clear notice, cards and sheets, the Best pill, the dock, the toggle track) is `button_lip` thick and part of the element's height.
+- The pause button and every icon button are squircles: corner radius `tile_radius` times the face side, like a tile.
 
 ### 4.6 Motion: springy
 
@@ -419,27 +432,27 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 
 **Clear notice (AT-104)**
 - A badge pill, `notice_height` tall, in badge with a badge_lip lip. It is centered horizontally on the board's top edge, overlapping the seam between HUD and board, so it never covers the rows the player works in.
-- Content: a mini tile (`notice_tile_scale` of `notice_height`) of each cleared value with a `notice_strike` px badge_ink strike line across it, then the text in the body role, badge_ink. Padding `space_s` left and right, items `space_xs` apart.
+- Content: a mini tile (`notice_tile_scale` of `notice_height`) of each cleared value with a `notice_strike` px badge_ink strike line across it, corner to corner from bottom left to top right, then the text in the body role, badge_ink. Padding `space_s` left and right, items `space_xs` apart. In every skin the strike runs the same way.
 - Text: "No more 2s" for one value, "No more 2s or 4s" for two, "No more 2s to 8s" for three or more. Values use the tile label format ("No more 2Ks").
-- Motion: it springs in (`clear_notice`, from `from_scale`), holds `hold` seconds, fades out over `out`. It never blocks input.
+- Motion: it springs in (`clear_notice`, from `from_scale`), holds `hold` seconds, fades out over `out` on the `screen_fade` curve (3.6). It never blocks input.
 
 **HUD (slimmed)**
 - Top row, `hud_top_row` tall:
   - The pause button on the left: a raised squircle, face `hud_button_face`, an `icon_hud` icon, touch area `touch_min`.
   - A Best pill on the right: surface with a surface_lip lip, `pill_height` tall, `pill_radius` corners, sides padded by `space_s`; "Best" in label role ink_muted, the number in body role ink.
-- Under it, the score, centered, in the display role, auto fitting (section 2.6).
+- Under it, the score, centered, in the display role, auto fitting (section 2.6). Its baseline sits so that its comma tail (comma depth, 3.4) ends `space_xs` above the top of the clear notice, which is centered on the board's top edge `space_s` under the HUD. The score never touches the notice, and it does not move when the notice shows.
 - No caption above the score.
 
 **Booster bar**
 - A floating dock, `dock_height` tall and `dock_radius` corners, in surface with a surface_lip lip. It sits `board_margin` from the screen sides, with five raised buttons inside.
 - The `hint_height` row above it holds the hint pill.
-- Each button: surface_raised face, `radius_button` corners, `button_lip` lip. The dock pads its buttons by `space_xs` all round and spaces them `space_xs` apart. The five faces share the width equally, and each face is `dock_height` less 2 x `space_xs` less `button_lip` tall. The icon (`icon_booster`) sits over the cost in the label role, as a tile label.
+- Each button: surface_raised face, `radius_button` corners, `button_lip` lip. The dock's own lip is part of `dock_height`. The dock pads its buttons by `space_xs` all round its face and spaces them `space_xs` apart. The five buttons share the width equally, and each button, face and lip, is `dock_height` less the dock lip less 2 x `space_xs` tall: a 140 face on a 10 lip. The icon (`icon_booster`) sits over the cost in the label role, as a tile label.
 - Looks:
   - *Normal:* as above.
   - *Pressed:* scale `press_scale`, lip down to `button_lip_pressed`.
   - *Active (targeting):* accent face, accent_lip lip, raised `active_raise`; icon and cost in ink_dark; `target_pulse` wobble.
   - *Disabled:* flat (no lip), sitting lower, disabled_surface face, icon and cost in disabled_ink.
-  - *Suggested (D-42, in the out of moves offer):* a "Suggested" badge pill (badge, badge_ink, label role) sits on the button's top edge.
+  - *Suggested (D-42, in the out of moves offer):* a "Suggested" badge pill (badge, badge_ink, label role) rests on the button: the bottom of its lip on the button's top edge, so it never covers the icon. It hides while any booster is active (targeting from the offer), in every skin, and comes back when the offer waits for a choice again.
 - Hint: a badge pill in the hint row, for example "Tap a tile to smash it".
 
 **Icons**
@@ -450,7 +463,7 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 **Sound toggle**
 - A pill track `toggle_w` by `toggle_h` with a surface_lip lip.
 - Off: surface_raised track, ink knob (`toggle_knob`, with a `toggle_knob_lip` lip in surface_lip) on the left.
-- On: accent track, knob on the right.
+- On: accent track, knob on the right. The track keeps its surface_lip lip.
 - It slides with button_release.
 
 **Backdrop:** flat bg.
@@ -535,6 +548,8 @@ Closest pairs (ramp check): neighbors 0.210, times 4 0.135, times 8 0.094.
 | Labels on surface | ink_muted on surface | 7.05 |
 | Text on raised surface | ink on surface_raised | 14.07 |
 | Labels on raised surface | ink_muted on surface_raised | 6.37 |
+
+The disabled pair also covers disabled buttons and chips: they have no fill, so their text sits on bg. A disabled control never sits on surface or surface_raised (disabled_ink reaches only 4.40 and 3.97 there).
 
 ### 5.4 Type (system font: Roboto on Android)
 
@@ -641,13 +656,13 @@ A committed chain settles in about 0.45 s.
 
 **Clear notice (AT-104)**
 - It takes the HUD's context row for its hold time: a full width bar in badge.
-- Content: the cleared values as small tiles (`notice_tile_scale` of `notice_height`) with a `notice_strike` px badge_ink strike line, then the text in the label role, badge_ink, in capitals: "NO MORE 2S". Padding `space_m` on the left, items `space_xs` apart.
-- Motion: it cuts in and out with `clear_notice`.
-- If a chain is being dragged, the notice waits until the finger lifts.
+- Content: the cleared values as small tiles (`notice_tile_scale` of `notice_height`) with a `notice_strike` px badge_ink strike line, corner to corner from bottom left to top right, then the text in the label role, badge_ink, in capitals: "NO MORE 2S". Padding `space_m` on the left, items `space_xs` apart.
+- Motion: it cuts in and out with `clear_notice`, its own curve both ways.
+- While the context row is busy (a chain being dragged, or a targeting hint), the notice waits until the row is free. Its hold counts only while it shows.
 
 **HUD**
 - Left aligned: "SCORE" in the label role over the score in display.
-- On the right: the pause icon (no container, full touch area) and "BEST" over the best score in body.
+- On the right: the pause icon (no container, full touch area) and "BEST" over the best score in body. The icon sits at the top of its `touch_min` touch area, centered across it. While held, the whole touch area fills surface, drawn behind the HUD's text (ink and ink_muted on surface are listed pairs).
 - A hairline under the header, then the context row (`hint_height`):
   - while dragging, "CHAIN n" and the preview tile;
   - in targeting, a full width badge bar, for example "HAMMER: TAP A TILE TO SMASH IT";
@@ -660,7 +675,7 @@ A committed chain settles in about 0.45 s.
   - *Pressed:* the column fills surface.
   - *Active:* the column fills ink (paper), content in ink_dark.
   - *Disabled:* content in disabled_ink, the cost struck through with a `hairline` line.
-  - *Suggested:* a "SUGGESTED" badge (badge, badge_ink, label role) sits across the column's top hairline.
+  - *Suggested:* a "SUGGESTED" badge (badge, badge_ink, label role) sits across the column's top hairline, centered on it. Its upper half reaches up to 8 px over the lower edge of the board's bottom row, where Slate draws nothing (numbers sit top left), and only while the offer waits for a choice: like every skin, it hides while any booster is active.
 
 **Icons**
 - Signage pictograms: straight segments and true circles, square caps, `icon_stroke` 2, no fills.
@@ -677,6 +692,7 @@ A committed chain settles in about 0.45 s.
 **Buttons, panels and chips**
 - *Primary:* accent fill, ink_dark text, `radius_button` corners, text left aligned.
 - *Secondary:* a `hairline` outline in ink, ink text; pressed fills surface.
+- *Disabled (buttons and chips):* a `hairline` outline in line, no fill, disabled_ink text, on bg only (5.3).
 - *Chip:* surface; selected fills ink (paper) with ink_dark text.
 - *Sheet panel:* bg with a `hairline` line on its open edge, square corners, `space_m` padding, rows split by hairlines.
 - *Focus:* a `focus_width` accent outline `focus_gap` outside.
@@ -748,6 +764,7 @@ Closest pairs (ramp check): neighbors 0.194, times 4 0.169, times 8 0.258.
 | Labels, darkest part of the backdrop | ink_muted on bg | 9.93 |
 | Booster cost, targeting | accent on bg_glow | 11.41 |
 | Booster cost, disabled | disabled_ink on bg_glow | 4.96 |
+| Disabled button or chip on a sheet | disabled_ink on surface | 5.29 |
 | Badges | badge_ink on badge | 13.26 |
 | Primary button, selected chip | ink_dark on accent | 13.26 |
 | Primary button, pressed | ink_dark on accent_pressed | 10.22 |
@@ -757,6 +774,8 @@ Closest pairs (ramp check): neighbors 0.194, times 4 0.169, times 8 0.258.
 | Labels on rows and chips | ink_muted on surface_raised | 7.35 |
 | Text over the scrim (worst case over a white hole) | ink on scrim | 13.45 |
 | Labels over the scrim (worst case) | ink_muted on scrim | 7.06 |
+
+Disabled buttons and chips have no fill (a faint ring), so their text sits on whatever is under them: the backdrop (bg, bg_glow) or a sheet (surface). A disabled control never sits on surface_raised (disabled_ink reaches only 4.38 there).
 
 ### 6.4 Type (Outfit)
 
@@ -867,11 +886,11 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 
 **Clear notice (AT-104)**
 - A badge pill, `notice_height` tall, centered on the board's top edge. Content and padding as Gumdrop, with `notice_tile_scale` and `notice_strike`, and the text in the label role (lowercase): "no more 2s".
-- Motion: it fades in from `from_alpha` while rising `from_offset` px (`clear_notice`), holds, fades out. It never blocks input.
+- Motion: it fades in from `from_alpha` while rising `from_offset` px (`clear_notice`), holds, fades out over `out` on the `screen_fade` curve (3.6). It never blocks input.
 
 **HUD**
 - Centered: the score in the display role (light, auto fitting).
-- Under it, "best 96,520" in the label role, `space_xs` below the score's baseline.
+- Under it, "best 96,520" in the label role, ink_muted. Its letters start `space_xs` below the score's comma tail (comma depth, 3.4), not below the baseline, so the two never touch. Its baseline sits `space_xs` above the top of the clear notice (centered on the board's top edge, `space_s` under the HUD), so the notice never covers it. The score's digits then start about 11 px below the HUD top.
 - The pause icon in a `hud_ring` ring at the top right.
 
 **Booster bar**
@@ -880,13 +899,13 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 - Looks:
   - *Pressed:* scale `press_scale`, the ring brightens to ink.
   - *Active:* the ring fills accent, glowing accent and accent_violet (`ring_glow_spread`, `ring_glow_alpha`); icon ink_dark, cost accent; `target_pulse` breathing.
-  - *Disabled (fixes "does not look disabled"):* the ring is dashed (`disabled_ring_dashes`) at `disabled_ring_alpha`, the icon is disabled_ink at `disabled_icon_alpha`, and the cost is disabled_ink struck through with a `hairline` line. No glow ever. Dashed ring, dim icon and struck cost together read as unavailable without color.
-  - *Suggested:* a "suggested" badge on the ring's top edge, and the ring breathes in accent on `target_pulse`.
+  - *Disabled (fixes "does not look disabled"):* the ring is dashed (`disabled_ring_dashes`, each dash `orbit_dash_fill` of its step) at `disabled_ring_alpha`, the icon is disabled_ink at `disabled_icon_alpha`, and the cost is disabled_ink struck through with a `hairline` line. No glow ever. Dashed ring, dim icon and struck cost together read as unavailable without color.
+  - *Suggested:* a "suggested" badge rests on the ring: its bottom on the ring's top edge, so it never covers the icon. The ring breathes in accent on `target_pulse`. The badge hides while any booster is active (4.7).
 - Hint: centered ink_muted text in the label role, no panel.
 
 **Icons**
 - Thin and precise: `icon_stroke` 1.5 on the 24 unit grid, fitted to `icon_fit` of the icon box, round caps, a small spark dot (`icon_spark`) where it suits.
-- Active icons get a soft glow at `icon_glow_alpha`.
+- Active icons are ink_dark (they sit on the accent ring) with a soft accent glow at `icon_glow_alpha`; the ring's own glow carries the light.
 
 **Sound toggle**
 - A thin ring track `toggle_w` by `toggle_h` in line.
