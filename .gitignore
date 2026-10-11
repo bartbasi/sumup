@@ -8,9 +8,15 @@ build/
 *.aab
 *.idsig
 
-# Signing keys never go in the repo
+# Signing keys never go in the repo: keystores, key and certificate files, and their password files
 *.keystore
 *.jks
+*.p12
+*.pfx
+*.pk8
+*.pem
+*.key
+keystore.properties
 
 # Android Gradle build template. Not used in v1; ignored so generated files and signing configs stay out.
 android/
