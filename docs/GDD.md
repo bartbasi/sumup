@@ -61,12 +61,13 @@ These settle gaps the brief leaves open, but they shape how the game feels, so B
 - D-02 (round down): makes progress steadier and the late game tenser than rounding up.
 - D-20 (costs scale with the highest tile): a booster costs about the same share of a typical score all run.
 - D-27 (Undo after a booster): Undo also reverts any booster used after the last chain, and that booster's cost stays spent. This stops "booster then Undo" from being free.
+- A-1 (screen sizes, changed after the design review): full spec (56 dp tiles, 12 dp digits) on 18:9 phones (360 x 720 dp) and taller, nearly every phone sold since about 2018. 16:9 phones still work, with smaller tiles of about 45 to 53 dp and labels scaled to fit.
 
 ## 2. Assumptions
 
 | ID | Assumption | Why it matters |
 |---|---|---|
-| A-1 | The smallest supported phone is 360 dp wide in portrait. With 5 columns, a tile is about 56 to 60 dp wide. The rules assume tiles are never smaller than 56 dp. | Number labels (section 14) must be readable at this size. |
+| A-1 | Full spec on 18:9 phones (360 x 720 dp) and taller, which is nearly every phone sold since about 2018: tiles at least 56 dp and label digits at least 12 dp tall. 16:9 phones (360 x 640 dp) are still supported with smaller tiles, about 45 to 53 dp depending on the direction and on whether the phone shows on-screen buttons. There, labels follow the same rule scaled to the tile (section 14.1). If the chosen direction misses 56 dp at 18:9, its HUD and booster bar are slimmed in Phase 2. | Number labels (section 14) must be readable at these sizes. |
 | A-2 | The typical scores in section 17 are estimates from a simple model, not playtest data. | Booster costs are tuned against them. They should be checked in Phase 4 play and retuned in section 18 if needed. |
 
 ## 3. Terms and notation
@@ -128,7 +129,7 @@ Designer decides each booster's cost (flat, or scaled to board progress) with re
 Reasoning:
 
 - It is the proven layout for this mechanic, and the brief's default.
-- On a 360 dp wide phone a column is about 56 to 60 dp, above the 48 dp Android touch target, so diagonal drags stay accurate.
+- On an 18:9 or taller phone 360 dp wide, a tile is at least 56 dp (assumption A-1), above the 48 dp Android touch target, so diagonal drags stay accurate. On 16:9 phones tiles drop to about 45 to 53 dp; the hit radius (D-07) scales with the tile.
 - 40 cells hold the full late game spread: four spawn values plus about seven levels of larger tiles up to the highest tile (section 9), with room left to maneuver. Fewer cells would end runs too early. More columns would push tiles under 56 dp.
 
 Rules:
@@ -725,7 +726,7 @@ Reasoning:
 - Steps of 1024 keep every label a whole number (2K, never 2.05K).
 - Every value from 2 to 2^49 has a label of at most 4 characters. That is what makes labels readable on the smallest tile.
 
-Readability requirement (assumption A-1): on a 56 dp tile, a 4 character label sits fully inside the tile with no clipping, and its digits are at least 12 dp tall. The design system picks the text sizes. It may use smaller text for 4 character labels than for shorter ones, but never below that minimum. QA checks it on a 360 dp wide screen.
+Readability requirement (assumption A-1): on 18:9 phones (360 x 720 dp) and taller, tiles are at least 56 dp, and a 4 character label sits fully inside the tile with no clipping, with digits at least 12 dp tall. On 16:9 phones, where tiles are smaller (about 45 to 53 dp), the label still sits fully inside the tile with no clipping, and its digits keep the same share of the tile side (12 / 56, about 21 percent, so about 10 dp on a 47 dp tile). The design system picks the text sizes. It may use smaller text for 4 character labels than for shorter ones, but never below these minimums. QA checks both screen shapes.
 
 ### 14.2 Score, costs, preview and records (D-32)
 
@@ -832,8 +833,8 @@ Developers read every constant from this table. Bart can rebalance by changing v
 | LABEL_FULL_MAX | 1024 | Largest value shown as a full number | 14.1 |
 | LABEL_STEP | 1024 | Size of each suffix step | 14.1 |
 | LABEL_SUFFIXES | K, M, B, T | Suffixes for 1024, 1024 x 1024, and so on | 14.1 |
-| SMALLEST_TILE_DP | 56 | Smallest tile size the labels must suit | 2, 14.1 |
-| MIN_LABEL_DIGIT_HEIGHT_DP | 12 | Smallest digit height on a tile label | 14.1 |
+| SMALLEST_TILE_DP | 56 | Smallest tile size on 18:9 phones (360 x 720 dp) and taller. 16:9 phones get smaller tiles (assumption A-1) | 2, 14.1 |
+| MIN_LABEL_DIGIT_HEIGHT_DP | 12 | Smallest digit height on a tile label at SMALLEST_TILE_DP. On smaller tiles, the same share of the tile side (12 / 56) | 14.1 |
 | SCORE_MIN_CHARACTERS | 13 | Characters the score display must fit | 14.2 |
 | SOUND_DEFAULT | On | Sound setting on first launch | 15.1, 16 |
 
@@ -1085,7 +1086,7 @@ row 7:   8   8  32   8   8
 
 **AT-86. Labels are short.** Type: Unit. Action: format every power of two from 2 to 2^49. Expected: every label is 4 characters or fewer. 2^50 gives "1024T".
 
-**AT-87. Labels are readable on the smallest tile.** Type: Play. Setup: a 360 dp wide portrait screen (phone or emulator) and a test board holding 1024, 512K and 128K tiles. Action: look at the board. Expected: tiles are at least 56 dp wide. Every label sits fully inside its tile with no clipping, and its digits are at least 12 dp tall.
+**AT-87. Labels are readable on the smallest tile.** Type: Play. Setup: a test board holding 1024, 512K and 128K tiles, shown on (a) a 360 x 720 dp portrait screen and (b) a 360 x 640 dp portrait screen with on-screen buttons (phone or emulator). Action: look at the board. Expected: (a) tiles are at least 56 dp wide, every label sits fully inside its tile with no clipping, and its digits are at least 12 dp tall. (b) Every label sits fully inside its tile with no clipping, and its digits are at least 12 / 56 of the tile side tall.
 
 **AT-88. Score format.** Type: Both. Action: format 0, 999, 1000, 75000 and 1234567, and show a score of 9,999,999,999 on a 360 dp wide screen. Expected: "0", "999", "1,000", "75,000", "1,234,567". The long score shows in full with no clipping.
 
