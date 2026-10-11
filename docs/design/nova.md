@@ -2,15 +2,17 @@
 
 **Tiles are stars.** Merging is fusion.
 
+Screens: nova-board.png, nova-targeting.png, nova-gameover.png, nova-settings.png in this folder.
+
 ## Concept
 
 Round orbs float on deep space with no tray and no grid lines. Their color follows star temperature: small values burn red and orange, mid values run through gold and white into ice blue and deep blue, and from 2K up they become nebula colors. The bigger the value, the wider its glow, so size of light is a second signal next to the number. A chain is a beam of light that runs under the orbs and takes on their colors. On merge the orbs glide along the beam into the last one, which blooms. Type is light and airy, labels are lowercase, and every movement is a slow, smooth glide.
 
 ## Layout (1080 by 2400)
 
-- Score centered at the top in a thin, very large numeral, with "best 48,212" small and lowercase under it. Settings is a thin icon in a ring, top right.
+- Score centered at the top in a thin, very large numeral, with "best 96,520" small and lowercase under it. Settings is a thin icon in a ring, top right.
 - Orbs float straight on the backdrop: a soft violet glow in the upper middle fading to deep space, with a little fixed star dust.
-- Boosters are five ring buttons in a row with no container, each with its cost underneath as a tile label (2K). The active one fills with aurora cyan light.
+- Boosters are five ring buttons in a row with no container, each with its cost underneath as a tile label (2K). The active one fills with aurora cyan light, its cost turns cyan, a lowercase hint floats above the rings, and a dashed cyan orbit circles the targeted orb.
 - Chain preview: a small orb of the result floats in the gap at the top left of the last orb in the chain, clear of its neighbors.
 - Game over (the no moves offer): "Out of moves" in light type floats where the score was, with the score under it, a cyan "Shuffle for 4K" pill and an "End run" ring button. The board stays fully visible below and the rings offer every booster.
 - Settings slides up as a dark sheet with rounded top corners over the dimmed game.
@@ -35,7 +37,7 @@ Round orbs float on deep space with no tray and no grid lines. Their color follo
 | disabled_ink | #848C9F | booster you cannot afford |
 | chain | #FFFFFF | beam core; the beam glow takes the orb colors |
 | target | #49EAF2 | orbit ring on the targeted orb |
-| scrim | #040819 at 86% | over the board at game over |
+| scrim | #040819 at 86% | over the game behind the settings sheet |
 
 ## Tile ramp
 
@@ -56,7 +58,7 @@ Glow grows with value: alpha 10% and 1.12 times the orb radius at 2, up to 55% a
 
 ## Type
 
-System font, light for big numbers, semibold on orbs, lowercase labels.
+System font (Roboto on Android, Segoe UI on Windows), light for big numbers, semibold on orbs, lowercase labels. See fonts.md for the same board in Outfit.
 
 | Role | Size | Weight | Tracking | Case |
 |---|---|---|---|---|
@@ -68,7 +70,7 @@ System font, light for big numbers, semibold on orbs, lowercase labels.
 
 ## Shape
 
-Orb diameter 88% of the cell pitch, 4 px rim in the fill lightened 35%. From 32K, 12 corona rays from 1.08 to 1.24 orb radii. Chain beam: 12 px white core over a 44 px glow at 28%. Chained orbs get an 8 px white rim. Target: a dashed cyan orbit ring 10% outside the orb. Ring buttons 148 px across with a 3 px ring. Settings sheet radius 64 px.
+Orb diameter 88% of the cell pitch, 4 px rim in the fill lightened 35%. From 32K, 12 corona rays from 1.08 to 1.24 orb radii. Chain beam: 12 px white core over a 44 px glow at 28%. Chained orbs get an 8 px white rim. Target: a dashed cyan orbit ring 10% outside the orb. Ring buttons 148 px across with a 3 px ring. Settings sheet radius 64 px. Chain preview: an orb 54% of the orb diameter. On a 360 x 800 dp phone the orbs measure 58 dp.
 
 ## Motion
 

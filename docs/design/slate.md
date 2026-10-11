@@ -2,13 +2,15 @@
 
 **Editorial and exact.** The numbers are the design.
 
+Screens: slate-board.png, slate-targeting.png, slate-gameover.png, slate-settings.png in this folder, and the same four with -outfit for the font comparison.
+
 ## Concept
 
 Slate treats the board like a page of a well set newspaper. Small values are dark slate slabs with the number set in a bright color of the same hue; from 128 up a tile lights into a solid block of color with a black number. So the board is calm where the small tiles are and loud exactly where your big tiles are, and you see them first. Corners are almost square, the grid is tight, and regions are split by hairline rules instead of boxes. Numbers sit in the top left corner of each tile, where your thumb does not cover them while you drag. Type is left aligned, with small labels in tracked capitals. Motion is fast and exact: wipes and cuts, nothing bounces.
 
 ## Layout (1080 by 2400)
 
-- Header, left aligned: "SCORE" in small capitals over a very large score. Settings icon and "BEST 48,212" on the right.
+- Header, left aligned: "SCORE" in small capitals over a very large score. On the right a settings icon (three sliders) and "BEST" over the best score.
 - Under a hairline, a context row: while dragging it reads "CHAIN 6" with the result as a small tile on the right; in targeting mode it turns into a vermilion bar, "HAMMER: TAP A TILE TO SMASH IT".
 - Board almost edge to edge, 44 px from the screen sides, with 10 px gaps and no tray.
 - Booster strip, 192 px tall, under a hairline: five equal columns split by vertical hairlines, each with icon, name and cost (as a tile label, 2K). The active booster column fills with paper white. A booster you cannot use has its cost struck through.
@@ -54,7 +56,7 @@ From 32K up each block also gets an inner hairline frame. Lowest tile contrast: 
 
 ## Type
 
-System font, grotesk feel, everything left aligned.
+System font (Roboto on Android, Segoe UI on Windows), grotesk feel, everything left aligned. See fonts.md for the Outfit comparison.
 
 | Role | Size | Weight | Tracking | Case |
 |---|---|---|---|---|
@@ -66,7 +68,7 @@ System font, grotesk feel, everything left aligned.
 
 ## Shape
 
-Tile corners 6 px. Gaps 10 px. Number inset 11% of the tile side from the top left. Chain line 8 px with a 3 px dark edge and square 24 px nodes, node to node with no tail. It runs under the numbers: on chained tiles each number has a 6 px outline in its tile color, so the line stops cleanly at the glyph. Chained tiles get a 6 px paper frame inside the edge. Target: four 6 px vermilion corner brackets hugging the tile. Buttons radius 4 px. Hairlines 2 px.
+Tile corners 6 px. Gaps 10 px. Number inset 11% of the tile side from the top left. Chain line 8 px with a 3 px dark edge and square 24 px nodes, node to node with no tail. It runs under the numbers: on chained tiles each number has a 4 px outline in its tile color, so the line stops cleanly at the glyph. Chained tiles get a 6 px paper frame inside the edge. Target: four 6 px vermilion corner brackets hugging the tile. Buttons radius 4 px. Hairlines 2 px. On a 360 x 800 dp phone the tiles measure 63.5 dp, the largest of the three, because Slate's chrome is the thinnest.
 
 ## Motion
 

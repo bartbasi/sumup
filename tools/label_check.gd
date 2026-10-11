@@ -18,7 +18,8 @@ extends SceneTree
 ##
 ## The font is the one the capture uses (SystemFont: Segoe UI on Windows).
 ## Roboto has slightly taller digits (cap height 0.711 of the size against
-## Segoe UI's 0.700), so a pass here holds on Android too.
+## Segoe UI's 0.700), so a pass here holds on Android too. To check a font
+## file instead (for the font comparison), add: -- --font <absolute path>
 
 const Directions: GDScript = preload("res://tools/directions/shared/directions.gd")
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
@@ -37,6 +38,11 @@ var _checked: int = 0
 
 
 func _initialize() -> void:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	var font_index: int = args.find("--font")
+	if font_index >= 0 and font_index + 1 < args.size():
+		DirectionTokens.use_font_file(args[font_index + 1])
+		print("Using font file %s" % args[font_index + 1])
 	print("Label size check. On a %d dp tile, digits need %d dp or more and every label must fit." % [int(SMALLEST_TILE_DP), int(MIN_DIGIT_DP)])
 	var labels_by_length: Array[PackedStringArray] = [PackedStringArray(), PackedStringArray(), PackedStringArray(), PackedStringArray()]
 	for power: int in range(1, HIGHEST_POWER + 1):

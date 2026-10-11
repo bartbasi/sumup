@@ -98,7 +98,7 @@ func _init() -> void:
 		"number_inset": 0.11,         # fraction of tile side: number sits top left, this far in
 		"line_width": 8.0,            # chain line, drawn over tile fills and under numbers. It runs
 		                              # node to node only, with no tail to the finger.
-		"number_knockout": 6.0,       # px outline in the tile fill color round numbers on chained
+		"number_knockout": 4.0,       # px outline in the tile fill color round numbers on chained
 		                              # tiles, so the line stops cleanly at the glyph edge
 		"line_edge": 3.0,             # dark edge on each side of the chain line
 		"node_size": 24.0,            # square node at each chained tile center

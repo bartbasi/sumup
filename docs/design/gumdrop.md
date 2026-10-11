@@ -2,15 +2,17 @@
 
 **Tactile candy.** Chunky tiles you want to press.
 
+Screens: gumdrop-board.png, gumdrop-targeting.png, gumdrop-gameover.png, gumdrop-settings.png in this folder.
+
 ## Concept
 
 Every tile is a squircle with a darker lip underneath, like a keycap or a gummy sweet sitting on a tray. When your finger joins a tile to the chain it presses down into the tray, and the chain is a white rope that shows in the gaps between tiles, so a chain reads as beads on a string. Small values are bright candy colors, big values turn into deep jewel tones, and the rarest tiles become licorice, pearl and gold with a candy colored rim. Everything sits in soft rounded containers: a tray for the board, pills for the scores, a floating dock for the boosters. Motion is springy, with overshoot on arrival and a squash when tiles land.
 
 ## Layout (1080 by 2400)
 
-- Top row: round settings button on the left, a "Best" pill on the right. Below it the score, centered and huge.
-- Board in a rounded tray, 36 px from the screen edges.
-- Boosters in a floating rounded dock above the gesture bar. Each booster is a raised button with its cost inside, as a tile label (2K). A booster you cannot use sits flat and dark, with no lip.
+- Top row: a raised squircle settings button on the left, a "Best" pill on the right. Below it the score, centered and huge.
+- Board in a rounded tray, as large as fits between the HUD and the dock.
+- Boosters in a floating rounded dock above the gesture bar. Each booster is a raised button with its cost inside, as a tile label (2K). A booster you cannot use sits flat and dark, with no lip. In targeting mode the active booster turns hot pink and raises, a lemon pill above the dock says "Tap a tile to smash it", and the targeted tile lifts and wobbles inside a white ring.
 - Chain preview: a mini tile of the result with a white ring, sitting on the gap crossing at the top left corner of the last chain tile. It covers only rounded corners, never a number.
 - Game over (the no moves offer): a rounded card takes the HUD's place with "Out of moves", the score, a big pink "Shuffle for 4K" button and "End run". The board stays fully visible below it, and the dock offers every booster with its cost.
 - Settings: a card rises over the dimmed game, with a chunky toggle and skin choices that preview three tiles of each skin.
@@ -58,7 +60,7 @@ From 32K up every tile also gets a candy rim, so the rare tiles never rely on co
 
 ## Type
 
-System font (Roboto on Android, Segoe UI on Windows), heavy throughout, sentence case.
+System font (Roboto on Android, Segoe UI on Windows), heavy throughout, sentence case. See fonts.md for the same board in Outfit.
 
 | Role | Size | Weight | Tracking |
 |---|---|---|---|
@@ -70,7 +72,7 @@ System font (Roboto on Android, Segoe UI on Windows), heavy throughout, sentence
 
 ## Shape
 
-Tile corners 30% of the tile side. Lip 7.5% of the side, color = fill darkened 34%. Gaps 18 px, tray padding 22 px, tray radius 60 px. Dock 208 px tall, radius 68 px. Buttons radius 44 px with a 10 px lip.
+Tile corners 30% of the tile side. Lip 7.5% of the side, color = fill darkened 34%. Gaps 18 px, tray padding 22 px, tray radius 60 px. Dock 208 px tall, radius 68 px. Buttons radius 44 px with a 10 px lip. Chain preview: a mini tile 46% of the tile side with a 6 px white ring. On a 360 x 800 dp phone the tiles measure 57 dp; Gumdrop has the tallest HUD and dock of the three, so its tiles are the smallest.
 
 ## Motion
 
