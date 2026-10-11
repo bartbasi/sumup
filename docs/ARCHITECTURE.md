@@ -11,7 +11,7 @@ Sources: docs/BRIEF.md, docs/GDD.md (the rules, approved at Hard Stop 1), docs/D
 1. **Rules are pure.** Everything in src/core/ and src/boosters/ extends RefCounted, never Node. No scene tree, no Input, no rendering, no files, no timers. Every GDD rule and every test hook (GDD section 20) runs headless in tests/.
 2. **The model resolves first, the view catches up.** A move is applied to the model in one call and saved at once (GDD D-09, D-33). Animations play afterwards and never change the outcome. Input waits until the view has shown the move (D-35).
 3. **One run, one owner.** GameSession owns the current run, the records, the random generator and the flow state (playing, targeting, offer, ended). Screens read from it and send it intents. Nothing else edits a RunState.
-4. **Skins are swappable sets of components.** A Skin is data. Each skin also has its own board view and its own interface components, all built on shared base classes, so a screen asks for "the HUD for this skin" and gets one with the same methods and signals whatever the skin.
+4. **Skins are swappable sets of components.** A SkinData is data. Each skin also has its own board view and its own interface components, all built on shared base classes, so a screen asks for "the HUD for this skin" and gets one with the same methods and signals whatever the skin.
 5. **No globals.** No autoloads. The App creates every service once and passes it down through `setup()` calls. This keeps project.godot untouched by feature work and keeps every class testable.
 6. **Statically typed GDScript everywhere.** Untyped declarations are compile errors in this project.
 
@@ -29,7 +29,7 @@ Sources: docs/BRIEF.md, docs/GDD.md (the rules, approved at Hard Stop 1), docs/D
             core (RunState, RunRules, CoreRules, RunRandom, NumberFormat, GameConfig, Records, MoveResult)
 ```
 
-A line down means "may use". core uses nothing else. boosters uses core. save uses core only. skins uses core (NumberFormat, MoveResult types). design uses core, skins (Skin) and boosters (BoosterStatus). board uses core, boosters, skins, design (Motion) and audio. ui uses everything. Nothing below may use anything above it, so there are no cycles.
+A line down means "may use". core uses nothing else. boosters uses core. save uses core only. skins uses core (NumberFormat, MoveResult types). design uses core, skins (SkinData) and boosters (BoosterStatus). board uses core, boosters, skins, design (Motion) and audio. ui uses everything. Nothing below may use anything above it, so there are no cycles.
 
 ## 3. Conventions
 
@@ -68,7 +68,7 @@ var label_suffixes: PackedStringArray = PackedStringArray(["K", "M", "B", "T"]) 
 func cell_count() -> int                # columns * rows
 ```
 
-The other section 18 values live elsewhere: SMALLEST_TILE_DP, MIN_LABEL_DIGIT_HEIGHT_DP and SCORE_MIN_CHARACTERS are design values in docs/DESIGN_SYSTEM.md and the Skin resources, and SOUND_DEFAULT is `Settings.sound_on = true` (section 10). UNDO_DEPTH is 1 and is not configurable.
+The other section 18 values live elsewhere: SMALLEST_TILE_DP, MIN_LABEL_DIGIT_HEIGHT_DP and SCORE_MIN_CHARACTERS are design values in docs/DESIGN_SYSTEM.md and the SkinData resources, and SOUND_DEFAULT is `Settings.sound_on = true` (section 10). UNDO_DEPTH is 1 and is not configurable.
 
 ### RunState
 
@@ -335,12 +335,14 @@ Flow rules GameSession must follow:
 
 ## 6. Skins (src/skins/, tile-board-artist)
 
-### Skin
+### SkinData
+
+Godot already has a native class named Skin (for skeletons), so the skin resource class is SkinData.
 
 One Resource class, one `.tres` per skin, values exactly as docs/DESIGN_SYSTEM.md specifies (Bart's decision: the senior-graphic-designer specifies, the tile-board-artist writes the files, the senior-graphic-designer reviews). The token names and meanings come from the DESIGN_SYSTEM.md shared schema; skin only extras live in the same dictionaries under their own names.
 
 ```gdscript
-class_name Skin extends Resource
+class_name SkinData extends Resource
 @export var id: StringName
 @export var display_name: String
 @export var palette: Dictionary[StringName, Color]          # named colors
@@ -382,9 +384,9 @@ Fonts: Gumdrop and Nova point `font_path` at `res://src/design/fonts/Outfit[wght
 class_name SkinCatalog extends RefCounted
 const DEFAULT_ID: StringName = &"gumdrop"
 const IDS: Array[StringName] = [&"gumdrop", &"slate", &"nova"]   # settings order
-static func get_skin(id: StringName) -> Skin                     # unknown id returns the default
-static func make_board_view(skin: Skin) -> SkinBoardView
-static func make_tile_view(skin: Skin) -> SkinTileView
+static func get_skin(id: StringName) -> SkinData                     # unknown id returns the default
+static func make_board_view(skin: SkinData) -> SkinBoardView
+static func make_tile_view(skin: SkinData) -> SkinTileView
 ```
 
 Files: `src/skins/skin.gd`, `src/skins/skin_catalog.gd`, `src/skins/skin_board_view.gd`, `src/skins/skin_tile_view.gd`, and per skin `src/skins/<id>/<id>.tres` plus `src/skins/<id>/<id>_board_view.gd`, `<id>_tile_view.gd` and any helpers.
@@ -395,7 +397,7 @@ Draws the board, tiles, chain line, preview, highlights and effects. Holds no ru
 
 ```gdscript
 class_name SkinBoardView extends Control
-func setup(skin: Skin, columns: int, rows: int) -> void
+func setup(skin: SkinData, columns: int, rows: int) -> void
 func set_board(cells: PackedInt64Array) -> void                 # static look, complete in the first frame
 func set_chain(chain: Array[Vector2i], drag_point: Vector2) -> void   # drag_point in local pixels; Vector2(-1, -1) for none; empty chain clears
 func set_preview(value: int) -> void                            # 0 hides it; a skin that shows the preview in the HUD draws nothing
@@ -423,7 +425,7 @@ One tile on its own, for the settings skin chips, the merge preview in a HUD slo
 
 ```gdscript
 class_name SkinTileView extends Control
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func set_value(value: int) -> void
 ```
 
@@ -433,12 +435,12 @@ Every interface component exists once per skin, in `src/design/<id>/`, subclassi
 
 ```gdscript
 class_name UiKit extends RefCounted
-static func build_theme(skin: Skin) -> Theme
-static func make_hud(skin: Skin) -> SkinHud
-static func make_booster_bar(skin: Skin) -> SkinBoosterBar
-static func make_icon(skin: Skin) -> SkinIcon
-static func make_toggle(skin: Skin) -> SkinToggle
-static func make_backdrop(skin: Skin) -> SkinBackdrop
+static func build_theme(skin: SkinData) -> Theme
+static func make_hud(skin: SkinData) -> SkinHud
+static func make_booster_bar(skin: SkinData) -> SkinBoosterBar
+static func make_icon(skin: SkinData) -> SkinIcon
+static func make_toggle(skin: SkinData) -> SkinToggle
+static func make_backdrop(skin: SkinData) -> SkinBackdrop
 ```
 
 **Theme.** `build_theme` sets the default font to the body role and defines these type variations in every skin: DisplayLabel, TitleLabel, BodyLabel, MutedLabel, CaptionLabel, PrimaryButton, SecondaryButton, ChipButton, CardPanel, PillPanel, HintPanel, Hairline, plus any DESIGN_SYSTEM.md adds. Buttons have normal, hover, pressed, disabled and focus styles. The App sets the theme on its root Control, so every screen and panel inherits it.
@@ -446,7 +448,7 @@ static func make_backdrop(skin: Skin) -> SkinBackdrop
 ```gdscript
 class_name SkinHud extends Control
 signal pause_pressed()                                    # the HUD's pause button
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func set_scores(score: int, best_score: int) -> void
 func set_context(text: String, highlight: bool) -> void   # a skin that has no context row ignores it
 func preview_slot() -> Control                            # where the screen puts a SkinTileView preview; null when the skin previews on the board
@@ -459,7 +461,7 @@ func preferred_height() -> float
 
 class_name SkinBoosterBar extends Control
 signal booster_pressed(booster_id: StringName)
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func show_boosters(statuses: Array[BoosterStatus]) -> void
 func set_hint(text: String) -> void                       # targeting hint; "" hides it; a skin that shows the hint in the HUD ignores it
 func content_top() -> float
@@ -469,18 +471,18 @@ class_name SkinIcon extends Control
 const LOOK_NORMAL: int = 0
 const LOOK_ACTIVE: int = 1
 const LOOK_DISABLED: int = 2
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func set_icon(icon_name: StringName) -> void              # names listed in DESIGN_SYSTEM.md
 func set_look(look: int) -> void
 func set_color(color: Color) -> void
 
 class_name SkinToggle extends Control
 signal toggled(on: bool)
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func set_on(on: bool, animate: bool = false) -> void
 
 class_name SkinBackdrop extends Control
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func set_clear_rects(rects: Array[Rect2]) -> void         # global rects kept clear of decoration behind text
 ```
 
@@ -488,14 +490,14 @@ func set_clear_rects(rects: Array[Rect2]) -> void         # global rects kept cl
 
 ```gdscript
 class_name Motion extends RefCounted
-static func tween_for(node: Node, skin: Skin, motion_name: StringName) -> Tween
-static func press(control: Control, skin: Skin) -> Tween
-static func release(control: Control, skin: Skin) -> Tween
-static func dialog_in(control: Control, skin: Skin) -> Tween
-static func dialog_out(control: Control, skin: Skin) -> Tween
-static func fade(item: CanvasItem, skin: Skin, to_alpha: float) -> Tween
-static func count_up(label: Label, skin: Skin, from_value: int, to_value: int) -> Tween   # formats with NumberFormat.score
-static func pulse(item: CanvasItem, skin: Skin) -> Tween        # null when the skin has no pulse
+static func tween_for(node: Node, skin: SkinData, motion_name: StringName) -> Tween
+static func press(control: Control, skin: SkinData) -> Tween
+static func release(control: Control, skin: SkinData) -> Tween
+static func dialog_in(control: Control, skin: SkinData) -> Tween
+static func dialog_out(control: Control, skin: SkinData) -> Tween
+static func fade(item: CanvasItem, skin: SkinData, to_alpha: float) -> Tween
+static func count_up(label: Label, skin: SkinData, from_value: int, to_value: int) -> Tween   # formats with NumberFormat.score
+static func pulse(item: CanvasItem, skin: SkinData) -> Tween        # null when the skin has no pulse
 static func stop_pulse(item: CanvasItem) -> void
 ```
 
@@ -513,8 +515,8 @@ static func cell_center(cell: Vector2i, grid_origin: Vector2, pitch: Vector2) ->
 class_name BoardController extends Control                 # root of scenes/board/board.tscn
 signal chain_changed(chain: Array[Vector2i], preview_value: int)   # every add, backtrack, commit and cancel
 signal animation_finished()                                 # after the last effect of a move
-func setup(session: GameSession, skin: Skin, audio: AudioService) -> void
-func set_skin(skin: Skin) -> void                           # live switch: rebuild the skin board view, keep the board
+func setup(session: GameSession, skin: SkinData, audio: AudioService) -> void
+func set_skin(skin: SkinData) -> void                           # live switch: rebuild the skin board view, keep the board
 func cancel_drag() -> void                                  # drop a chain in progress with no penalty; calls session.end_drag()
 func preferred_height(width: float) -> float
 func is_animating() -> bool
@@ -639,42 +641,42 @@ class_name App extends Control
 ## saves on save_requested and on lifecycle events, and handles the back button.
 
 class_name GameScreen extends Control
-func setup(session: GameSession, settings: Settings, audio: AudioService, skin: Skin) -> void
-func apply_skin(skin: Skin) -> void                          # live switch: rebuild backdrop, HUD, booster bar, board view
+func setup(session: GameSession, settings: Settings, audio: AudioService, skin: SkinData) -> void
+func apply_skin(skin: SkinData) -> void                          # live switch: rebuild backdrop, HUD, booster bar, board view
 func board() -> BoardController
 signal pause_requested()                                     # HUD pause button
 
 class_name MainMenu extends Control
 signal new_game_chosen()
 signal settings_chosen()
-func setup(skin: Skin, records: Records) -> void
+func setup(skin: SkinData, records: Records) -> void
 
 class_name PausePanel extends Control
 signal resume_chosen()
 signal new_game_chosen()
 signal settings_chosen()
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 
 class_name SettingsPanel extends Control
 signal closed()
-func setup(skin: Skin, settings: Settings) -> void           # sound toggle and skin picker with live preview chips
+func setup(skin: SkinData, settings: Settings) -> void           # sound toggle and skin picker with live preview chips
 
 class_name OfferPanel extends Control
 signal booster_chosen(booster_id: StringName)
 signal end_run_chosen()
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func show_offer(statuses: Array[BoosterStatus], score: int) -> void   # D-19, suggested marked per D-42
 
 class_name EndPanel extends Control
 signal new_game_chosen()
 signal main_menu_chosen()
-func setup(skin: Skin) -> void
+func setup(skin: SkinData) -> void
 func show_summary(summary: RunSummary) -> void               # final score, Best Score, Best Tile, this run's highest tile, New game
 
 class_name ConfirmDialog extends Control
 signal confirmed()
 signal cancelled()
-func setup(skin: Skin, title: String, body: String, confirm_text: String, cancel_text: String) -> void
+func setup(skin: SkinData, title: String, body: String, confirm_text: String, cancel_text: String) -> void
 
 class_name SafeArea extends RefCounted
 static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area mapped into viewport coordinates
@@ -695,13 +697,13 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 
 ## 12. How skins and the theme are read
 
-- **Which skin.** `settings.skin_id`, default `SkinCatalog.DEFAULT_ID`. `SkinCatalog.get_skin(id)` returns the Skin.
+- **Which skin.** `settings.skin_id`, default `SkinCatalog.DEFAULT_ID`. `SkinCatalog.get_skin(id)` returns the SkinData.
 - **Board.** BoardController asks `SkinCatalog.make_board_view(skin)` and talks to it only through SkinBoardView.
 - **Interface components.** Screens ask UiKit for the HUD, booster bar, icons, toggle and backdrop of the current skin and use only the base class methods.
 - **Theme.** App sets `UiKit.build_theme(skin)` on its root Control. Panels use the Theme's type variations and never set colors or sizes themselves.
 - **Tokens elsewhere.** Anything else reads `skin.color()`, `skin.num()`, `skin.font()`, `skin.font_size()`, `skin.cased()` and `Motion`. No literal color, size or timing appears outside src/skins/ and src/design/.
 - **Live switch.** On `settings.skin_changed`, the App rebuilds the theme and every screen calls `apply_skin`, which frees the old skinned components and creates new ones. The board keeps its state; only its look changes. The App cross-fades: before rebuilding it shows a still of the current frame (from the viewport texture) in a full screen TextureRect on top, then fades that still out over the new skin's `skin_switch` motion (DESIGN_SYSTEM.md 7.7).
-- **Checks.** In Phase 3 the contrast and label checks in tools/ move from the Phase 1 token files to the Skin resources, so they prove what ships.
+- **Checks.** In Phase 3 the contrast and label checks in tools/ move from the Phase 1 token files to the SkinData resources, so they prove what ships.
 
 ## 13. Test hooks (GDD section 20)
 
@@ -734,7 +736,7 @@ Each area's tests live in `tests/<area>/` and extend `res://tests/base_test.gd`.
 
 - No autoloads. No input map entries: the board reads touch and mouse events directly, and the back button arrives as a notification.
 - platform-dev owns display, stretch and Android settings, the export preset named `Android` (excluding tools/, tests/ and docs/), and the build and install scripts. Release builds request no permissions.
-- The launcher icon: `tools/launcher_icon.gd` (senior-graphic-designer) draws it from the Gumdrop Skin values and writes the four PNGs of DESIGN_SYSTEM.md 9.1 to `launcher/` at the repo root. Only that tool writes there. The PNGs are committed, so a build never depends on running the tool, and docs/ASSETS.md logs them as generated by code. platform-dev points the export preset's launcher icon settings and the project icon at them.
+- The launcher icon: `tools/launcher_icon.gd` (senior-graphic-designer) draws it from the Gumdrop SkinData values and writes the four PNGs of DESIGN_SYSTEM.md 9.1 to `launcher/` at the repo root. Only that tool writes there. The PNGs are committed, so a build never depends on running the tool, and docs/ASSETS.md logs them as generated by code. platform-dev points the export preset's launcher icon settings and the project icon at them.
 
 ## 15. Phase 3 order
 
