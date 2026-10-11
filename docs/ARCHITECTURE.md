@@ -29,7 +29,7 @@ Sources: docs/BRIEF.md, docs/GDD.md (the rules, approved at Hard Stop 1), docs/D
             core (RunState, RunRules, CoreRules, RunRandom, NumberFormat, GameConfig, Records, MoveResult)
 ```
 
-A line down means "may use". core uses nothing else. boosters uses core. save uses core only. skins uses core (NumberFormat, MoveResult types). design uses core, skins (SkinData) and boosters (BoosterStatus). board uses core, boosters, skins, design (Motion) and audio. ui uses everything. Nothing below may use anything above it, so there are no cycles.
+A line down means "may use". core uses nothing else. boosters uses core. save uses core only. skins uses core (NumberFormat, MoveResult types). design uses core (including BoosterStatus) and skins (SkinData). board uses core, boosters, skins, design (Motion) and audio. ui uses everything. Nothing below may use anything above it, so there are no cycles.
 
 ## 3. Conventions
 
@@ -141,6 +141,29 @@ var run_ends: bool = false              # set by GameSession: the run ends after
 
 For Swap, `targets` holds both cells. For Shuffle and Undo, the view animates from `cells_before` to `cells_after`.
 
+### BoosterStatus and RunSummary
+
+Value objects GameSession hands to the interface. They live in core so the design and ui areas depend on core only, not on boosters.
+
+```gdscript
+class_name BoosterStatus extends RefCounted                 # src/core/booster_status.gd
+enum Usability { USABLE, CANNOT_AFFORD, NO_SNAPSHOT }
+var id: StringName
+var cost: int
+var usable: bool
+var reason: Usability
+var active: bool          # this booster is in targeting mode
+var suggested: bool       # marked as the suggested rescue in the no moves offer (D-42)
+
+class_name RunSummary extends RefCounted                    # src/core/run_summary.gd
+var final_score: int
+var best_score: int
+var best_tile: int
+var run_highest: int
+var new_best_score: bool  # this run set the Best Score (the New best badge)
+var no_moves_left: bool   # the run ended because nothing was usable (12.2 step 3)
+```
+
 ### CoreRules
 
 Pure queries. All static.
@@ -232,11 +255,10 @@ const SHUFFLE: StringName = &"shuffle"
 const DOUBLE: StringName = &"double"
 const UNDO: StringName = &"undo"
 const ALL: Array[StringName] = [HAMMER, SWAP, SHUFFLE, DOUBLE, UNDO]
-enum Usability { USABLE, CANNOT_AFFORD, NO_SNAPSHOT }
 enum Outcome { PLAY, OFFER, END }
 static func cost_basis(cells: PackedInt64Array, config: GameConfig) -> int          # B (D-20), TH3
 static func cost(id: StringName, state: RunState, config: GameConfig) -> int        # TH3
-static func usability(id: StringName, state: RunState, config: GameConfig) -> Usability   # TH3, D-28 for Undo
+static func usability(id: StringName, state: RunState, config: GameConfig) -> BoosterStatus.Usability   # TH3, D-28 for Undo
 static func target_count(id: StringName) -> int                                     # 0, 1 or 2
 static func can_pick_second(state: RunState, first: Vector2i, second: Vector2i) -> bool   # D-24 Swap
 static func suggested_rescue(state: RunState, config: GameConfig) -> StringName      # TH16, D-42. &"" for none
@@ -247,27 +269,7 @@ static func apply(id: StringName, state: RunState, records: Records, targets: Ar
 
 Hammer, Swap, Shuffle and Double never touch the snapshot. Undo restores it and clears it (13.7). Shuffle uses `rng.shuffle_attempt` and sets `rng.shuffle_attempts`.
 
-### BoosterStatus and RunSummary
-
-Value objects the interface reads.
-
-```gdscript
-class_name BoosterStatus extends RefCounted
-var id: StringName
-var cost: int
-var usable: bool
-var reason: BoosterRules.Usability
-var active: bool          # this booster is in targeting mode
-var suggested: bool       # marked as the suggested rescue in the no moves offer (D-42)
-
-class_name RunSummary extends RefCounted
-var final_score: int
-var best_score: int
-var best_tile: int
-var run_highest: int
-var new_best_score: bool  # this run set the Best Score (the New best badge)
-var no_moves_left: bool   # the run ended because nothing was usable (12.2 step 3)
-```
+BoosterStatus and RunSummary, the value objects GameSession hands to the interface, live in core (section 4).
 
 ### GameSession
 
@@ -740,4 +742,10 @@ Each area's tests live in `tests/<area>/` and extend `res://tests/base_test.gd`.
 
 ## 15. Phase 3 order
 
-All seven Phase 3 agents start together against this contract. Integration order in Phase 4: core, boosters (GameSession), audio, skins and design, board, then ui and save. Core logic and boosters must reach full unit test coverage of the GDD rules before they are integrated.
+Everyone builds against this contract, in three waves, so each agent can run its own tests against real code below it:
+
+1. **Wave 1:** core-logic-dev (all of src/core/, including BoosterStatus and RunSummary), audio-dev, and the senior-graphic-designer (the checks move to the SkinData resources; the launcher icon tool).
+2. **Wave 2, once core is committed:** boosters-dev (BoosterRules, GameSession), tile-board-artist (per skin board and tile views, SkinCatalog factories), ui-motion-artist (UiKit, Theme, icons, Motion), and ui-systems-dev (Settings, SaveCodec, SaveService).
+3. **Wave 3, once boosters is committed:** board-input-dev (BoardController, BoardGeometry) and ui-systems-dev (App, screens and panels).
+
+Core logic and boosters must reach full unit test coverage of the GDD rules before they are integrated. Integration in Phase 4 follows the same order, and the DM wires scenes/main.tscn last.
