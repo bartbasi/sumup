@@ -445,9 +445,10 @@ static func make_booster_bar(skin: SkinData) -> SkinBoosterBar
 static func make_icon(skin: SkinData) -> SkinIcon
 static func make_toggle(skin: SkinData) -> SkinToggle
 static func make_backdrop(skin: SkinData) -> SkinBackdrop
+static func make_icon_button(skin: SkinData, icon_name: StringName) -> BaseButton   # a touch_min square button with the skin icon drawn on its face; emits pressed
 ```
 
-**Theme.** `build_theme` sets the default font to the body role and defines these type variations in every skin: DisplayLabel, TitleLabel, BodyLabel, MutedLabel, CaptionLabel, PrimaryButton, SecondaryButton, ChipButton, CardPanel, PillPanel, HintPanel, Hairline, plus any DESIGN_SYSTEM.md adds. Buttons have normal, hover, pressed, disabled and focus styles. The App sets the theme on its root Control, so every screen and panel inherits it.
+**Theme.** `build_theme` sets the default font to the body role and defines these type variations in every skin: DisplayLabel, TitleLabel, BodyLabel, MutedLabel, CaptionLabel, PrimaryButton, SecondaryButton, ChipButton, CardPanel, PillPanel, HintPanel, Hairline, IconButton, BadgePanel, BadgeLabel, SignalLabel, HintLabel. SignalLabel takes the title role case, except Slate, where it takes the label role. A Theme cannot set text case or alignment, so screens apply `skin.cased()` themselves and left align Slate's primary buttons. UiKit factories return components already set up. Buttons have normal, hover, pressed, disabled and focus styles. The App sets the theme on its root Control, so every screen and panel inherits it.
 
 ```gdscript
 class_name SkinHud extends Control
@@ -457,7 +458,7 @@ func set_scores(score: int, best_score: int) -> void
 func set_context(text: String, highlight: bool) -> void   # a skin that has no context row ignores it
 func preview_slot() -> Control                            # where the screen puts a SkinTileView preview; null when the skin previews on the board
 func score_label() -> Label                               # for Motion.count_up
-## D-38 clear notice (AT-104). Builds its own copy from DESIGN_SYSTEM.md 7.8 and places itself:
+## D-38 clear notice (AT-104). Builds its own copy from DESIGN_SYSTEM.md 7.10 and places itself:
 ## Gumdrop and Nova on the board's top edge (board_rect is global), Slate in its context row.
 ## Never blocks input; a later call replaces a notice still showing.
 func show_clear_notice(cleared_values: PackedInt64Array, board_rect: Rect2) -> void
