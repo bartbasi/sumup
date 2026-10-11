@@ -45,6 +45,16 @@ func assert_ne(actual: Variant, unexpected: Variant, message: String = "") -> vo
 		fail(_with_context("expected anything but %s" % _describe(unexpected), message))
 
 
+func assert_null(value: Variant, message: String = "") -> void:
+	if value != null:
+		fail(_with_context("expected null, got %s" % _describe(value), message))
+
+
+func assert_not_null(value: Variant, message: String = "") -> void:
+	if value == null:
+		fail(_with_context("expected a value, got null", message))
+
+
 ## Passes when two numbers are within tolerance of each other.
 func assert_near(actual: float, expected: float, tolerance: float = 0.0001, message: String = "") -> void:
 	if absf(actual - expected) > tolerance:

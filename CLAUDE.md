@@ -77,7 +77,7 @@ godot --headless --path . --script res://tests/run_tests.gd   # all tests; exit 
 
 - Put tests in `tests/<area>/test_*.gd`. Each file starts with `extends "res://tests/base_test.gd"`.
 - Every method named `test_*` runs on a fresh instance. Optional hooks: `before_each()`, `after_each()`.
-- Helpers: `assert_true`, `assert_false`, `assert_eq`, `assert_ne`, `assert_near`, `fail`.
+- Helpers: `assert_true`, `assert_false`, `assert_eq`, `assert_ne`, `assert_null`, `assert_not_null`, `assert_near`, `fail`.
 - A script error raised while a test runs (a null access, for example) counts as a failure.
 - Tests are synchronous. Seed every RandomNumberGenerator so results repeat.
 
