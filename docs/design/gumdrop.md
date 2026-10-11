@@ -10,10 +10,10 @@ Every tile is a squircle with a darker lip underneath, like a keycap or a gummy 
 
 - Top row: round settings button on the left, a "Best" pill on the right. Below it the score, centered and huge.
 - Board in a rounded tray, 36 px from the screen edges.
-- Boosters in a floating rounded dock above the gesture bar. Each booster is a raised button with its cost inside.
-- Chain preview: a white bubble above the last tile in the chain, holding a mini tile of the result.
-- Game over: the board dims under a plum scrim and a rounded card springs up from the bottom with the score, the best tile as a real tile, and a big pink "Shuffle for 1,500" button.
-- Settings: the same card style, with a chunky toggle and skin chips that show three mini tiles each.
+- Boosters in a floating rounded dock above the gesture bar. Each booster is a raised button with its cost inside, as a tile label (2K). A booster you cannot use sits flat and dark, with no lip.
+- Chain preview: a mini tile of the result with a white ring, sitting on the gap crossing at the top left corner of the last chain tile. It covers only rounded corners, never a number.
+- Game over (the no moves offer): a rounded card takes the HUD's place with "Out of moves", the score, a big pink "Shuffle for 4K" button and "End run". The board stays fully visible below it, and the dock offers every booster with its cost.
+- Settings: a card rises over the dimmed game, with a chunky toggle and skin choices that preview three tiles of each skin.
 
 ## Palette
 
@@ -37,6 +37,7 @@ Every tile is a squircle with a darker lip underneath, like a keycap or a gummy 
 | disabled_ink | #A39AAE | its icon and cost |
 | chain, target | #FFF7FC | rope, rings; target ring has a #1C0D2B edge |
 | scrim | #150820 at 78% | behind dialogs |
+| divider | #3F2956 | 4 px rounded hairline |
 
 ## Tile ramp
 
@@ -65,7 +66,7 @@ System font (Roboto on Android, Segoe UI on Windows), heavy throughout, sentence
 | title | 76 | 900 | -1 |
 | body | 46 | 700 | 0 |
 | label | 34 | 700 | +1 |
-| tile number | 48% of tile for 1 character, 44% for 2, 36% for 3, 28.5% for 4 | 900 | -1 |
+| tile number | 48% of tile for 1 character, 44% for 2, 36% for 3, 31% for 4 | 900 | -1 |
 
 ## Shape
 

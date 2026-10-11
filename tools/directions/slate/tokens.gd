@@ -26,6 +26,7 @@ func _init() -> void:
 		"chain": Color("#F5F2E9"),          # chain line, nodes and the frame on chained tiles
 		"chain_edge": Color("#0E0F12"),     # thin dark edge around the chain line
 		"target": Color("#FA5D36"),         # corner brackets on the targeted tile
+		"scrim": Color("#0B0C0ED1"),        # bg at 82 percent over the board under the settings sheet
 	}
 
 	# Tile ramp, value 2 first. One continuous walk round the color wheel.
@@ -69,11 +70,12 @@ func _init() -> void:
 		pair("Booster name and cost", "ink", "bg"),
 		pair("Booster name and cost, targeting (paper fill)", "ink_dark", "ink"),
 		pair("Booster name and cost, disabled", "disabled_ink", "bg"),
+		pair("Signal label, for example OUT OF MOVES", "accent", "bg"),
 		pair("Targeting hint bar", "ink_dark", "accent"),
 		pair("Primary button", "ink_dark", "accent"),
 		pair("Primary button, pressed", "ink_dark", "accent_pressed"),
-		pair("Rows and secondary buttons, pressed", "ink", "surface"),
-		pair("Labels on pressed rows and chips", "ink_muted", "surface"),
+		pair("Text on surface: chips, pressed rows, pressed secondary buttons", "ink", "surface"),
+		pair("Labels on surface: chips and pressed rows", "ink_muted", "surface"),
 		pair("Skin chip, selected (paper fill)", "ink_dark", "ink"),
 	]
 
@@ -86,7 +88,7 @@ func _init() -> void:
 		"label": {"size": 30, "weight": 600, "tracking": 4, "case": CASE_UPPER},    # labels, costs
 		"tile": {"weight": 700, "tracking": -1, "case": CASE_NONE},
 	}
-	tile_number_scale = PackedFloat32Array([0.40, 0.40, 0.32, 0.25])
+	tile_number_scale = PackedFloat32Array([0.40, 0.40, 0.33, 0.31])
 
 	# Shape and layout. Lengths in px on the 1080 px canvas unless noted.
 	shape = {
@@ -94,15 +96,20 @@ func _init() -> void:
 		"gap": 10.0,                  # between tiles
 		"tile_radius": 6.0,           # px, nearly square
 		"number_inset": 0.11,         # fraction of tile side: number sits top left, this far in
-		"line_width": 8.0,            # chain line, drawn over tile fills and under numbers
+		"line_width": 8.0,            # chain line, drawn over tile fills and under numbers. It runs
+		                              # node to node only, with no tail to the finger.
+		"number_knockout": 6.0,       # px outline in the tile fill color round numbers on chained
+		                              # tiles, so the line stops cleanly at the glyph edge
 		"line_edge": 3.0,             # dark edge on each side of the chain line
 		"node_size": 24.0,            # square node at each chained tile center
 		"chain_frame": 6.0,           # paper frame inset on chained tiles
 		"target_bracket": 0.30,       # fraction of tile side: arm length of each corner bracket
-		"target_bracket_width": 8.0,
+		"target_bracket_width": 6.0,  # px, drawn hugging the outside of the tile edge, no offset
 		"rule_width": 2.0,            # hairlines
 		"special_from": 32768.0,      # tiles from this value get an inner hairline frame
 		"special_inset": 0.06,        # fraction of tile side: inset of that frame
+		"flash_cut": 0.05,            # merge result shows paper while the flash level is at least this
+		"label_fit": 0.84,            # widest tile label as a fraction of the tile side (inset left, 5 percent right)
 		"preview_tile": 112.0,        # side of the preview tile in the header
 		"button_radius": 4.0,
 		"button_height": 136.0,
@@ -114,6 +121,15 @@ func _init() -> void:
 		"space_l": 64.0,
 		"space_xl": 104.0,
 		"touch_min": 132.0,           # smallest touch target side
+		# Interface sizes, px
+		"booster_icon": 66.0,         # icon in a booster column
+		"hud_icon": 72.0,             # settings icon in the HUD
+		"icon_stroke": 2.0,           # icon stroke on the 24 unit grid
+		"focus_width": 4.0,
+		"focus_gap": 4.0,
+		"toggle_track_w": 120.0,
+		"toggle_track_h": 60.0,
+		"toggle_knob_inset": 8.0,
 	}
 
 	# Motion: fast, exact cuts. Ease out only, no overshoot, nothing bounces.
@@ -125,7 +141,8 @@ func _init() -> void:
 		"merge_pop": {"duration": 0.16, "trans": Tween.TRANS_EXPO, "ease": Tween.EASE_OUT, "flash": 1.0},
 		"button_press": {"duration": 0.04, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT},
 		"button_release": {"duration": 0.10, "trans": Tween.TRANS_QUART, "ease": Tween.EASE_OUT},
-		"dialog_in": {"duration": 0.24, "trans": Tween.TRANS_EXPO, "ease": Tween.EASE_OUT, "wipe": 1.0},
+		# Cards slide down from from_offset px above and fade in. No scaling, so text never squashes.
+		"dialog_in": {"duration": 0.24, "trans": Tween.TRANS_EXPO, "ease": Tween.EASE_OUT, "from_offset": -32.0, "from_alpha": 0.0},
 		"screen_fade": {"duration": 0.12, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT},
 		# Duration 0 means no pulse: in Slate the target brackets hold still.
 		"target_pulse": {"duration": 0.0, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT},

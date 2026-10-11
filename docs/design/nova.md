@@ -10,10 +10,11 @@ Round orbs float on deep space with no tray and no grid lines. Their color follo
 
 - Score centered at the top in a thin, very large numeral, with "best 48,212" small and lowercase under it. Settings is a thin icon in a ring, top right.
 - Orbs float straight on the backdrop: a soft violet glow in the upper middle fading to deep space, with a little fixed star dust.
-- Boosters are five ring buttons in a row with no container, each with its cost underneath. The active one fills with aurora cyan light.
-- Chain preview: a small orb of the result floats just above the last orb in the chain.
-- Game over: the board fades back to a faint glow, and the best tile sits large in the middle like a star, with the final score in thin type and a cyan "Shuffle for 1,500" button.
-- Settings slides up as a dark sheet with rounded top corners.
+- Boosters are five ring buttons in a row with no container, each with its cost underneath as a tile label (2K). The active one fills with aurora cyan light.
+- Chain preview: a small orb of the result floats in the gap at the top left of the last orb in the chain, clear of its neighbors.
+- Game over (the no moves offer): "Out of moves" in light type floats where the score was, with the score under it, a cyan "Shuffle for 4K" pill and an "End run" ring button. The board stays fully visible below and the rings offer every booster.
+- Settings slides up as a dark sheet with rounded top corners over the dimmed game.
+- Star dust never sits under text.
 
 ## Palette
 
@@ -63,11 +64,11 @@ System font, light for big numbers, semibold on orbs, lowercase labels.
 | title | 68 | 300 | +1 | as written |
 | body | 44 | 400 | 0 | as written |
 | label | 32 | 400 | +3 | lowercase |
-| tile number | 42% of orb for 1 character, 38% for 2, 31% for 3, 24.5% for 4 | 600 | 0 | |
+| tile number | 46% of orb for 1 character, 42% for 2, 37% for 3, 31.5% for 4 | 600 | 0 | |
 
 ## Shape
 
-Orb diameter 84% of the cell pitch, 4 px rim in the fill lightened 35%. Chain beam: 12 px white core over a 44 px glow at 28%. Chained orbs get an 8 px white rim. Target: a dashed cyan orbit ring 10% outside the orb. Ring buttons 148 px across with a 3 px ring. Settings sheet radius 64 px.
+Orb diameter 88% of the cell pitch, 4 px rim in the fill lightened 35%. From 32K, 12 corona rays from 1.08 to 1.24 orb radii. Chain beam: 12 px white core over a 44 px glow at 28%. Chained orbs get an 8 px white rim. Target: a dashed cyan orbit ring 10% outside the orb. Ring buttons 148 px across with a 3 px ring. Settings sheet radius 64 px.
 
 ## Motion
 

@@ -16,11 +16,13 @@ extends Node
 ##                           outside the repo), for the font comparison
 ##     --suffix <text>       added to the default file names, for example -outfit
 ##     --frames <n>          frames to wait before grabbing, default 12
+##     --size <w>x<h>        canvas size, default 1080x2400
+##     --safe <top>,<bottom> simulated safe area in px, default 120,66
 ## Examples:
 ##     godot --path . res://tools/capture.tscn -- --direction nova --screen board
 ##     godot --path . res://tools/capture.tscn -- --scene res://tools/directions/slate/board/board_sheet.tscn --out docs/design/review/board-slate-sheet.png
 ##
-## Every scene renders into its own 1080 by 2400 SubViewport with no MSAA,
+## Every scene renders into its own SubViewport (1080 by 2400 unless --size) with no MSAA,
 ## the same as the game will. Script errors and engine errors logged while a
 ## scene loads or renders count as failures. Exits with code 0 when every PNG
 ## was written and nothing failed, and 1 otherwise.
@@ -76,6 +78,7 @@ class CaptureJob extends RefCounted:
 
 var _catcher: ErrorCatcher = ErrorCatcher.new()
 var _preview: TextureRect = null
+var _canvas: Vector2i = MockState.CANVAS_SIZE
 
 
 func _ready() -> void:
@@ -107,6 +110,13 @@ func _run() -> int:
 		print("capture: nothing to capture")
 		return 1
 	var wait_frames: int = int(options.get("frames", DEFAULT_WAIT_FRAMES))
+	if options.has("safe"):
+		var insets: PackedStringArray = String(options["safe"]).split(",")
+		MockState.use_safe_area(insets[0].to_int(), insets[1].to_int())
+	_canvas = MockState.CANVAS_SIZE
+	if options.has("size"):
+		var parts: PackedStringArray = String(options["size"]).split("x")
+		_canvas = Vector2i(parts[0].to_int(), parts[1].to_int())
 	var failed: int = 0
 	for job: CaptureJob in jobs:
 		var ok: bool = await _capture(job, wait_frames)
@@ -118,7 +128,7 @@ func _run() -> int:
 
 func _parse_options(args: PackedStringArray) -> Dictionary:
 	var options: Dictionary = {}
-	var keys: PackedStringArray = ["direction", "screen", "scene", "out", "font", "suffix", "frames"]
+	var keys: PackedStringArray = ["direction", "screen", "scene", "out", "font", "suffix", "frames", "size", "safe"]
 	var i: int = 0
 	while i < args.size():
 		var arg: String = args[i]
@@ -137,6 +147,14 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 		return {"error": "unknown screen '%s'" % options["screen"]}
 	if options.has("frames") and int(options["frames"]) < 1:
 		return {"error": "--frames needs a whole number of at least 1"}
+	if options.has("size"):
+		var parts: PackedStringArray = String(options["size"]).split("x")
+		if parts.size() != 2 or parts[0].to_int() < 100 or parts[1].to_int() < 100:
+			return {"error": "--size looks like 1080x1920"}
+	if options.has("safe"):
+		var insets: PackedStringArray = String(options["safe"]).split(",")
+		if insets.size() != 2 or not insets[0].is_valid_int() or not insets[1].is_valid_int():
+			return {"error": "--safe looks like 72,144"}
 	return options
 
 
@@ -167,7 +185,7 @@ func _capture(job: CaptureJob, wait_frames: int) -> bool:
 		_print_failure(job, PackedStringArray(["could not load the scene"]) + _catcher.take())
 		return false
 	var viewport: SubViewport = SubViewport.new()
-	viewport.size = MockState.CANVAS_SIZE
+	viewport.size = _canvas
 	viewport.transparent_bg = false
 	viewport.disable_3d = true
 	viewport.msaa_2d = Viewport.MSAA_DISABLED
@@ -182,8 +200,8 @@ func _capture(job: CaptureJob, wait_frames: int) -> bool:
 	_preview.texture = null
 	viewport.queue_free()
 	var problems: PackedStringArray = _catcher.take()
-	if image == null or image.get_size() != MockState.CANVAS_SIZE:
-		problems.append("rendered image is missing or not %dx%d" % [MockState.CANVAS_SIZE.x, MockState.CANVAS_SIZE.y])
+	if image == null or image.get_size() != _canvas:
+		problems.append("rendered image is missing or not %dx%d" % [_canvas.x, _canvas.y])
 	else:
 		DirAccess.make_dir_recursive_absolute(job.out_path.get_base_dir())
 		var err: Error = image.save_png(job.out_path)

@@ -33,6 +33,7 @@ func _init() -> void:
 		"target": Color("#FFF7FC"),           # targeting ring, drawn with a target_edge outline
 		"target_edge": Color("#1C0D2B"),
 		"scrim": Color("#150820C7"),          # bg at 78 percent over the board behind dialogs
+		"divider": Color("#3F2956"),         # Hairline: a 4 px rounded groove, visible on bg and on surface
 	}
 
 	# Tile ramp, value 2 first. Low values are bright candy with dark numbers,
@@ -93,7 +94,7 @@ func _init() -> void:
 		"label": {"size": 34, "weight": 700, "tracking": 1, "case": CASE_NONE},     # labels, costs
 		"tile": {"weight": 900, "tracking": -1, "case": CASE_NONE},
 	}
-	tile_number_scale = PackedFloat32Array([0.48, 0.44, 0.36, 0.285])
+	tile_number_scale = PackedFloat32Array([0.48, 0.44, 0.36, 0.31])
 
 	# Shape and layout. Lengths in px on the 1080 px canvas unless noted.
 	shape = {
@@ -109,7 +110,14 @@ func _init() -> void:
 		"rope_width": 30.0,       # chain rope, drawn under the tiles so it shows in the gaps
 		"ring_width": 7.0,        # ring on chained tiles
 		"target_ring_width": 9.0,
-		"preview_scale": 0.62,    # preview bubble tile, fraction of tile side
+		"preview_scale": 0.46,    # preview mini tile, fraction of tile side. It sits on the gap
+		                          # crossing at the top left corner of the last chain tile (top
+		                          # right in column 0), covering only rounded corners, never numbers.
+		"preview_ring": 6.0,      # px, chain color ring round the preview mini tile
+		"target_edge_width": 4.0, # px, dark outer edge of the target ring
+		"special_rim_width": 8.0, # px, candy rim on special tiles
+		"special_rim_segments": 16.0, # color segments in the candy rim, cycling the 2 to 256 colors
+		"label_fit": 0.88,        # widest tile label as a fraction of the tile side (6 percent padding each side)
 		"special_from": 32768.0,  # tiles from this value get the candy rim effect
 		"pill_height": 96.0,
 		"pill_radius": 48.0,
@@ -124,6 +132,19 @@ func _init() -> void:
 		"space_l": 56.0,
 		"space_xl": 88.0,
 		"touch_min": 132.0,       # smallest touch target side
+		# Interface sizes, px
+		"booster_icon": 84.0,     # icon inside a booster button
+		"active_raise": 6.0,      # how much higher the active booster sits
+		"hud_icon": 84.0,         # settings icon in the HUD
+		"icon_stroke": 3.5,       # icon stroke on the 24 unit grid
+		"button_lip_pressed": 3.0,
+		"focus_width": 5.0,
+		"focus_gap": 6.0,
+		"divider_width": 4.0,
+		"toggle_track_w": 140.0,
+		"toggle_track_h": 76.0,
+		"toggle_knob": 54.0,
+		"toggle_knob_lip": 5.0,
 	}
 
 	# Motion: springy. Overshoot on arrival, squash on landing, nothing linear.

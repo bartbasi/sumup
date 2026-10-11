@@ -11,9 +11,9 @@ Slate treats the board like a page of a well set newspaper. Small values are dar
 - Header, left aligned: "SCORE" in small capitals over a very large score. Settings icon and "BEST 48,212" on the right.
 - Under a hairline, a context row: while dragging it reads "CHAIN 6" with the result as a small tile on the right; in targeting mode it turns into a vermilion bar, "HAMMER: TAP A TILE TO SMASH IT".
 - Board almost edge to edge, 44 px from the screen sides, with 10 px gaps and no tray.
-- Booster strip, 192 px tall, under a hairline: five equal columns split by vertical hairlines, each with icon, name and cost. The active booster column fills with paper white. A booster you cannot afford has its cost struck through.
-- Game over takes over the full screen: "OUT OF MOVES", the final score huge, a ruled table with best score and best tile, the final board as a small figure, and two full width buttons.
-- Settings is a full page of ruled rows, with a segmented control for skins.
+- Booster strip, 192 px tall, under a hairline: five equal columns split by vertical hairlines, each with icon, name and cost (as a tile label, 2K). The active booster column fills with paper white. A booster you cannot use has its cost struck through.
+- Game over (the no moves offer) takes the header: "OUT OF MOVES" in signal vermilion over the score, best on the right, a hairline, then "Shuffle for 4K" and "End run" side by side. The board stays fully visible below and the strip offers every booster.
+- Settings is a sheet of ruled rows that drops from the top over the dimmed board.
 
 ## Palette
 
@@ -31,6 +31,7 @@ Slate treats the board like a page of a well set newspaper. Small values are dar
 | chain | #F5F2E9 | chain line, nodes, frame on chained tiles |
 | chain_edge | #0E0F12 | dark edge on the chain line |
 | target | #FA5D36 | corner brackets on the targeted tile |
+| scrim | #0B0C0E at 82% | over the board under the settings sheet |
 
 ## Tile ramp
 
@@ -61,12 +62,12 @@ System font, grotesk feel, everything left aligned.
 | title | 72 | 700 | -2 | as written |
 | body | 44 | 500 | 0 | as written |
 | label | 30 | 600 | +4 | CAPITALS |
-| tile number, top left | 40% of tile for 1 or 2 characters, 32% for 3, 25% for 4 | 700 | -1 | |
+| tile number, top left | 40% of tile for 1 or 2 characters, 33% for 3, 31% for 4 | 700 | -1 | |
 
 ## Shape
 
-Tile corners 6 px. Gaps 10 px. Number inset 11% of the tile side from the top left. Chain line 8 px with a 3 px dark edge and square 24 px nodes. Chained tiles get a 6 px paper frame inside the edge. Target: four vermilion corner brackets. Buttons radius 4 px. Hairlines 2 px.
+Tile corners 6 px. Gaps 10 px. Number inset 11% of the tile side from the top left. Chain line 8 px with a 3 px dark edge and square 24 px nodes, node to node with no tail. It runs under the numbers: on chained tiles each number has a 6 px outline in its tile color, so the line stops cleanly at the glyph. Chained tiles get a 6 px paper frame inside the edge. Target: four 6 px vermilion corner brackets hugging the tile. Buttons radius 4 px. Hairlines 2 px.
 
 ## Motion
 
-Fast, exact cuts with ease out curves and no overshoot. New tiles wipe down from their top edge in 0.14 s, all at once. Falls take 0.16 s. A tile joins the chain in 0.06 s. On merge the chain slides into the last tile (0.12 s) and the result flashes paper white, then cuts to its color (0.16 s). Dialogs wipe in from the top (0.24 s). The target brackets hold still.
+Fast, exact cuts with ease out curves and no overshoot. New tiles wipe down from their top edge in 0.14 s, all at once. Falls take 0.16 s. A tile joins the chain in 0.06 s. On merge the chain slides into the last tile (0.12 s) and the result flashes paper white, then cuts to its color (0.16 s). Sheets slide 32 px down from above and fade in (0.24 s), with no scaling. The target brackets hold still.
