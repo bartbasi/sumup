@@ -1,9 +1,9 @@
 extends "res://tools/directions/board_common/board_base.gd"
 ## The Nova board: orbs floating on the backdrop with no tray and no grid. The
 ## chain is a beam of light under the orbs, its glow taking the chained orbs'
-## colors, with a white core. The preview is a small orb floating just above
-## the last chain orb, in the gap where four orbs meet. Slow, smooth glides
-## and blooms of light.
+## colors, with a white core. The preview is a small orb in the gap where
+## four orbs meet, at the top left corner of the last chain orb's cell. Slow,
+## smooth glides and blooms of light.
 ##
 ## Draw order: every glow, then the beam, then every orb, so no glow and no
 ## beam ever crosses an orb's number.
@@ -20,9 +20,6 @@ extends "res://tools/directions/board_common/board_base.gd"
 
 const TilePainter: GDScript = preload("res://tools/directions/nova/board/tile_painter.gd")
 
-# Proposed token: extra glow at the middle of the spawn, the small bloom of light.
-const SPAWN_BLOOM: float = 0.6
-
 var _painter: TilePainter = null
 var _preview_painter: TilePainter = null
 var _rest_fx: TileFx = TileFx.new()
@@ -35,7 +32,7 @@ func spawn_frame(fx: TileFx, progress: float) -> void:
 	var amount: float = MotionMath.eased(tokens, "spawn", progress)
 	fx.scale = Vector2.ONE * lerpf(MotionMath.extra(tokens, "spawn", "from_scale"), 1.0, amount)
 	fx.alpha = lerpf(MotionMath.extra(tokens, "spawn", "from_alpha"), 1.0, amount)
-	fx.glow = amount + SPAWN_BLOOM * sin(PI * clampf(amount, 0.0, 1.0))
+	fx.glow = amount + tokens.num("spawn_bloom") * sin(PI * clampf(amount, 0.0, 1.0))
 
 
 func pop_frame(fx: TileFx, progress: float) -> void:
@@ -79,9 +76,9 @@ func _draw() -> void:
 			continue
 		var glow: float = 1.0
 		if _chain_index[index] >= 0:
-			glow = lerpf(1.0, TilePainter.CHAIN_GLOW, _chain_amount[index])
+			glow = lerpf(1.0, tokens.num("chain_glow"), _chain_amount[index])
 		if index == target_index:
-			glow = TilePainter.TARGET_GLOW
+			glow = tokens.num("target_glow")
 		_painter.draw_glow(self, _center_of(index), _cells[index], glow, _fx[index])
 	_draw_beam()
 	for layer: int in TileFx.LAYER_TOP + 1:
@@ -95,7 +92,7 @@ func _draw() -> void:
 		var breath: float = 0.0
 		var period: float = tokens.duration("target_pulse")
 		if _targeting and period > 0.0:
-			turn = TilePainter.ORBIT_TURN * _pulse_time / period
+			turn = tokens.num("orbit_turn") * _pulse_time / period
 			breath = MotionMath.loop_wave(tokens, "target_pulse", _pulse_time)
 		_painter.draw_orbit(self, _center_of(target_index), turn, breath)
 	_draw_preview()
@@ -127,22 +124,14 @@ func _draw_beam() -> void:
 		draw_circle(_line_points[i], core_width * 0.5, core, true, -1.0, true)
 
 
-## The preview: a small orb with glow, floating just above the last chain
-## orb in the open space where four orbs meet, so it never covers another
-## orb's number. It takes the upper right corner of the last orb's cell, or
-## the upper left one when the chain comes in through that corner or the orb
-## is in the right column. In the top row it takes a lower corner instead.
+## The preview: a small orb with glow on the gap crossing at the top left
+## corner of the last chain orb's cell (top right when it is in column 0),
+## in the open space where four orbs meet, clear of their rims.
 func _draw_preview() -> void:
 	if _preview <= 0 or _chain.is_empty():
 		return
 	var last: Vector2i = _chain.back()
-	var vertical: int = -1 if last.y > 0 else 1
-	var horizontal: int = 1
-	if last.x >= MockState.COLUMNS - 1:
-		horizontal = -1
-	elif _chain.size() >= 2 and _chain[_chain.size() - 2] == last + Vector2i(1, vertical):
-		horizontal = -1
-	var corner: Vector2 = Vector2(last) + Vector2(0.5, 0.5) + Vector2(horizontal, vertical) * 0.5
+	var corner: Vector2 = Vector2(last) + (Vector2(1.0, 0.0) if last.x == 0 else Vector2.ZERO)
 	var preview_center: Vector2 = cell_point(corner)
 	_preview_painter.draw_glow(self, preview_center, _preview, 1.0, _rest_fx)
 	_preview_painter.draw_orb(self, preview_center, _preview, 0.0, _rest_fx)

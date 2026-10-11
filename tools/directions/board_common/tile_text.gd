@@ -10,8 +10,13 @@ extends RefCounted
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd")
 
-## Values from 2 (index 0) up to 2 to the power of MAX_INDEX + 1.
-const MAX_INDEX: int = 40
+## Values from 2 (index 0) up to 2 to the power of MAX_INDEX + 1, the
+## highest value MockState.tile_label() keeps to 4 characters.
+const MAX_INDEX: int = 48
+## Godot's text outline size reaches about a quarter of its value past the
+## glyph edge (measured on the capture renderer), so an outline that reaches
+## n px past the edge needs size 4 n. Engine behavior, not a design token.
+const OUTLINE_SIZE_PER_PX: float = 4.0
 ## Size the cap height is measured at, large so rounding is negligible.
 const MEASURE_SIZE: int = 400
 ## Cap height as a fraction of the font size, used only if measuring fails.
@@ -94,6 +99,14 @@ func draw_centered(item: CanvasItem, center: Vector2, index: int, ink: Color) ->
 func draw_top_left(item: CanvasItem, top_left: Vector2, index: int, ink: Color) -> void:
 	var baseline: Vector2 = Vector2(top_left.x, top_left.y + cap_height(index))
 	item.draw_string(font, baseline, _labels[index], HORIZONTAL_ALIGNMENT_LEFT, -1.0, _sizes[index], ink)
+
+
+## Draws only an outline round a label placed as by draw_top_left(),
+## reaching reach px past the glyph edges.
+func draw_top_left_outline(item: CanvasItem, top_left: Vector2, index: int, reach: float, outline_color: Color) -> void:
+	var outline_size: int = maxi(1, roundi(reach * OUTLINE_SIZE_PER_PX))
+	var baseline: Vector2 = Vector2(top_left.x, top_left.y + cap_height(index))
+	item.draw_string_outline(font, baseline, _labels[index], HORIZONTAL_ALIGNMENT_LEFT, -1.0, _sizes[index], outline_size, outline_color)
 
 
 ## Box the label's digits cover when drawn with draw_top_left().

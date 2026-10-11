@@ -16,26 +16,6 @@ const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd
 const TileFx: GDScript = preload("res://tools/directions/board_common/tile_fx.gd")
 const TileText: GDScript = preload("res://tools/directions/board_common/tile_text.gd")
 
-# Proposed token: glow amount on chained orbs (1 is the resting glow).
-const CHAIN_GLOW: float = 1.4
-# Proposed token: glow amount on the targeted orb.
-const TARGET_GLOW: float = 1.5
-# Proposed token: number of dashes in the target orbit ring.
-const ORBIT_DASHES: int = 24
-# Proposed token: share of each dash period that is drawn.
-const ORBIT_DASH_FILL: float = 0.55
-# Proposed token: orbit radius grows by this fraction at the top of a breath.
-const ORBIT_BREATH: float = 0.05
-# Proposed token: turns the orbit makes per target_pulse loop.
-const ORBIT_TURN: float = 0.08
-# Proposed token: corona rays start this many orb radii from the center.
-const RAY_INNER: float = 1.08
-# Proposed token: and end here.
-const RAY_OUTER: float = 1.3
-# Proposed token: px, corona ray width.
-const RAY_WIDTH: float = 3.0
-## Corona ray count, from the brief.
-const RAY_COUNT: int = 12
 ## Glow never reaches past this many orb radii: the brief lets effects draw
 ## outside the tile rect by up to 30 percent of the side.
 const GLOW_LIMIT: float = 1.6
@@ -83,9 +63,10 @@ func setup(tile_tokens: DirectionTokens) -> void:
 	_glow_texture.fill_to = Vector2(1.0, 0.5)
 	_glow_texture.width = GLOW_TEXTURE_SIZE
 	_glow_texture.height = GLOW_TEXTURE_SIZE
-	_ray_directions.resize(RAY_COUNT)
-	for i: int in RAY_COUNT:
-		var angle: float = TAU * (float(i) + 0.5) / float(RAY_COUNT)
+	var ray_count: int = maxi(0, roundi(tokens.num("ray_count")))
+	_ray_directions.resize(ray_count)
+	for i: int in ray_count:
+		var angle: float = TAU * (float(i) + 0.5) / float(ray_count)
 		_ray_directions[i] = Vector2(cos(angle), sin(angle))
 	side = 0.0
 
@@ -102,9 +83,9 @@ func set_side(tile_side: float) -> void:
 
 ## A whole orb in one go, for TileView: glow, orb, orbit.
 func draw_tile(item: CanvasItem, center: Vector2, value: int, chain: float, target: bool, fx: TileFx) -> void:
-	var glow: float = lerpf(1.0, CHAIN_GLOW, chain)
+	var glow: float = lerpf(1.0, tokens.num("chain_glow"), chain)
 	if target:
-		glow = TARGET_GLOW
+		glow = tokens.num("target_glow")
 	draw_glow(item, center, value, glow, fx)
 	draw_orb(item, center, value, chain, fx)
 	if target:
@@ -149,9 +130,11 @@ func draw_orb(item: CanvasItem, center: Vector2, value: int, chain: float, fx: T
 	rim_color.a *= fx.alpha
 	item.draw_circle(Vector2.ZERO, radius, fill, true, -1.0, true)
 	if value >= _special_from:
-		var ray_width: float = RAY_WIDTH * unit
+		var ray_width: float = tokens.num("ray_width") * unit
+		var ray_inner: float = radius * tokens.num("ray_inner")
+		var ray_outer: float = radius * tokens.num("ray_outer")
 		for direction: Vector2 in _ray_directions:
-			item.draw_line(direction * radius * RAY_INNER, direction * radius * RAY_OUTER, rim_color, ray_width, true)
+			item.draw_line(direction * ray_inner, direction * ray_outer, rim_color, ray_width, true)
 	var chain_color: Color = tokens.color("chain")
 	chain_color.a *= fx.alpha
 	var rim_width: float = lerpf(tokens.num("rim_width"), tokens.num("chain_rim_width"), chain) * unit
@@ -161,14 +144,16 @@ func draw_orb(item: CanvasItem, center: Vector2, value: int, chain: float, fx: T
 
 
 ## The dashed target orbit round an orb. turn is in turns (1 is a full turn),
-## breath from 0 to 1 widens the ring by ORBIT_BREATH.
+## breath from 0 to 1 widens the ring by orbit_breath.
 func draw_orbit(item: CanvasItem, center: Vector2, turn: float, breath: float) -> void:
-	var radius: float = side * 0.5 * (1.0 + tokens.num("orbit_offset")) * (1.0 + ORBIT_BREATH * breath)
+	var radius: float = side * 0.5 * (1.0 + tokens.num("orbit_offset")) * (1.0 + tokens.num("orbit_breath") * breath)
 	var width: float = tokens.num("orbit_width") * unit
 	var orbit_color: Color = tokens.color("target")
-	var step: float = TAU / float(ORBIT_DASHES)
-	var dash: float = step * ORBIT_DASH_FILL
-	var points: int = maxi(3, CIRCLE_POINTS / ORBIT_DASHES + 2)
-	for i: int in ORBIT_DASHES:
+	var dashes: int = maxi(1, roundi(tokens.num("orbit_dashes")))
+	var step: float = TAU / float(dashes)
+	var dash: float = step * tokens.num("orbit_dash_fill")
+	@warning_ignore("integer_division")
+	var points: int = maxi(3, CIRCLE_POINTS / dashes + 2)
+	for i: int in dashes:
 		var start: float = TAU * turn + step * float(i)
 		item.draw_arc(center, radius, start, start + dash, points, orbit_color, width, true)

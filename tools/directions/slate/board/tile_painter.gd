@@ -80,7 +80,7 @@ func draw_tile(item: CanvasItem, center: Vector2, value: int, chain: float, targ
 	draw_body(item, center, value, chain, fx)
 	if chain > 0.0:
 		draw_node(item, center + fx.offset, chain)
-	draw_number(item, center, value, fx)
+	draw_number(item, center, value, fx, chain)
 	if target:
 		draw_brackets(item, center + fx.offset)
 
@@ -108,26 +108,24 @@ func draw_body(item: CanvasItem, center: Vector2, value: int, chain: float, fx: 
 	item.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
-## The number, top left, its cap top on the inset line.
-func draw_number(item: CanvasItem, center: Vector2, value: int, fx: TileFx) -> void:
+## The number, top left, its cap top on the inset line. On a chained tile
+## (chain above 0) it first gets a number_knockout outline in the tile's own
+## fill, so the chain line stops cleanly short of the glyphs and the number
+## keeps its exact contrast.
+func draw_number(item: CanvasItem, center: Vector2, value: int, fx: TileFx, chain: float = 0.0) -> void:
 	var index: int = TileText.index_of(value)
 	if not _visible(fx) or index < 0:
 		return
 	var local: Rect2 = _begin(item, center, fx)
 	var ink: Color = tokens.color("ink_dark") if fx.flash else tokens.ink_for(value)
 	ink.a *= fx.alpha
-	var inset: float = tokens.num("number_inset") * side
-	text.draw_top_left(item, local.position + Vector2(inset, inset), index, ink)
+	var top_left: Vector2 = local.position + Vector2.ONE * tokens.num("number_inset") * side
+	if chain > 0.0:
+		var knockout: Color = tokens.color("ink") if fx.flash else tokens.fill_for(value)
+		knockout.a *= fx.alpha
+		text.draw_top_left_outline(item, top_left, index, tokens.num("number_knockout") * unit, knockout)
+	text.draw_top_left(item, top_left, index, ink)
 	item.draw_set_transform_matrix(Transform2D.IDENTITY)
-
-
-## The box the number covers on a tile at rest centered on center.
-func number_box(center: Vector2, value: int) -> Rect2:
-	var index: int = TileText.index_of(value)
-	if index < 0:
-		return Rect2()
-	var inset: float = tokens.num("number_inset") * side
-	return text.box_top_left(_tile_rect(center).position + Vector2(inset, inset), index)
 
 
 ## The square chain node on a tile center, with its dark edge. amount grows
@@ -142,7 +140,9 @@ func draw_node(item: CanvasItem, center: Vector2, amount: float = 1.0) -> void:
 	item.draw_rect(Rect2(center - Vector2(node, node) * 0.5, Vector2(node, node)), tokens.color("chain"))
 
 
-## Four corner brackets just outside the tile corners. They hold still.
+## Four corner brackets hugging the outside of the tile corners, with no
+## offset, target_bracket_width thick, so they stay inside the gap and never
+## reach the neighbor tile. They hold still.
 func draw_brackets(item: CanvasItem, center: Vector2) -> void:
 	var rect: Rect2 = _tile_rect(center)
 	var arm: float = tokens.num("target_bracket") * side

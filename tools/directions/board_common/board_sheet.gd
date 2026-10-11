@@ -157,9 +157,10 @@ func _caption(text: String, baseline_left: Vector2, width: float, centered: bool
 	_caption_boxes.append(Vector4(baseline_left.x, baseline_left.y, width, 1.0 if centered else 0.0))
 
 
-## Captions use the direction's label text pair. When that pair's background
-## is not bg, each caption sits on a plate of its background color, so the
-## text is always on a listed pair.
+## Captions use the direction's label text pair, and each sits on a plate of
+## that pair's background color. On bg the plate is invisible, but where a
+## glow or ray from a tile reaches under a caption, the plate keeps the text
+## on its flat listed background.
 func _pick_caption_pair() -> void:
 	_caption_font = _tokens.font("label")
 	_caption_size = _tokens.font_size("label")
@@ -173,12 +174,10 @@ func _pick_caption_pair() -> void:
 	if chosen.is_empty():
 		chosen = _tokens.text_pairs[0]
 	_caption_color = _tokens.color(String(chosen["fg"]))
-	var bg: String = String(chosen["bg"])
-	if bg != "bg":
-		_plate = StyleBoxFlat.new()
-		_plate.bg_color = _tokens.color(bg)
-		_plate.set_corner_radius_all(PLATE_RADIUS)
-		_plate.anti_aliasing = true
+	_plate = StyleBoxFlat.new()
+	_plate.bg_color = _tokens.color(String(chosen["bg"]))
+	_plate.set_corner_radius_all(PLATE_RADIUS)
+	_plate.anti_aliasing = true
 
 
 func _draw() -> void:

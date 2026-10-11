@@ -1,7 +1,8 @@
 extends "res://tools/directions/board_common/board_base.gd"
 ## The Gumdrop board: candy tiles in a rounded tray, a white rope under the
-## tiles that shows in the gaps like beads on a string, and a white preview
-## bubble above the last chain tile. Springy motion with overshoot.
+## tiles that shows in the gaps like beads on a string, and the preview as a
+## ringed mini tile on the gap crossing by the last chain tile. Springy motion
+## with overshoot.
 ##
 ## Effect functions (see board_base.gd for the players):
 ##   spawn_frame(fx, progress)        pop in from from_scale, back ease
@@ -13,14 +14,6 @@ extends "res://tools/directions/board_common/board_base.gd"
 
 const TilePainter: GDScript = preload("res://tools/directions/gumdrop/board/tile_painter.gd")
 
-# Proposed token: preview bubble padding round the mini tile, fraction of the tile side.
-const PREVIEW_PADDING: float = 0.08
-# Proposed token: preview bubble pointer height, fraction of the tile side.
-const POINTER_HEIGHT: float = 0.09
-# Proposed token: preview bubble pointer base width, fraction of the tile side.
-const POINTER_WIDTH: float = 0.18
-# Proposed token: space between the pointer tip and the tile, fraction of the tile side.
-const BUBBLE_GAP: float = 0.03
 ## Peak overshoot of Godot's back ease out (it overshoots by 10 percent).
 ## The squash grows with the overshoot and is full at this point.
 const BACK_OVERSHOOT: float = 0.1
@@ -29,9 +22,6 @@ var _painter: TilePainter = null
 var _preview_painter: TilePainter = null
 var _rest_fx: TileFx = TileFx.new()
 var _tray_box: StyleBoxFlat = null
-var _bubble_box: StyleBoxFlat = null
-var _pointer: PackedVector2Array = PackedVector2Array()
-var _pointer_outline: PackedVector2Array = PackedVector2Array()
 
 
 func spawn_frame(fx: TileFx, progress: float) -> void:
@@ -72,20 +62,12 @@ func _setup_painters() -> void:
 	_tray_box.bg_color = tokens.color("tray")
 	_tray_box.anti_aliasing = true
 	_tray_box.corner_detail = TilePainter.CORNER_DETAIL
-	_bubble_box = StyleBoxFlat.new()
-	_bubble_box.bg_color = tokens.color("ink")
-	_bubble_box.anti_aliasing = true
-	_bubble_box.corner_detail = TilePainter.CORNER_DETAIL
-	_pointer.resize(3)
-	_pointer_outline.resize(4)
 
 
 func _on_layout() -> void:
 	_painter.set_side(_side)
 	_preview_painter.set_side(tokens.num("preview_scale") * _side)
 	_tray_box.set_corner_radius_all(roundi(tokens.num("tray_radius") * _scale))
-	var bubble_side: float = _bubble_side()
-	_bubble_box.set_corner_radius_all(roundi(tokens.num("tile_radius") * bubble_side))
 
 
 func _draw() -> void:
@@ -133,35 +115,15 @@ func _wobble() -> float:
 	return deg_to_rad(MotionMath.extra(tokens, "target_pulse", "wobble_degrees")) * (wave * 2.0 - 1.0)
 
 
-func _bubble_side() -> float:
-	return (tokens.num("preview_scale") + 2.0 * PREVIEW_PADDING) * _side
-
-
-## The preview bubble with its pointer and the mini tile of the result.
+## The preview: the result as a mini tile with its lip and a preview_ring
+## ring in chain, centered on the gap crossing at the top left corner of the
+## last chain tile (top right when that tile is in column 0). It covers only
+## the rounded corners of the four tiles round the crossing, never a number.
 func _draw_preview() -> void:
 	if _preview <= 0 or _chain.is_empty():
 		return
 	var last: Vector2i = _chain.back()
-	var tile: Rect2 = cell_rect(last)
-	var bubble_side: float = _bubble_side()
-	var pointer_height: float = POINTER_HEIGHT * _side
-	var gap: float = BUBBLE_GAP * _side
-	var above: bool = last.y > 0
-	var center_x: float = clampf(tile.get_center().x, _board_rect.position.x + bubble_side * 0.5, _board_rect.end.x - bubble_side * 0.5)
-	var tip: Vector2 = Vector2(tile.get_center().x, tile.position.y - gap if above else tile.end.y + gap)
-	var bubble_top: float = tip.y - pointer_height - bubble_side if above else tip.y + pointer_height
-	var bubble: Rect2 = Rect2(center_x - bubble_side * 0.5, bubble_top, bubble_side, bubble_side)
-	var base_y: float = bubble.end.y if above else bubble.position.y
-	var half_base: float = POINTER_WIDTH * _side * 0.5
-	var ink: Color = tokens.color("ink")
-	_pointer[0] = Vector2(tip.x - half_base, base_y)
-	_pointer[1] = Vector2(tip.x + half_base, base_y)
-	_pointer[2] = tip
-	_pointer_outline[0] = _pointer[0]
-	_pointer_outline[1] = _pointer[2]
-	_pointer_outline[2] = _pointer[1]
-	_pointer_outline[3] = _pointer[0]
-	draw_colored_polygon(_pointer, ink)
-	draw_polyline(_pointer_outline, ink, 1.0, true)
-	_bubble_box.draw(get_canvas_item(), bubble)
-	_preview_painter.draw_tile(self, bubble.get_center(), _preview, 0.0, false, _rest_fx)
+	var corner: Vector2 = Vector2(last) + (Vector2(1.0, 0.0) if last.x == 0 else Vector2.ZERO)
+	var center: Vector2 = cell_point(corner)
+	_preview_painter.draw_outer_ring(self, center, tokens.num("preview_ring") * _scale)
+	_preview_painter.draw_tile(self, center, _preview, 0.0, false, _rest_fx)

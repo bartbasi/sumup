@@ -285,6 +285,11 @@ func _travel_follows_path() -> bool:
 	return true
 
 
+## Whether the chain line runs on from the last chain cell to the finger.
+func _line_has_tail() -> bool:
+	return true
+
+
 ## Whether the chain line disappears the moment a merge starts (true) or
 ## pulls in behind the travelling tiles (false).
 func _line_cuts_on_merge() -> bool:
@@ -311,7 +316,8 @@ func _center_of(index: int) -> Vector2:
 
 
 ## Fills _line_points with the chain line in px, from the trail start through
-## the chain centers to the drag point. Sets _line_count.
+## the chain centers to the drag point (when the direction draws a tail).
+## Sets _line_count.
 func _build_line() -> void:
 	_line_count = 0
 	if _chain.is_empty() or _line_hidden:
@@ -326,7 +332,7 @@ func _build_line() -> void:
 		if _chain_distance[i] > _trail or (_trail <= 0.0):
 			_line_points[_line_count] = cell_center(_chain[i])
 			_line_count += 1
-	if _drag_active:
+	if _drag_active and _line_has_tail():
 		_line_points[_line_count] = cell_point(_drag)
 		_line_count += 1
 

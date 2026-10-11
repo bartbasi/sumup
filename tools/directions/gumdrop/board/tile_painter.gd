@@ -14,12 +14,6 @@ const TileFx: GDScript = preload("res://tools/directions/board_common/tile_fx.gd
 const TileText: GDScript = preload("res://tools/directions/board_common/tile_text.gd")
 const MotionMath: GDScript = preload("res://tools/directions/board_common/motion_math.gd")
 
-# Proposed token: px, dark outer edge of the target ring (target_edge color).
-const TARGET_EDGE_WIDTH: float = 4.0
-# Proposed token: px, width of the candy rim on special tiles.
-const SPECIAL_RIM_WIDTH: float = 8.0
-# Proposed token: number of color segments in the candy rim, cycling 2 to 256.
-const SPECIAL_RIM_SEGMENTS: int = 16
 ## Ramp colors the candy rim cycles through: values 2 to 256.
 const RIM_RAMP_COLORS: int = 8
 ## Points sampled round the candy rim.
@@ -90,7 +84,7 @@ func set_side(tile_side: float) -> void:
 	_ring_box.set_border_width_all(maxi(1, roundi(ring)))
 	var target_ring: float = tokens.num("target_ring_width") * unit
 	_target_box.set_border_width_all(maxi(1, roundi(target_ring)))
-	_edge_box.set_border_width_all(maxi(1, roundi(TARGET_EDGE_WIDTH * unit)))
+	_edge_box.set_border_width_all(maxi(1, roundi(tokens.num("target_edge_width") * unit)))
 	_build_rim(radius)
 
 
@@ -142,7 +136,7 @@ func draw_tile(item: CanvasItem, center: Vector2, value: int, chain: float, targ
 	var outside: float = 0.0
 	if value >= _special_from:
 		_draw_rim(item, face.get_center(), turn, tile_scale, origin, fx.alpha)
-		outside = SPECIAL_RIM_WIDTH * unit
+		outside = tokens.num("special_rim_width") * unit
 		item.draw_set_transform(origin, turn, tile_scale)
 	if chain > 0.0:
 		var ring_color: Color = tokens.color("chain")
@@ -158,6 +152,17 @@ func draw_tile(item: CanvasItem, center: Vector2, value: int, chain: float, targ
 
 	text.draw_centered(item, face.get_center(), index, ink)
 	item.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+## Draws a ring width px wide in the chain color just outside a resting
+## tile centered on center, round its lip and face. Used for the preview.
+func draw_outer_ring(item: CanvasItem, center: Vector2, width: float) -> void:
+	var ring_width: int = maxi(1, roundi(width))
+	_ring_box.set_border_width_all(ring_width)
+	_ring_box.border_color = tokens.color("chain")
+	var body: Rect2 = Rect2(center - Vector2(side, side) * 0.5, Vector2(side, side))
+	_draw_ring(_ring_box, item.get_canvas_item(), body, float(ring_width))
+	_ring_box.set_border_width_all(maxi(1, roundi(tokens.num("ring_width") * unit)))
 
 
 ## Draws a ring around rect, grown outward by grow px, keeping the squircle.
@@ -176,19 +181,19 @@ func _draw_rim(item: CanvasItem, face_center: Vector2, turn: float, tile_scale: 
 		colors = _rim_colors.duplicate()
 		for i: int in colors.size():
 			colors[i].a *= alpha
-	item.draw_polyline_colors(_rim_points, colors, SPECIAL_RIM_WIDTH * unit, true)
+	item.draw_polyline_colors(_rim_points, colors, tokens.num("special_rim_width") * unit, true)
 
 
 ## Samples the candy rim path: a rounded rect round the face, offset out by
 ## half the rim width, with a ramp color per segment.
 func _build_rim(radius: float) -> void:
-	var rim: float = SPECIAL_RIM_WIDTH * unit
+	var rim: float = tokens.num("special_rim_width") * unit
 	var face_size: Vector2 = Vector2(side, side - tokens.num("lip_depth") * side)
 	var path_size: Vector2 = face_size + Vector2(rim, rim)
 	var path_radius: float = minf(radius + rim * 0.5, minf(path_size.x, path_size.y) * 0.5)
 	_rim_points = _rounded_rect_path(path_size, path_radius, RIM_POINTS)
 	_rim_colors.resize(_rim_points.size())
-	var per_segment: float = float(RIM_POINTS) / float(SPECIAL_RIM_SEGMENTS)
+	var per_segment: float = float(RIM_POINTS) / maxf(1.0, tokens.num("special_rim_segments"))
 	for i: int in _rim_points.size():
 		var segment: int = int(floorf(float(i % RIM_POINTS) / per_segment))
 		_rim_colors[i] = tokens.fill_for(2 << (segment % RIM_RAMP_COLORS))
