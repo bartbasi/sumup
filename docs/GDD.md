@@ -1,14 +1,14 @@
 # numbersgame: Game Design Document
 
-Owner: lead-game-designer. Status: draft for Bart's sign-off at Hard Stop 1.
+Owner: lead-game-designer. Status: approved by Bart at Hard Stop 1 on 2026-10-10. Decisions D-38 to D-43 were added after Hard Stop 1: they write out the three additions Bart made to v1 scope and close two gaps found in the design review.
 
-This document turns section 3 of docs/BRIEF.md into exact rules. The rules Bart confirmed are copied unchanged in section 4. Every gap the brief leaves open is settled here as a numbered designer decision (D-01, D-02, ...) with its reasoning and worked examples. Every tunable number lives in one table in section 18. Section 19 is the acceptance test list (AT-01, AT-02, ...) that QA walks and developers turn into unit tests.
+This document turns section 3 of docs/BRIEF.md into exact rules. The rules Bart confirmed are copied unchanged in section 4. Every gap the brief leaves open is settled here as a numbered designer decision (D-01, D-02, ...) with its reasoning and worked examples. Every tunable number lives in one table in section 18. Section 19 is the acceptance test list (AT-01, AT-02, ...) that QA walks and developers turn into unit tests. Section 20 lists the test hooks those tests need from the code.
 
 All rules here describe the rules model only. They do not depend on any screen, so level goals could be added later. Nothing here is designed for level goals.
 
 ## 1. Decision summary
 
-One line per designer decision. Bart signs off on this list.
+One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. D-38 to D-43 were added afterwards (section 1.1).
 
 | ID | Decision | Section |
 |---|---|---|
@@ -20,43 +20,53 @@ One line per designer decision. Bart signs off on this list.
 | D-06 | The chain path may cross itself. Leaving the board keeps the chain. Lifting anywhere commits a chain of 2 or more. | 6 |
 | D-07 | A tile joins only when the finger is within 0.42 of the tile pitch from its center, so diagonal moves never catch the side tiles. | 6 |
 | D-08 | Only the first finger counts. Booster taps are ignored while a chain is being dragged. | 6 |
-| D-09 | A committed chain resolves in a fixed order: score, place result, clear, gravity, spawn, records, save, move check. | 8 |
+| D-09 | A committed chain resolves in a fixed order: score, place result, clear the chain, clear small tiles (D-38), gravity, spawn, records, save, move check. | 8 |
 | D-10 | Spawn window: four values in a row, the top one is the larger of 16 and highest tile divided by 64. Weights 40, 30, 20, 10 from smallest to largest. | 9 |
 | D-11 | The spawn window is worked out from the board at the moment of spawning, after gravity. A merge or Hammer that changes the highest tile changes the window at once. | 9 |
 | D-12 | Empty cells fill column by column from the left, and from the top row down inside each column. | 9 |
-| D-13 | Tiles smaller than the current spawn window stay on the board and play normally. | 9 |
+| D-13 | Replaced by D-38 at Hard Stop 1. (It said tiles smaller than the spawn window stay on the board.) | 9.4 |
 | D-14 | Starting board: 40 tiles drawn from the starting spawn window, redrawn until it has a valid chain, with a fixed fallback after 100 tries. | 10 |
 | D-15 | A board has a valid move if and only if two touching tiles (eight directions) have the same value. | 12 |
-| D-16 | Best Score updates live whenever the current score goes above it. Bart, please confirm (see open question Q1). | 11 |
+| D-16 | Best Score updates live whenever the current score goes above it. Confirmed by Bart at Hard Stop 1. | 11 |
 | D-17 | Best Tile is the highest value ever on the board, from any source (merge, Double, spawn). It never goes down. | 11 |
 | D-18 | Only committed chains add points. Boosters never add points. | 11 |
-| D-19 | No moves left: the run pauses on an offer of every booster the player can afford and use, Shuffle marked as the suggested rescue. The run ends only when the player taps End run, or at once if nothing is usable. | 12 |
+| D-19 | No moves left: the run pauses on an offer of every booster the player can afford and use, with one suggested rescue marked (D-42). The run ends only when the player taps End run, or at once if nothing is usable. | 12 |
 | D-20 | Cost basis B is the larger of the highest tile on the board and 128. Hammer costs B, Swap B, Shuffle B, Double 2 times B, Undo half of B. | 13.2 |
 | D-21 | A cost is read from the board when the booster is used and charged only when its effect applies. | 13.1 |
 | D-22 | Targeting: tap the booster to enter, tap it again to cancel, tap another booster to switch. Nothing is charged until the effect applies. | 13.1 |
 | D-23 | Hammer removes the tile, the tiles above fall one cell, and one new tile spawns at the top of that column. | 13.3 |
 | D-24 | Swap works on any two tiles anywhere. Tapping the selected tile again deselects it. A tile with the same value as the selected one cannot be picked. | 13.4 |
 | D-25 | Shuffle always leaves at least one valid chain when the board holds any two tiles of equal value, which is always true while the highest tile is below 2^40. | 13.5 |
-| D-26 | Double doubles one tile in place. No gravity, no spawn. | 13.6 |
+| D-26 | Double doubles one tile in place. No gravity and no spawn, unless the Double raises the spawn window and small tiles clear (D-38). | 13.6 |
 | D-27 | Undo goes back one step only. It restores the board from before the last chain and takes that chain's points off the score. Every cost paid since then stays spent, including Undo's own cost. | 13.7 |
 | D-28 | Undo is affordable only when the score minus the last chain's points is at least the Undo cost. | 13.7 |
 | D-29 | Undo does not lower Best Score or Best Tile and does not rewind the random number generator. | 13.7 |
 | D-30 | Score never goes below zero: the rules model refuses any booster the player cannot afford. It never clamps a negative score to zero. | 13.8 |
 | D-31 | Tile labels: the full number up to 1024. From 2048 up, a number from 1 to 512 plus K, M, B or T (2K, 512K, 1M). Never more than 4 characters. | 14 |
 | D-32 | The score shows in full with commas (1,234,567). Booster costs and the merge preview use the tile label format. | 14 |
-| D-33 | The run saves as soon as each move resolves, before its animation ends, and when the app is paused. A drag in progress and targeting mode are not saved. | 15 |
+| D-33 | The run (including this run's highest tile) saves as soon as each move resolves, before its animation ends, and when the app is paused. A drag in progress and targeting mode are not saved. | 15 |
 | D-34 | Starting a new game while a run is in progress asks for confirmation, then discards the saved run. | 15 |
 | D-35 | One move at a time: no new chain or booster is accepted until the previous move has finished on screen. | 15 |
 | D-36 | The click plays for every tile added to a chain, including the first, and once on commit. Never on backtrack or cancel. | 16 |
 | D-37 | Tile values and the score are 64-bit integers with no cap. | 5 |
+| D-38 | Small tile clearing: when a chain or a Double raises the spawn window's smallest value, every tile below the new smallest value clears at once, scores nothing, and the board refills (gravity, then spawns) before the move check. Replaces D-13. | 9.4 |
+| D-39 | Hammer, Swap, Shuffle and Undo never trigger clearing. Undo brings back tiles the undone chain cleared. Clearing never touches Best Tile or this run's highest tile. A Hammer that lowers the highest tile lets smaller values spawn again until the window rises again. | 9.4 |
+| D-40 | While dragging, exactly the tiles that would join if the finger moved onto them now are highlighted (D-04). Tiles already in the chain, including the backtrack tile, are never highlighted. | 6.7 |
+| D-41 | This run's highest tile is the highest value on the board at any time this run, from any source. Hammer and Undo never lower it. It is saved with the run and shown on the end of run screen with the final score, Best Score, Best Tile and New game. | 11.4, 12.3 |
+| D-42 | The no moves offer marks Shuffle as the suggested rescue when it is usable, otherwise Undo when it is usable, otherwise nothing. | 12.2 |
+| D-43 | Hammer and Double act on one tap, and Swap acts on the tap of its second tile. There is no select then confirm step. A highlight under a pressed finger is press feedback only. | 13.1 |
 
-### 1.1 Open question for Bart
+### 1.1 Sign-off
 
-- **Q1. When does Best Score update?** This document uses the live rule (D-16): Best Score rises the moment the score passes it, so spending afterwards does not lower the record. The brief's line "spending on boosters lowers the final score" could instead mean Best Score should only take the score at the end of a run. Section 11.2 shows both rules side by side. Recommendation: the live rule. Changing it touches only D-16 and tests AT-41, AT-42 and AT-80.
+- Bart approved every rule in this document as recommended at Hard Stop 1 on 2026-10-10.
+- **Q1 resolved:** Best Score updates live (D-16 stands).
+- Bart added three things to v1 scope: small tiles clear automatically as the game moves up, as in 2248 (D-38 and D-39, replacing D-13); tiles that could join next are highlighted while dragging (D-40); the end of run screen shows this run's highest tile (D-41).
+- Not added: a confirm step before Shuffle and Undo.
+- D-42 and D-43 settle two gaps found in the Phase 1 design review.
 
-### 1.2 Decisions worth a closer look
+### 1.2 Decisions highlighted for Hard Stop 1
 
-These settle gaps the brief leaves open, but they shape how the game feels, so Bart may want to read the reasoning:
+These settled gaps the brief left open and shape how the game feels, so they were pointed out to Bart at Hard Stop 1:
 
 - D-02 (round down): makes progress steadier and the late game tenser than rounding up.
 - D-20 (costs scale with the highest tile): a booster costs about the same share of a typical score all run.
@@ -84,6 +94,9 @@ These settle gaps the brief leaves open, but they shape how the game feels, so B
 | Move | A committed chain, or one use of a booster (Undo included). |
 | Resolved | The rules model has fully applied a move, including gravity and spawns. |
 | Spawn window | The four values that new tiles can have right now (section 9). |
+| Window floor | The smallest value in the spawn window: the larger of 16 and H / 64, divided by 8. It is 2 until H reaches 2048, then H / 512. |
+| Joinable tile | A tile that would join the chain if the finger moved onto it now (section 6.1). |
+| Run highest tile | The highest value that has been on the board at any time during this run (section 11.4). |
 | Valid move | Any chain of 2 or more tiles that the player could commit right now. |
 
 ## 4. Confirmed rules (copied unchanged from docs/BRIEF.md, section 3)
@@ -227,6 +240,38 @@ row 7:    8   32    8
 
 A second drag on the same board: start at (1,6) = 2, move to (1,5) = 4. The 4 does not join because the first two tiles must be equal. Lift: the chain has 1 tile, so it cancels. Nothing changes.
 
+### 6.7 Joinable highlight (D-40)
+
+While a chain is being dragged, every joinable tile is highlighted, and no other tile. A tile is joinable when the joining rule (6.1) would let it join if the finger moved onto it now:
+
+1. It touches the chain's last tile (eight directions).
+2. It is not already in the chain.
+3. Chain of 1 tile: its value equals the first tile's value.
+4. Chain of 2 or more tiles: its value equals the last tile's value or is exactly double it.
+
+Further rules:
+
+- The set is worked out again every time the chain changes: a tile joins, or a backtrack removes one. Finger movement that changes nothing (passing over a tile that cannot join, or the dead zones of D-07) does not change it.
+- Tiles already in the chain are never highlighted as joinable. That includes the tile just before the last one, which a backtrack would return to (D-05). The look of chain tiles is unchanged by this rule.
+- After a backtrack, the set comes from the new last tile. The tile that just left the chain is highlighted again if it is joinable from there.
+- If no tile is joinable, nothing is highlighted. The player can backtrack or lift.
+- No highlight before the first tile is touched, after the finger lifts, in targeting mode, or during the no moves offer.
+- The highlight is only a display. It does not change hit testing: a tile still joins only when the finger is within the D-07 radius.
+- The player can rely on it both ways: a highlighted tile always joins when the finger reaches it, and a tile that is not highlighted never does.
+- How the highlight looks is a design system choice.
+
+Worked examples on Board P (section 19.0):
+
+| # | Chain so far (cells) | Last tile | Highlighted | Why the other touching tiles are not |
+|---|---|---|---|---|
+| HL1 | (1,6) | 2 | (0,6), (2,6) | The other neighbors are 4, 8 or 32. A double does not count yet at 1 tile. |
+| HL2 | (1,6), (2,6) | 2 | (1,5), (3,6) (both 4) | (1,6) is in the chain (it is the backtrack tile). 8, 16 and 32 are more than double. |
+| HL3 | (1,6), (2,6), (3,6) | 4 | (2,5), (4,5), (3,7), (4,7) (all 8) | (4,6) = 2 is half. (3,5) = 16 and (2,7) = 32 are too big. |
+| HL4 | (1,6), (2,6), (3,6), (2,5) | 8 | (3,5) (16) | Its free neighbors are 2s and 4s. Three neighbors are in the chain. |
+| HL5 | (1,6), (2,6), (3,6), (2,5), (3,5) | 16 | none | No free neighbor is 16 or 32. |
+| HL6 | backtrack from HL5 onto (2,5) | 8 | (3,5) | Same as HL4: the 16 that just left is joinable again. |
+| HL7 | (2,7) | 32 | none | No neighbor is 32. |
+
 ## 7. Merge result and preview
 
 ### 7.1 Rounding (D-02)
@@ -292,7 +337,7 @@ Worked example, dragging chain M8 one tile at a time:
 1. Undo snapshot: store the board as it is now and the chain's sum (its points). This replaces any older snapshot (section 13.7).
 2. Add the sum to the score.
 3. Put the result value (section 7) in the chain's last cell.
-4. Empty every other cell of the chain.
+4. Empty every other cell of the chain. Then small tile clearing (D-38, section 9.4): if this chain raised the window floor, also empty every cell whose value is below the new window floor.
 5. Gravity: in each column, tiles move straight down to fill the empty cells below them, keeping their order. The result tile falls too if cells below it were emptied.
 6. Spawn: fill every empty cell (section 9). After gravity all empty cells are at the top of their columns.
 7. Records: Best Score becomes the larger of Best Score and the score. Best Tile becomes the larger of Best Tile and H.
@@ -372,13 +417,62 @@ Empty cells fill column by column from column 0 to column 4, and inside a column
 
 Worked example: after gravity the empty cells are (3,0), (1,0) and (1,1). The next three draws give 8, 2 and 4. Result: (1,0) = 8, (1,1) = 2, (3,0) = 4.
 
-### 9.4 Tiles below the window (D-13)
+### 9.4 Small tile clearing (D-38 and D-39, replacing D-13)
 
-Tiles smaller than the current window stay on the board and follow every normal rule.
+D-13 (small tiles stay) was replaced at Hard Stop 1. Bart asked for small tiles to clear automatically as the game moves up, as in 2248.
 
-Worked example: H reaches 2048 while the board holds three 2s. No new 2s spawn. Two touching 2s can still merge. A 2 that never meets another 2 stays until the player doubles it with Double (it becomes a 4, which still spawns), removes it with Hammer, or uses Swap to move it next to another 2.
+**D-38. Trigger and effect.**
 
-Reasoning: removing them automatically would be a new feature. Leaving them adds light pressure in long runs and gives Hammer and Double a clear job.
+- The window floor (section 3) is worked out from the board before a move and again right after the move's result is in place: after the chain's result is placed and its other cells emptied, or after a Double.
+- If the floor went up, every tile on the board whose value is below the new floor is removed at once. A big jump can clear several values in one go (example CL3).
+- Only a committed chain or a Double triggers it. Undo can also raise H, when it brings back a tile that was hammered after the chain, but Undo never triggers clearing (D-39).
+- Cleared tiles score no points (D-18 stands: only chains add points).
+- The clear happens inside the move, before gravity (step 4 of section 8). Then gravity, spawns, records, save and the move check run as usual. H does not change during clearing or gravity, so the spawn window for the refill is the new one. New tiles are never below the floor.
+- Clearing never removes the result tile or the doubled tile. They are the new H, and after a rise the floor is H / 512.
+- The move check runs after the refill, so clearing can create a valid move (CL1, CL2) or leave the board with none.
+- The player must see which values were cleared and that they no longer spawn. How this is shown is a design system choice. It is part of the move's animation, so D-35 applies.
+
+**D-39. Interaction with other rules.**
+
+| Rule | What happens |
+|---|---|
+| Hammer | Never triggers clearing: removing a tile cannot raise H. Hammering the highest tile can lower the floor, so smaller values can spawn again. They clear again when the floor rises again (CL4). |
+| Swap, Shuffle | Never trigger clearing. Values do not change. |
+| Double | Triggers clearing when it raises the floor, which happens only when it doubles the highest tile past a step. The Double then gets gravity and spawns (CL2). |
+| Undo | Never triggers clearing. It restores the snapshot board exactly, so tiles that the undone chain cleared come back (CL5). The restored board's own floor is the floor it had before. |
+| Best Tile, run highest tile | Never affected. Cleared tiles are always far below H. |
+| Score | Not affected. Cleared tiles add no points and cost nothing. |
+| Starting board, loading a saved run | No clearing. Neither is a move that raises the floor. |
+
+In real play the board therefore never holds a tile below the current window floor. After a Hammer lowers the floor, smaller values may spawn again, but they are inside the new window.
+
+**How this compares with 2248.** In 2248, when the player reaches a new top tile, the smallest value on the board is removed, stops spawning, and the board refills. D-38 does the same. Differences, and why:
+
+1. When it happens. 2248 does not document its exact milestones, so we cannot copy them. D-38 ties the clear to our spawn window (D-10), so a value clears at the very moment it stops spawning: each time H doubles from 2048 on. One rule covers both.
+2. Points. Cleared tiles score nothing, so the score still counts only the chains the player made (D-18). We do not know for sure whether 2248 awards anything here.
+3. Hammer. Our window follows the current board (D-11), so hammering the highest tile lets the smaller value back until the highest tile climbs again. Every rule stays a function of the board alone, so Undo and saving need no extra state.
+4. Presentation. The game does not stop for an announcement. The player sees the clear as part of the move.
+
+None of this conflicts with the brief.
+
+Worked examples. Boards D and E are defined in section 19.0.
+
+- **CL1. Clearing creates the only valid move.** Board E with (0,3) = 2, (4,6) = 1024 and (4,7) = 1024. Score 10,000. H = 1024, floor 2. The only valid move is the 1024 pair. The player merges (4,6), (4,7):
+  1. Score 12,048. The result 2048 goes on (4,7), and (4,6) is emptied.
+  2. H is now 2048, so the floor rises from 2 to 4. The 2 on (0,3) is cleared.
+  3. Gravity: column 0 rows 0 to 2 fall one row, and column 4 rows 0 to 5 fall one row.
+  4. Spawn (0,0), then (4,0), from 4, 8, 16, 32 (say 8 and 8).
+  5. Column 0 now reads 8, 4, 8, 4, 4, 8, 4, 8, so (0,3) and (0,4) are both 4. That is the only valid move. Without the clear, the board would have none.
+- **CL2. Clearing after a Double.** Board E with (0,3) = 2 and (2,0) = 1024. Score 5,000. The board has no valid move, so the no moves offer is open. The player uses Double on (2,0):
+  1. Cost 2,048, so the score is 2,952. The tile becomes 2048.
+  2. The floor rises from 2 to 4 and the 2 on (0,3) is cleared.
+  3. Column 0 falls one row and (0,0) refills (say 8).
+  4. (0,3) and (0,4) are both 4. The board has a valid move and the offer closes.
+- **CL3. Two values at once.** Board D with (0,7), (1,7), (2,7) and (3,7) all 1024. Score 0. H = 1024, floor 2. The player merges the four 1024s (sum 4,096). Result 4096 on (3,7), score 4,096. The floor rises from 2 to 8, so all twelve 2s and all eight 4s of Board D clear. With the three emptied chain cells, 23 cells refill from 8, 16, 32, 64.
+- **CL4. Hammer lowers the floor, then a chain raises it again.** Board E with (2,7) = 2048, (4,6) = 1024 and (4,7) = 1024. Score 10,000.
+  1. The player hammers the 2048 (cost 2,048, score 7,952). H drops to 1024 and the floor to 2. Column 2 falls one row, and the new tile at (2,0) can be a 2 (say it is).
+  2. The player merges the 1024 pair. H is 2048 again and the floor rises to 4, so the 2 on (2,0) clears. Score 10,000.
+- **CL5. Undo after a clear.** Right after CL1, the player uses Undo. Cost 1,024 (B = 2048). The board returns to the CL1 setup, including the 2 on (0,3). Score 12,048 minus 2,048 minus 1,024 = 8,976.
 
 ### 9.5 Random numbers
 
@@ -419,7 +513,7 @@ After every resolved move, if the score is higher than Best Score, Best Score be
 
 Reasoning: it needs no definition of when a run "ends" (game over, abandoned with New game, app uninstalled mid-run), and the player sees a new record the moment it happens. Spending still has a real cost: every point spent must be earned back before the run can set a higher record.
 
-This is a decision Bart should confirm (open question Q1). His line "spending on boosters lowers the final score" could mean Best Score should only count the score at the end of a run. The alternative rule would be: Best Score updates only when a run ends, from the final score.
+Bart confirmed the live rule at Hard Stop 1 (Q1). The table compares it with the alternative he considered, where Best Score updates only when a run ends, from the final score.
 
 | # | Situation | Best Score with the live rule (D-16) | With the end of run alternative |
 |---|---|---|---|
@@ -442,6 +536,26 @@ Reasoning: the rule matches what the player saw. A Double tile was paid for with
 | T4 | A chain makes 32768, then the player uses Undo. | 32768 |
 
 Before the first run ever, Best Score and Best Tile are both 0. After the first starting board appears, Best Tile is that board's highest tile (at most 16).
+
+### 11.4 This run's highest tile (D-41)
+
+- The run highest tile is the highest value that has been on the board at any time during this run, from any source: starting board, spawn, merge or Double.
+- It is set from the starting board when a run begins. After that it is updated at the same moments as Best Tile (step 7 of section 8, after every resolved move): if H is higher, it becomes H.
+- It never goes down. Hammer (even on the highest tile) and Undo do not lower it. Small tile clearing never touches it (D-39).
+- It belongs to the run. It is saved with the run (section 15.1), restored on resume, and replaced when a new run starts. Best Tile is always at least as high.
+- The end of run screen shows it (section 12.3). Showing it anywhere else is not required.
+
+Reasoning: it uses the same rule as Best Tile, limited to one run, so the player sees how far this run got even after a Hammer or an Undo took the tile away.
+
+| # | Situation | Run highest tile after | Best Tile after (was 8192) |
+|---|---|---|---|
+| RH1 | A new run starts. The starting board's highest tile is 16. | 16 | 8192 |
+| RH2 | Merges make a 2048. | 2048 | 8192 |
+| RH3 | Double turns the 2048 into 4096. | 4096 | 8192 |
+| RH4 | The player hammers the 4096. H drops to 1024. | 4096 | 8192 |
+| RH5 | Later a chain makes 16384, then the player uses Undo. | 16384 | 16384 |
+| RH6 | The run ends. The end of run screen shows final score, Best Score, Best Tile 16K and run highest tile 16K. | 16384 | 16384 |
+| RH7 | New game. The new starting board's highest tile is 8. | 8 | 16384 |
 
 ## 12. Game over
 
@@ -466,7 +580,7 @@ When the move check after a move, or after loading a saved run, finds no valid m
 1. Chain input stops. The board stays visible so the player can judge which booster would help.
 2. The game works out which boosters are usable now. A booster is usable when it is affordable (section 13). Undo also needs a snapshot (section 13.7).
 3. If none is usable, the run ends at once (12.3). The player sees that it ended because no moves were left.
-4. Otherwise the player sees: that no moves are left; every booster with its cost, usable ones enabled and the rest visibly disabled; Shuffle marked as the suggested rescue whenever it is usable; and an End run choice.
+4. Otherwise the player sees: that no moves are left; every booster with its cost, usable ones enabled and the rest visibly disabled; the suggested rescue marked (D-42, below); and an End run choice.
 5. Choosing Shuffle or Undo applies it at once. Choosing Hammer, Swap or Double enters targeting on the board. Cancelling targeting (tapping the booster again) returns to the offer with nothing charged.
 6. After any booster resolves, the move check runs again. If a valid move exists, play goes on normally. If not, the offer opens again with costs and usability worked out afresh.
 7. End run ends the run.
@@ -480,15 +594,30 @@ Which boosters can rescue:
 | Shuffle | Always, while any two tiles share a value (section 13.5). This is why it is the suggested rescue: it needs no planning at a tense moment. |
 | Swap | Yes, whenever any two tiles share a value: swap one of them next to the other. Needs the player to spot it. |
 | Undo | Yes: the board before the last chain had a valid move, the chain itself. |
-| Double | Only if some tile touches a tile of double its value. |
+| Double | If some tile touches a tile of double its value. Or if doubling the highest tile raises the window floor, and the clear and refill make a pair (D-38, example CL2). |
 | Hammer | Sometimes, through the fall and the new tile. Not guaranteed. |
 
 All usable boosters are offered, because the brief says any booster the player can still afford. The game does not judge whether a choice will help.
 
+**D-42. The suggested rescue.** The offer marks at most one booster as the suggested rescue:
+
+1. Shuffle, if it is usable.
+2. Otherwise Undo, if it is usable.
+3. Otherwise none. Any other usable booster is still offered, just not marked.
+
+Reasoning: these are the two rescues that always produce a valid move without the player having to plan anything. Shuffle comes first because it keeps the last chain's points. With the costs in section 13.2, Shuffle is unusable only when the score is below B. Hammer and Swap (B) and Double (2B) are then unusable too, so Undo (B / 2) is the only booster that can still be offered, and case 3 means the run ends at once. Case 3 only matters if the costs are retuned.
+
+| # | Usable boosters | Marked |
+|---|---|---|
+| SR1 | All five (GO1) | Shuffle |
+| SR2 | Undo only (GO2) | Undo |
+| SR3 | Hammer, Swap, Shuffle (GO4, no Undo snapshot) | Shuffle |
+| SR4 | None (GO3) | No offer, the run ends |
+
 ### 12.3 When the run ends
 
 - The saved run is deleted. Best Score and Best Tile are already up to date and stay saved.
-- The player sees the final score, Best Score and Best Tile, and a way to start a new game.
+- The end of run screen shows the final score, Best Score, Best Tile, this run's highest tile (D-41) and New game.
 - Nothing more can be done with that run.
 
 ### 12.4 Worked examples
@@ -497,8 +626,8 @@ All examples have H = 1024, so B = 1024. Costs: Hammer 1,024, Swap 1,024, Shuffl
 
 | # | Situation | What the player sees and does | Result |
 |---|---|---|---|
-| GO1 | Score 5,000. Last chain gave 40 points. No moves. | All five usable. Shuffle marked. Taps Shuffle. | Score 3,976. Board has a valid move. Play goes on. |
-| GO2 | Score 600. Last chain gave 40 points. No moves. | Hammer, Swap, Shuffle and Double disabled. Undo usable (600 minus 40 is 560, at least 512). Taps Undo. | Board from before the last chain. Score 600 minus 40 minus 512 = 48. Play goes on. |
+| GO1 | Score 5,000. Last chain gave 40 points. No moves. | All five usable. Shuffle marked as the suggested rescue. Taps Shuffle. | Score 3,976. Board has a valid move. Play goes on. |
+| GO2 | Score 600. Last chain gave 40 points. No moves. | Hammer, Swap, Shuffle and Double disabled. Undo usable (600 minus 40 is 560, at least 512) and marked as the suggested rescue (D-42). Taps Undo. | Board from before the last chain. Score 600 minus 40 minus 512 = 48. Play goes on. |
 | GO3 | Score 300. Last chain gave 40 points. No moves. | Nothing usable (300 minus 40 is 260, below 512). | Run ends at once. Final score 300. |
 | GO4 | Score 1,500. No Undo snapshot (Undo was just used). No moves. | Hammer, Swap, Shuffle usable. Double and Undo disabled. Picks Hammer, then taps Hammer again. | Back at the offer. Score still 1,500. |
 | GO5 | Same as GO4, after the cancel. | Picks Swap, then taps a 32 and a 4 that touches another 32. | The two 32s now touch. Score 476. Play goes on. |
@@ -507,7 +636,7 @@ All examples have H = 1024, so B = 1024. Costs: Hammer 1,024, Swap 1,024, Shuffl
 
 ## 13. Boosters
 
-### 13.1 General rules (D-21, D-22)
+### 13.1 General rules (D-21, D-22, D-43)
 
 - Each booster always shows its current cost.
 - A booster is usable when it is affordable (score at least its cost). Undo has its own check (13.7). A booster that is not usable is visibly disabled, and tapping it does nothing.
@@ -517,6 +646,9 @@ All examples have H = 1024, so B = 1024. Costs: Hammer 1,024, Swap 1,024, Shuffl
 - Hammer and Double need one tile. Swap needs two tiles. Tapping one of them enters targeting mode:
   - Nothing is charged. The player sees which booster is active.
   - While targeting, dragging does not build a chain. A tap on a tile (finger down and up on the same tile) picks it as a target. A drag that ends on a different tile picks nothing.
+  - D-43: the effect applies on the tap itself, when the finger lifts. Hammer and Double act on their one tap. Swap acts on the tap of its second tile. There is no select then confirm step.
+  - Swap's first tile is the only selection state in targeting. It stays selected until the second tile is tapped, the selected tile is tapped again, or targeting is cancelled (13.4).
+  - While a finger is down on a tile in targeting mode, the tile may be highlighted as press feedback. It means only "this is the tile under your finger". Lifting on that tile applies the booster. Lifting anywhere else does nothing.
   - Tapping the same booster again cancels targeting. Nothing is charged.
   - Tapping a different usable booster cancels the first (nothing charged) and activates the second.
   - Taps outside the board and outside the booster buttons do nothing.
@@ -575,7 +707,7 @@ Effect, in order:
 4. Spawn one tile at the top of that column, from the window worked out after step 3 (9.2).
 5. Records, save and move check, as steps 7 to 9 of section 8.
 
-The Undo snapshot is not changed (13.7).
+The Undo snapshot is not changed (13.7). Hammer never triggers small tile clearing, because removing a tile cannot raise H (D-39).
 
 Worked examples:
 
@@ -628,13 +760,16 @@ Target: any one tile, including the highest.
 Effect, in order:
 
 1. Charge 2 x B.
-2. The tile's value doubles in place. No gravity, no spawn, no points.
-3. Records (Best Tile can rise), save and move check, as steps 7 to 9 of section 8.
+2. The tile's value doubles in place. No points.
+3. Small tile clearing (D-38): if the Double raised the window floor, empty every cell whose value is below the new floor. This can only happen when the doubled tile becomes the new H.
+4. Only if step 3 emptied cells: gravity and spawn, as steps 5 and 6 of section 8. Otherwise nothing moves and nothing spawns.
+5. Records (Best Tile and the run highest tile can rise), save and move check, as steps 7 to 9 of section 8.
 
 Worked examples:
 
 - DB1: score 30,000, H = 4096. Double a 16 that touches a 32. Cost 8,192. Score 21,808. The two 32s now touch.
-- DB2: score 30,000, H = 4096. Double the 4096. Cost 8,192 (read before the effect). Score 21,808. H is now 8192, so every price doubles right after. Best Tile becomes 8192 if it was lower.
+- DB2: score 30,000, H = 4096. Double the 4096. Cost 8,192 (read before the effect). Score 21,808. H is now 8192, so every price doubles right after. Best Tile becomes 8192 if it was lower. The window floor rises from 8 to 16, so every 8 on the board clears and the board refills from 16, 32, 64, 128 (D-38).
+- DB3: CL2 in section 9.4. A Double on the highest tile clears a 2, and the refill creates the only valid move.
 
 ### 13.7 Undo (D-27, D-28, D-29)
 
@@ -658,7 +793,8 @@ Further rules:
 - There is no snapshot at the start of a run or right after an Undo.
 - Hammer, Swap, Shuffle and Double do not clear or replace the snapshot. If any of them was used after the last chain, Undo also undoes it (the board goes back to before the chain), and its cost stays spent.
 - The random number generator is not rewound. Repeating the same chain after an Undo may bring different new tiles.
-- Best Score and Best Tile are not lowered.
+- Best Score, Best Tile and the run highest tile are not lowered.
+- Undo never triggers small tile clearing. Tiles that the undone chain cleared come back, because they are part of the snapshot board (D-39, example CL5).
 
 Reasoning:
 
@@ -745,7 +881,7 @@ Reasoning: the score is exact and rarely a power of two, so abbreviating it woul
 
 | Data | Kept | Contents |
 |---|---|---|
-| Current run | Until the run ends or a new game replaces it | The 40 tile values, the score, and the Undo snapshot (40 values and the chain's points) or none |
+| Current run | Until the run ends or a new game replaces it | The 40 tile values, the score, the run highest tile (D-41), and the Undo snapshot (40 values and the chain's points) or none |
 | Settings | Always | Sound on or off (default on), selected skin (default: the approved direction) |
 | Records | Always | Best Score, Best Tile |
 
@@ -761,7 +897,7 @@ Saving right after the model resolves means closing the app during an animation 
 
 On load: show the saved board and score exactly, update the records (step 7 of section 8), then run the move check. If there is no valid move, open the no moves offer (12.2).
 
-What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. Best Score is 0 or more. Best Tile is 0 or a power of two. If the saved run fails validation, it is discarded and a new run starts. Valid settings and records are kept.
+What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; a run highest tile that is a power of two and at least the highest value on the saved board and on the snapshot board; an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. Best Score is 0 or more. Best Tile is 0 or a power of two. If the saved run fails validation, it is discarded and a new run starts. Valid settings and records are kept.
 
 ### 15.2 New game during a run (D-34)
 
@@ -791,6 +927,15 @@ This model estimates typical scores so booster prices can be set. It is an estim
 So, typical score when H first appears = 2.4 x H x log2(H / m).
 
 Once H reaches 1024, the window keeps H / m at about 197 (512 / 2.6), and log2(197) is about 7.62. So from then on the typical score is about 18.3 x H.
+
+Effect of small tile clearing (D-38): almost none on scores, so the table and the booster prices stand.
+
+- Each time H doubles to a new value, the tiles of the old window floor clear. Their value is H / 1024 each.
+- A board typically holds a handful of them, say up to 10, so at most about 10 x H / 1024, roughly H / 100, of value is removed.
+- That value would have earned about H / 100 x 7.62, roughly 0.08 x H, in later merges.
+- Going from H / 2 to H earns about 18.3 x H / 2, roughly 9.2 x H. So the loss is under 1 percent of income.
+
+The real effect is on survival: stray small tiles no longer clog the board, so long runs last longer. If playtests show runs that practically never end, raise the costs in section 18.
 
 | H | m | log2(H / m) | Typical score |
 |---|---|---|---|
@@ -838,6 +983,8 @@ Developers read every constant from this table. Bart can rebalance by changing v
 | SCORE_MIN_CHARACTERS | 13 | Characters the score display must fit | 14.2 |
 | SOUND_DEFAULT | On | Sound setting on first launch | 15.1, 16 |
 
+D-38 to D-43 add no new constants. Small tile clearing uses the window floor, which comes from SPAWN_TOP_MIN, SPAWN_TOP_DIVISOR and SPAWN_WINDOW_SIZE. Changing those moves the clear too.
+
 ## 19. Acceptance tests
 
 Each test gives the setup, the action and the exact expected result. The Type says who runs it:
@@ -846,7 +993,9 @@ Each test gives the setup, the action and the exact expected result. The Type sa
 - **Play**: QA walks it in the running game (editor or phone).
 - **Both**: a unit test for the rule, plus a QA check of what the player sees.
 
-"Scripted spawn" means the test replaces the random draws with listed values, in fill order (9.3). A test that says "seeds 1 to N" repeats with each seed. Unless a test says otherwise, there is no Undo snapshot, Best Score is 0 and Best Tile is 0.
+"Scripted spawn" means the test replaces the random draws with listed values, in fill order (9.3). A test that says "seeds 1 to N" repeats with each seed. Unless a test says otherwise, there is no Undo snapshot, Best Score is 0, Best Tile is 0, and the run highest tile equals the setup board's highest tile.
+
+Some setups hold tiles below the window floor (for example Board D with a 4096 in it). Real play cannot reach such boards after D-38, but they isolate one rule. Small tile clearing only runs when a move raises the floor (D-38), so those tiles stay unless the test's own move raises it. Where a move does raise it, the expected result includes the clear. The hooks these tests need from the rules model are listed in section 20.
 
 ### 19.0 Test boards
 
@@ -880,9 +1029,22 @@ row 6:   2   2   2   4   2
 row 7:   8   8  32   8   8
 ```
 
+**Board E** (no valid move, H = 32, no 2s):
+
+```
+row 0:   4  16   4  16   4
+row 1:   8  32   8  32   8
+row 2:   4  16   4  16   4
+row 3:   8  32   8  32   8
+row 4:   4  16   4  16   4
+row 5:   8  32   8  32   8
+row 6:   4  16   4  16   4
+row 7:   8  32   8  32   8
+```
+
 **Board A4**: every cell is 4. **Board A2**: every cell is 2.
 
-"Board D with (c,r) = v" means Board D with only the listed cells changed.
+"Board D with (c,r) = v" means Board D with only the listed cells changed. The same goes for Boards E and P.
 
 ### 19.1 Board and starting board
 
@@ -964,11 +1126,13 @@ row 7:   8   8  32   8   8
 
 **AT-35. Spawn weights.** Type: Unit. Setup: H = 1024. Action: (a) map the draw numbers 0, 39, 40, 69, 70, 89, 90 and 99 to values; (b) make 100,000 seeded draws. Expected: (a) 2, 2, 4, 4, 8, 8, 16, 16. (b) The shares of 2, 4, 8 and 16 are each within 1 percentage point of 40, 30, 20 and 10 percent.
 
-**AT-36. A merge that raises H raises the window at once.** Type: Unit. Setup: Board D with (0,7) = 1024 and (1,7) = 1024. Seeds 1 to 200. Action: commit (0,7), (1,7). Expected: the one new tile, at (0,0), is 4, 8, 16 or 32 every time, never 2.
+**AT-36. A merge that raises H raises the window at once.** Type: Unit. Setup: Board D with (0,7) = 1024 and (1,7) = 1024. Seeds 1 to 200. Action: commit (0,7), (1,7). Expected: the floor rises from 2 to 4, so all twelve 2s of Board D clear (D-38). Thirteen cells refill (the twelve cleared cells and (0,7)). Every new tile is 4, 8, 16 or 32 every time, and no 2 is left on the board. (Updated at Hard Stop 1: before D-38 only one new tile was expected.)
 
 **AT-37. A Hammer that lowers H lowers the window at once.** Type: Unit. Setup: Board D with (0,7) = 4096 and (4,7) = 1024, score 10,000, Best Tile 4096. Seeds 1 to 200. Action: Hammer on (0,7). Expected: score 5,904. The new tile at (0,0) is 2, 4, 8 or 16. Hammer now costs 1,024. Best Tile stays 4096.
 
-**AT-38. Tiles below the window still play.** Type: Unit. Setup: Board D with (2,0) = 2048 and (1,6) = 2, so (0,6) and (1,6) are both 2. Score 0. Seeds 1 to 200. Action: commit (0,6), (1,6). Expected: (1,6) = 4, score 4, and the new tile at (0,0) is 4, 8, 16 or 32, never 2.
+**AT-38. Hammer lowers the floor, then a chain raises it again (example CL4).** Type: Unit. Rewritten at Hard Stop 1: the old test checked D-13, which D-38 replaced. Setup: Board E with (2,7) = 2048, (4,6) = 1024 and (4,7) = 1024. Score 10,000. Scripted spawn 2, then 8, 8. Action: Hammer on (2,7); then commit (4,6), (4,7). Expected:
+- After the Hammer: score 7,952, H = 1024, (2,0) = 2, and nothing was cleared.
+- After the chain: score 10,000, (4,7) = 2048, and the 2 on (2,0) was cleared. (2,0) = 8, (4,0) = 8, and no 2 is left on the board.
 
 ### 19.6 Score and records
 
@@ -980,7 +1144,7 @@ row 7:   8   8  32   8   8
 
 **AT-42. Undo does not lower Best Score.** Type: Unit. Setup: the state right after the commit in AT-41 (score 10,006, Best Score 10,006). Action: Undo (cost 64). Expected: score 9,926. Best Score stays 10,006.
 
-**AT-43. Best Tile counts Double and is not lowered by Hammer.** Type: Unit. Setup: Board D with (0,7) = 4096 and (1,7) = 4096, score 50,000, Best Tile 4096. Action: commit (0,7), (1,7); then Double on the 8192; then Hammer on the 16384. Expected: after the commit Best Tile 8192 and score 58,192. After Double (cost 16,384): score 41,808, Best Tile 16384. After Hammer (cost 16,384): score 25,424, H = 16, Best Tile still 16384.
+**AT-43. Best Tile counts Double and is not lowered by Hammer.** Type: Unit. Setup: Board D with (0,7) = 4096 and (1,7) = 4096, score 50,000, Best Tile 4096. Action: commit (0,7), (1,7); then Double on the 8192; then Hammer on the 16384. Expected: after the commit Best Tile 8192 and score 58,192. After Double (cost 16,384): score 41,808, Best Tile 16384. After Hammer (cost 16,384): score 25,424, H is below 16384, Best Tile still 16384. (The commit and the Double each raise the floor and clear small tiles, D-38. That does not change these numbers.)
 
 **AT-44. Records persist.** Type: Play. Setup: finish a run that set a new Best Score and Best Tile. Action: close the app fully, reopen it, start a new run. Expected: Best Score and Best Tile show the values from the finished run.
 
@@ -994,9 +1158,9 @@ row 7:   8   8  32   8   8
 
 **AT-48. Shuffle rescues.** Type: Both. Setup: AT-47. Action: tap Shuffle. Expected: score 3,976. The board has a valid move. The offer closes and chains can be dragged.
 
-**AT-49. Only Undo is usable.** Type: Both. Setup: Board D1024, score 600, an Undo snapshot worth 40 points whose board has a valid move. Action: open the offer, tap Undo. Expected: only Undo is enabled. After the tap, the board equals the snapshot board, score 48, and the offer closes.
+**AT-49. Only Undo is usable.** Type: Both. Setup: Board D1024, score 600, an Undo snapshot worth 40 points whose board has a valid move. Action: open the offer, tap Undo. Expected: only Undo is enabled, and it is marked as the suggested rescue (D-42). After the tap, the board equals the snapshot board, score 48, and the offer closes.
 
-**AT-50. Nothing usable ends the run at once.** Type: Both. Setup: Board D1024, score 300, an Undo snapshot worth 40 points. Action: run the move check. Expected: no offer. The run ends at once. The game over screen shows final score 300, Best Score, Best Tile and a way to start a new game. The saved run is deleted.
+**AT-50. Nothing usable ends the run at once.** Type: Both. Setup: Board D1024, score 300, an Undo snapshot worth 40 points. Action: run the move check. Expected: no offer. The run ends at once. The end of run screen shows final score 300, Best Score, Best Tile, this run's highest tile (1024) and New game. The saved run is deleted.
 
 **AT-51. Cancelling targeting returns to the offer.** Type: Both. Setup: Board D1024, score 1,500, no snapshot. Action: open the offer, tap Hammer, tap Hammer again. Expected: before the taps, Hammer, Swap and Shuffle are enabled and Double and Undo disabled. After the second tap the offer is back and the score is still 1,500.
 
@@ -1004,7 +1168,7 @@ row 7:   8   8  32   8   8
 
 **AT-53. The offer repeats, then the run ends.** Type: Unit. Setup: Board D1024, score 1,500, no snapshot, scripted spawn 8. Action: Hammer on (4,7). Expected: column 4 reads 8, 2, 8, 2, 8, 2, 8, 2. Score 476. Still no valid move. Every cost is at least 512, so nothing is usable and the run ends at once with final score 476.
 
-**AT-54. End run.** Type: Play. Setup: the offer is open with something usable. Action: tap End run. Expected: the game over screen shows the final score, Best Score, Best Tile and a way to start a new game. Closing and reopening the app does not resume that run.
+**AT-54. End run.** Type: Play. Setup: the offer is open with something usable. Action: tap End run. Expected: the end of run screen shows the final score, Best Score, Best Tile, this run's highest tile and New game. Closing and reopening the app does not resume that run.
 
 **AT-55. The offer survives a restart.** Type: Both. Setup: the offer is open. Action: close the app fully and reopen it. Expected: same board and score, and the offer opens again.
 
@@ -1058,7 +1222,13 @@ row 7:   8   8  32   8   8
 
 **AT-74. Double makes a pair.** Type: Both. Setup: Board D with (2,0) = 4096 and (0,0) = 32. Score 30,000. Action: Double on (1,1) (16). Expected: (1,1) = 32. Score 21,808. The board has a valid move ((0,0) and (1,1)).
 
-**AT-75. Double on the highest tile.** Type: Unit. Setup: as AT-74, Best Tile 4096. Action: Double on (2,0). Expected: (2,0) = 8192. Score 21,808 (the cost was read before the effect). Hammer now costs 8,192. Best Tile 8192.
+**AT-75. Double on the highest tile.** Type: Unit. Setup: as AT-74, Best Tile 4096. Action: Double on (2,0). Expected:
+- The tile becomes 8192. Score 21,808 (the cost was read before the effect).
+- The floor rises from 8 to 16, so all 30 tiles of value 2, 4 and 8 clear (D-38). Column 2 below the 8192 is now empty, so the 8192 falls to (2,7).
+- The 30 cells refill from 16, 32, 64, 128.
+- Hammer now costs 8,192. Best Tile 8192.
+
+(Updated at Hard Stop 1: before D-38 the tile stayed on (2,0).)
 
 **AT-76. Undo after a chain.** Type: Both. Setup: Board D with (2,0) = 512, (1,7) = 8 and (2,7) = 16. Score 1,000. Action: commit (0,7), (1,7), (2,7) (8, 8, 16), then Undo. Expected: after the commit, score 1,032 and Undo enabled at cost 256. After Undo, the board equals the setup board exactly, score 744, and Undo is disabled.
 
@@ -1068,7 +1238,7 @@ row 7:   8   8  32   8   8
 
 **AT-79. Undo affordability uses the score without the chain's points.** Type: Unit. Setup: Board D with (0,7) = 2, (1,7) = 2, (2,7) = 4, (3,7) = 8, (4,7) = 16, (4,6) = 32, (3,6) = 32. Score 30. Action: commit that path in that order, then call Undo on the rules model. Expected: after the commit, score 126, H = 64, Undo cost 64, Undo disabled. The call is refused and the score stays 126.
 
-**AT-80. Undo cost comes from the current board, and records stay.** Type: Unit. Setup: Board D with (0,7) = 1024 and (1,7) = 1024. Score 20,000. Best Tile 1024. Action: commit (0,7), (1,7), then Undo. Expected: after the commit, score 22,048 and Undo cost 1,024. After Undo, the board equals the setup board, score 18,976, Best Tile 2048 and Best Score 22,048.
+**AT-80. Undo cost comes from the current board, and records stay.** Type: Unit. Setup: Board D with (0,7) = 1024 and (1,7) = 1024. Score 20,000. Best Tile 1024. Action: commit (0,7), (1,7), then Undo. Expected: after the commit, score 22,048 and Undo cost 1,024. After Undo, the board equals the setup board (including the twelve 2s the chain cleared, D-39), score 18,976, Best Tile 2048 and Best Score 22,048.
 
 **AT-81. Undo after a Shuffle.** Type: Unit. Setup: Board D with (2,0) = 1024 and (1,7) = 8, so row 7 reads 8, 8, 8, 16, 8. Score 5,000. Action: commit (0,7), (1,7), (2,7), (3,7) (8, 8, 8, 16, worth 40), Shuffle, Undo. Expected: after the commit 5,040, after Shuffle 4,016, after Undo the board equals the setup board (unshuffled) and the score is 3,464.
 
@@ -1096,7 +1266,7 @@ row 7:   8   8  32   8   8
 
 ### 19.12 Saving and flow
 
-**AT-91. Resume after the app is killed.** Type: Play. Setup: a run in progress with an Undo snapshot. Note the board, score, Best Score, Best Tile and Undo cost. Action: swipe the app away from recent apps, reopen it. Expected: the same board and score, the same records, Undo enabled at the same cost.
+**AT-91. Resume after the app is killed.** Type: Play. Setup: a run in progress with an Undo snapshot. Note the board, score, Best Score, Best Tile, run highest tile and Undo cost. Action: swipe the app away from recent apps, reopen it. Expected: the same board and score, the same records, the same run highest tile, Undo enabled at the same cost.
 
 **AT-92. Killed during an animation.** Type: Play. Setup: a run in progress. Action: commit a long chain and kill the app before its animation ends. Reopen. Expected: the chain's result and points are there.
 
@@ -1104,7 +1274,7 @@ row 7:   8   8  32   8   8
 
 **AT-94. Settings persist and sound starts on.** Type: Play. Setup: a fresh install. Action: check the sound setting; turn sound off and pick a different skin; close the app fully and reopen. Expected: sound is on at first launch. After reopening, sound is off and the chosen skin is shown.
 
-**AT-95. A broken saved run is discarded.** Type: Unit. Setup: valid records (Best Score 5,000, Best Tile 512), and in turn each of these saved runs: 39 values; a value of 3; a value of 0; a score of minus 1; a snapshot with 40 valid values and points 2. Action: load. Expected: each time the run is discarded and a new run starts. Best Score 5,000 and Best Tile 512 are kept.
+**AT-95. A broken saved run is discarded.** Type: Unit. Setup: valid records (Best Score 5,000, Best Tile 512), and in turn each of these saved runs: 39 values; a value of 3; a value of 0; a score of minus 1; a snapshot with 40 valid values and points 2; a run highest tile of 512 on a board holding a 1024; a run highest tile of 600. Action: load. Expected: each time the run is discarded and a new run starts. Best Score 5,000 and Best Tile 512 are kept.
 
 **AT-96. New game asks first.** Type: Play. Setup: a run in progress. Action: choose New game, cancel; choose New game, confirm. Expected: after cancel the run is unchanged. After confirm a new run starts with score 0 and Undo disabled, and Best Score still holds the old run's highest score.
 
@@ -1112,7 +1282,70 @@ row 7:   8   8  32   8   8
 
 **AT-98. Click sound triggers.** Type: Both (unit test by counting calls to the audio service). Action: (a) drag 2, 2, 4, backtrack off the 4, move onto the 4 again, lift; (b) touch one tile and lift; (c) use Shuffle; (d) repeat (a) with sound off. Expected: (a) 5 clicks; (b) 1 click; (c) none; (d) none.
 
-### 19.13 Coverage
+### 19.13 Added after Hard Stop 1
+
+**AT-99. Clearing creates the only valid move (example CL1).** Type: Unit. Setup: Board E with (0,3) = 2, (4,6) = 1024 and (4,7) = 1024. Score 10,000. Scripted spawn 8, 8. Action: commit (4,6), (4,7). Expected:
+- Score 12,048. The cleared 2 adds nothing.
+- (4,7) = 2048. The rules model reports exactly one cleared tile: (0,3), value 2.
+- Column 0 reads 8, 4, 8, 4, 4, 8, 4, 8. Column 4 reads 8, 4, 8, 4, 8, 4, 8, 2048.
+- The only valid move is (0,3) with (0,4). No offer opens.
+- Best Tile and the run highest tile are 2048.
+
+**AT-100. Two values clear at once (example CL3).** Type: Unit. Setup: Board D with (0,7), (1,7), (2,7) and (3,7) all 1024. Score 0. Seeds 1 to 200. Action: commit (0,7), (1,7), (2,7), (3,7). Expected:
+- Score 4,096, and (3,7) = 4096.
+- The rules model reports 20 cleared tiles: twelve 2s and eight 4s.
+- 23 new tiles, each 8, 16, 32 or 64. No tile below 8 is left on the board.
+
+**AT-101. A Double clears small tiles and rescues (example CL2).** Type: Both. Setup: Board E with (0,3) = 2 and (2,0) = 1024. Score 5,000. Scripted spawn 8. The no moves offer is open. Action: Double on (2,0). Expected:
+- Score 2,952. (2,0) = 2048, and the 2 on (0,3) was cleared.
+- (0,0) = 8, and (0,3) and (0,4) are both 4.
+- The board has a valid move and the offer closes.
+
+**AT-102. Undo brings cleared tiles back (example CL5).** Type: Unit. Setup: the state right after AT-99. Action: Undo. Expected: Undo cost 1,024. The board equals the AT-99 setup, including the 2 on (0,3) and both 1024s. Score 8,976. Best Tile and the run highest tile stay 2048.
+
+**AT-103. Only a raised floor clears.** Type: Unit. Setup: Board E with (0,3) = 2 and (2,0) = 2048. Real play cannot reach this board: the 2 is below the floor of 4. Score 20,000. Scripted spawn 4. Action, in order: Hammer on (4,7); Swap (0,0) with (1,0); Double on (0,0); Shuffle. Expected: score after each step: 17,952; 15,904; 11,808; 9,760. After every step exactly one 2 is still on the board, and the rules model reports no cleared tiles.
+
+**AT-104. The player sees the clear.** Type: Play. Setup: a real run where H is 1024 and the board holds some 2s. Action: make the first 2048. Expected: the 2s clear as part of that move's animation. The player is shown that 2s were cleared and no longer appear. No 2 spawns afterwards while H stays 2048 or more.
+
+**AT-105. Joinable highlight examples.** Type: Both. Setup: Board P. Action: build HL1 to HL6 of section 6.7 in order, then HL7 as a separate drag. Expected: at each step exactly the cells listed in the 6.7 table are highlighted, and no others.
+
+**AT-106. The highlight always matches joining.** Type: Unit. Setup: seeds 1 to 100. Each seed gives a random board from the starting window and a random drag of up to 15 finger moves onto touching cells, including backtracks. Expected, at every step:
+- The highlighted set equals the set of tiles the joining rule (6.1) would accept.
+- A move onto a highlighted tile adds it.
+- A move onto any other tile that is not the previous chain tile leaves the chain unchanged.
+- The previous chain tile is never highlighted.
+
+**AT-107. No highlight outside a drag.** Type: Play. Action: look at the board before touching it, after lifting a chain, with Hammer in targeting mode, and with the no moves offer open. Expected: no joinable highlight in any of these.
+
+**AT-108. This run's highest tile.** Type: Unit. Setup: Board D with (0,7) = 1024 and (1,7) = 1024. Score 50,000. Best Tile 8192. Run highest tile 1024. Action, in order: commit (0,7), (1,7); Double on (1,7); Hammer on (1,7); Undo; then start a new run. Expected:
+
+| After | Score | Run highest tile | Best Tile |
+|---|---|---|---|
+| The commit | 52,048 | 2048 | 8192 |
+| Double (cost 4,096) | 47,952 | 4096 | 8192 |
+| Hammer (cost 4,096) | 43,856 | 4096 | 8192 |
+| Undo (cost 64: B is 128 because only tiles up to 64 remain) | 41,744 | 4096 | 8192 |
+| New run | 0 | The new starting board's highest tile (16 at most) | 8192 |
+
+**AT-109. The suggested rescue (D-42).** Type: Unit. Setup: Board D1024 in each case below. Action: open the offer. Expected:
+- (a) Score 5,000, snapshot worth 40: Shuffle is marked.
+- (b) Score 600, snapshot worth 40: Undo is marked.
+- (c) Score 1,500, no snapshot: Shuffle is marked.
+- (d) Constants overridden for the test to COST_SHUFFLE = 4 x B and COST_UNDO = 4 x B; score 1,500, snapshot worth 40: Hammer and Swap are usable, Shuffle, Double and Undo are not, and nothing is marked.
+
+**AT-110. Hammer and Double act on one tap.** Type: Both. Setup: Board P, score 5,000. Action:
+- (a) Tap Hammer, put a finger down on (2,7) and hold.
+- (b) Lift on (2,7).
+- (c) Tap Double, put a finger down on (0,0), slide to (1,0), lift.
+
+Expected:
+- (a) Nothing is charged and the board is unchanged. (2,7) may show press feedback.
+- (b) Hammer applies at once, with no confirm step: (2,7) is removed, score 4,872, targeting ends.
+- (c) Nothing is doubled or charged, and Double stays active.
+
+**AT-111. Swap selects on its first tap and acts on its second.** Type: Both. Setup: Board P, score 5,000. Action: tap Swap, tap (0,0), then tap (2,7). Expected: after the first tile tap, (0,0) is selected and nothing is charged. On the second tap the swap applies at once: (0,0) = 32, (2,7) = 2, score 4,872, targeting ends.
+
+### 19.14 Coverage
 
 | Decision or rule | Tests |
 |---|---|
@@ -1124,24 +1357,24 @@ row 7:   8   8  32   8   8
 | D-06 Path, leaving, lifting | AT-18, AT-19, AT-20, AT-25 |
 | D-07 Hit radius | AT-21 |
 | D-08 One finger | AT-22, AT-23, AT-24 |
-| D-09 Resolution order | AT-17, AT-29 to AT-33 |
+| D-09 Resolution order | AT-17, AT-29 to AT-33, AT-99 |
 | D-10 Spawn window and weights | AT-04, AT-34, AT-35 |
 | D-11 Window timing | AT-36, AT-37 |
 | D-12 Fill order | AT-31, AT-32 |
-| D-13 Tiles below the window | AT-38 |
+| D-13 Tiles below the window | Replaced by D-38. AT-38 was rewritten for D-38 and D-39 |
 | D-14 Starting board | AT-01 to AT-03 |
 | D-15 Valid move | AT-45 |
 | D-16 Best Score | AT-41, AT-42, AT-80 |
 | D-17 Best Tile | AT-05, AT-37, AT-43, AT-75, AT-80 |
 | D-18 Only chains add points | AT-39, AT-40 |
-| D-19 No moves offer | AT-46 to AT-55, AT-73 |
+| D-19 No moves offer | AT-46 to AT-55, AT-73, AT-101, AT-109 |
 | D-20 Costs | AT-56, AT-60 |
 | D-21 Cost read at use, charged with effect | AT-37, AT-60, AT-61, AT-75 |
 | D-22 Targeting | AT-61 to AT-66 |
 | D-23 Hammer | AT-37, AT-53, AT-67 |
 | D-24 Swap | AT-52, AT-68, AT-69 |
 | D-25 Shuffle | AT-48, AT-70 to AT-73 |
-| D-26 Double | AT-74, AT-75 |
+| D-26 Double | AT-74, AT-75, AT-101 |
 | D-27 Undo | AT-49, AT-76, AT-77, AT-78, AT-81 |
 | D-28 Undo affordability | AT-79 |
 | D-29 Undo keeps records and generator | AT-42, AT-80, AT-82 |
@@ -1153,6 +1386,12 @@ row 7:   8   8  32   8   8
 | D-35 One move at a time | AT-97 |
 | D-36 Click triggers | AT-98 |
 | D-37 64-bit values | AT-28, AT-71, AT-73 |
+| D-38 Small tile clearing | AT-36, AT-38, AT-75, AT-99, AT-100, AT-101, AT-104 |
+| D-39 Clearing and other rules | AT-38, AT-80, AT-102, AT-103 |
+| D-40 Joinable highlight | AT-105, AT-106, AT-107 |
+| D-41 Run highest tile | AT-50, AT-54, AT-91, AT-95, AT-99, AT-108 |
+| D-42 Suggested rescue | AT-47, AT-49, AT-109 |
+| D-43 Targeting acts on tap | AT-62, AT-110, AT-111 |
 | Confirmed: chain rules | AT-06 to AT-16 |
 | Confirmed: merge and after merge | AT-17, AT-26, AT-29 to AT-31 |
 | Confirmed: score, Best Score and Best Tile kept separately | AT-39 to AT-44 |
@@ -1160,4 +1399,54 @@ row 7:   8   8  32   8   8
 | Confirmed: boosters, disabled when unaffordable, score never below zero | AT-56 to AT-84 |
 | Confirmed: number display | AT-85 to AT-89 |
 | Confirmed: persistence | AT-44, AT-83, AT-91 to AT-95 |
+| Hard Stop 1 additions (Bart) | AT-99 to AT-108 |
+
+## 20. Test hooks the acceptance tests need
+
+For the contract in docs/ARCHITECTURE.md. The rules model (core and boosters) must offer these to tests. How they are shaped is the contract's choice.
+
+**Setting up and reading state**
+
+| # | Hook | Used by |
+|---|---|---|
+| TH1 | Build a run state directly: 40 values, score, Undo snapshot (40 values and points) or none, Best Score, Best Tile, run highest tile. | Most Unit tests |
+| TH2 | Read the full state back: everything in TH1. | Most Unit tests |
+| TH3 | Read derived values for the current board: H, B, the spawn window and floor, each booster's cost, and each booster's usability with the reason it is unusable (cannot afford, or no snapshot). | AT-34, AT-47, AT-49, AT-56, AT-57, AT-60, AT-109 |
+| TH4 | Override the section 18 constants for one test (for example the costs). | AT-109 (d) |
+
+**Controlling randomness**
+
+| # | Hook | Used by |
+|---|---|---|
+| TH5 | A seedable random number generator, one per run. Its state can be read, and restored. | AT-02, AT-04, AT-35, AT-36, AT-82, AT-84 |
+| TH6 | Scripted spawns: a list of values used instead of random draws, in fill order (9.3). Every spawn path uses it: chain refill, Hammer refill, Double refill after a clear. | AT-31, AT-32, AT-38, AT-53, AT-67, AT-99, AT-101, AT-103 |
+| TH7 | Forced starting boards: the generator returns a given board on every attempt, and the attempt count can be read. | AT-03 |
+| TH8 | Forced Shuffle arrangements: Shuffle returns a given arrangement on every attempt, and the attempt count can be read. | AT-72 |
+| TH9 | The weighted draw on its own: draw number (0 to 99) plus window gives a value. | AT-35 |
+
+**Acting and reading the result**
+
+| # | Hook | Used by |
+|---|---|---|
+| TH10 | Commit any list of cells as a chain. The answer says accepted or refused, and a refusal changes nothing. | AT-12, AT-13, AT-25 to AT-30 |
+| TH11 | Call any booster with its targets, whether or not it is usable. The answer says accepted or refused, and a refusal changes nothing. | AT-40, AT-59, AT-79, AT-84, AT-103 |
+| TH12 | A move result that lists: points added; the result cell and value; the cleared chain cells; the small tiles cleared by D-38 (cells and values); tile moves from gravity; spawned cells and values; whether the no moves offer opens; whether the run ended. The board view and the clear notice (AT-104) need this too. | AT-17, AT-29 to AT-31, AT-36, AT-38, AT-99 to AT-103 |
+
+**Queries**
+
+| # | Hook | Used by |
+|---|---|---|
+| TH13 | Has a valid move (D-15). | AT-02, AT-45, AT-70, AT-71 |
+| TH14 | Joinable cells for a given chain (D-40). | AT-105, AT-106 |
+| TH15 | Merge result (preview value) for a given list of values. | AT-26, AT-27, AT-90 |
+| TH16 | The suggested rescue for the current state (D-42). | AT-47, AT-49, AT-109 |
+| TH17 | Label format for a value, and score format. | AT-85, AT-86, AT-88 |
+
+**Outside the rules model**
+
+| # | Hook | Area | Used by |
+|---|---|---|---|
+| TH18 | Save a run and records to the save format, and load from given data, with the validation result. | save | AT-95 |
+| TH19 | Hit test: finger position and tile pitch give a tile or none. | board | AT-21 |
+| TH20 | A count of click requests made to the audio service. | audio | AT-98 |
 
