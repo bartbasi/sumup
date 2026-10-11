@@ -1,5 +1,7 @@
 # Direction 1: Gumdrop
 
+> Phase 1 record of the direction as Bart saw it at Hard Stop 1. The shipping values, including the ramp and sizing changes from the Hard Stop 1 review, are in docs/DESIGN_SYSTEM.md.
+
 **Tactile candy.** Chunky tiles you want to press.
 
 Screens: gumdrop-board.png, gumdrop-targeting.png, gumdrop-gameover.png, gumdrop-settings.png in this folder.

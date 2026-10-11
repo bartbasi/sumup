@@ -1,5 +1,7 @@
 # Direction 2: Slate
 
+> Phase 1 record of the direction as Bart saw it at Hard Stop 1. The shipping values, including the ramp and sizing changes from the Hard Stop 1 review, are in docs/DESIGN_SYSTEM.md.
+
 **Editorial and exact.** The numbers are the design.
 
 Screens: slate-board.png, slate-targeting.png, slate-gameover.png, slate-settings.png in this folder, and the same four with -outfit for the font comparison.

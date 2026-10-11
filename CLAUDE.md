@@ -25,7 +25,7 @@ Each agent edits only what it owns, plus any path its task brief from the DM exp
 | scenes/main.tscn, tests/run_tests.gd, tests/base_test.gd | DM |
 | README.md, project.godot, export_presets.cfg, .gitignore, scripts/ (build and install scripts) | platform-dev |
 | docs/GDD.md (rules, balance, acceptance test list) | lead-game-designer |
-| docs/DESIGN_SYSTEM.md, docs/ASSETS.md, docs/design/, tools/ | senior-graphic-designer |
+| docs/DESIGN_SYSTEM.md, docs/ASSETS.md, docs/design/, tools/, launcher/ (written only by tools/launcher_icon.gd) | senior-graphic-designer |
 | docs/reviews/qa-*.md | qa-reviewer |
 | docs/reviews/security-*.md | security-reviewer |
 | src/core/, tests/core/ | core-logic-dev |

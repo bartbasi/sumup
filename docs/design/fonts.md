@@ -1,5 +1,7 @@
 # Font comparison for Hard Stop 1
 
+> Bart's decision at Hard Stop 1: Gumdrop and Nova use Outfit, Slate uses the system font. See docs/DESIGN_SYSTEM.md and docs/ASSETS.md.
+
 Bart's question: ship with the device's system font, or bundle one free open-license font? Every other visual in the game is made in code, and a font file would be the one exception.
 
 ## What you are looking at

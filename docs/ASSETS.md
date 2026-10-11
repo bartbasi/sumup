@@ -1,0 +1,81 @@
+# numbersgame Assets Log
+
+Owner: senior-graphic-designer. Last checked: 2026-10-11 (Phase 2).
+
+The rule (CLAUDE.md): nothing paid and nothing third party, and every visual and every sound is made in code. This log lists every visual and every sound the game uses, what makes it, and where that code lives. It also records the one exception Bart approved at Hard Stop 1: the Outfit font and its license.
+
+Status says whether the item exists yet. Owners follow the ownership table in CLAUDE.md. Folder and class details follow docs/ARCHITECTURE.md where it is more specific.
+
+## 1. Third party files (the only ones allowed)
+
+| File | Folder | Source | License | Size | Used by | Status |
+|---|---|---|---|---|---|---|
+| Outfit[wght].ttf | src/design/fonts/ (ui-motion-artist) | https://github.com/Outfitio/Outfit-Fonts (also listed at https://fonts.google.com/specimen/Outfit) | SIL Open Font License 1.1. Copyright 2021 The Outfit Project Authors | 110,884 bytes | Gumdrop and Nova skins, every text role; one variable file, weights 100 to 900 | Not in the repo yet. Added in Phase 3. |
+| OFL.txt | src/design/fonts/, next to the font | Shipped with the font | The license text itself | 4,389 bytes | Required by the license to travel with the font | Not in the repo yet. Added with the font. |
+
+**Rules for these two files:**
+- Kept unmodified and side by side.
+- Never renamed into something that hides their origin.
+- Never sold on their own (the OFL forbids that).
+- No other font, image, sound or third party file may enter the repo without Bart's explicit approval and a new row here.
+
+The copy used for the Hard Stop 1 comparison was fetched by the DM into a folder outside the repo, and it stays there until Phase 3 adds the file above.
+
+## 2. Fonts that are not files
+
+| Font | Used by | Where it comes from |
+|---|---|---|
+| Roboto (system font) | Slate skin, every text role | The phone. Godot's SystemFont asks for Roboto, then Segoe UI (Windows, for development), then sans-serif. No file in the repo. |
+
+## 3. Visuals made in code
+
+| Visual | Made with | Code lives in (owner) | Status |
+|---|---|---|---|
+| Skin values for Gumdrop, Slate and Nova (colors, tile ramps, type, sizes, motion) | Data from docs/DESIGN_SYSTEM.md, one Skin Resource per skin | src/skins/ (tile-board-artist) | Phase 3 |
+| Tiles: fills, Gumdrop lips and shine, Slate slabs, blocks and frames, Nova orbs, rims, glows and corona rays, tile labels | `_draw()`, StyleBoxFlat, one radial GradientTexture2D made in code | src/skins/, scenes/skins/ (tile-board-artist) | Phase 3 |
+| Board: Gumdrop tray, empty cells | `_draw()`, StyleBoxFlat | src/skins/ (tile-board-artist) | Phase 3 |
+| Chain line: rope, ruled line with nodes and label plates, light beam | `_draw()` polylines | src/skins/ (tile-board-artist) | Phase 3 |
+| Tile states: chained, joinable highlight, press feedback, Swap selection, special | `_draw()`, Tweens | src/skins/ (tile-board-artist) | Phase 3 |
+| Merge preview | `_draw()` (a tile drawn small) | src/skins/ (tile-board-artist) | Phase 3 |
+| Effects: spawn, merge travel and pop, fall, small tile clear (candy dots, wipe, sparks) | Tweens, `_draw()` | src/skins/ (tile-board-artist) | Phase 3 |
+| Clear notice | StyleBoxFlat panel, tiles drawn small, Label | src/design/ (ui-motion-artist), placed by the play screen | Phase 3 |
+| HUD: score, Best pill, pause button, Slate context row | Theme, Label, `_draw()` | src/design/ (ui-motion-artist) | Phase 3 |
+| Booster bar and buttons: dock, strip, rings; normal, pressed, active, disabled, suggested; hint and badges | `_draw()`, StyleBoxFlat, Tweens | src/design/ (ui-motion-artist) | Phase 3 |
+| Icons: hammer, swap, shuffle, double, undo, pause, settings, sound on, sound off, close, check | `_draw()` vector strokes on a 24 unit grid | src/design/ (ui-motion-artist) | Phase 3 |
+| Sound toggle | `_draw()`, Tweens | src/design/ (ui-motion-artist) | Phase 3 |
+| Backdrops: flat backgrounds, Nova's glow and star dust | `_draw()`, GradientTexture2D made in code, fixed random seed | src/design/ (ui-motion-artist) | Phase 3 |
+| Themes: buttons, chips, panels, sheets, labels, dividers, focus outlines | Theme and StyleBoxFlat built in code | src/design/ (ui-motion-artist) | Phase 3 |
+| Motion helpers and timings | Tweens, values from the Skin | src/design/ (ui-motion-artist) | Phase 3 |
+| Screens: main menu, play screen, pause, new game confirmation, out of moves offer, end of run, settings with live skin preview | Composed from the components above | src/ui/, scenes/ui/ (ui-systems-dev) | Phase 3 |
+| Android launcher icon: legacy 192 px, adaptive foreground, background and monochrome at 432 px | Drawn in code by tools/launcher_icon.gd (section 9 of DESIGN_SYSTEM.md), rendered and saved as PNG; regenerating gives the same pixels | tools/launcher_icon.gd (senior-graphic-designer); output folder to be set by the DM | Phase 3 |
+
+The launcher icon PNGs are the only image files the shipped game contains. They are generated by code in this repo, not hand made or downloaded.
+
+## 4. Sounds made in code
+
+| Sound | Made with | Code lives in (owner) | Status |
+|---|---|---|---|
+| The click (a tile joins a chain, a chain commits) | AudioStreamWAV filled by code at startup: short, bright, soft attack, quick decay, roughly 50 to 90 ms, no clipping | src/audio/ (audio-dev) | Phase 3 |
+
+There are no other sounds in v1.
+
+## 5. Files that are not game assets
+
+| Files | What they are | Why they do not count |
+|---|---|---|
+| docs/design/*.png | Phase 1 captures of the three directions, and the Outfit comparison captures, rendered by tools/capture.gd | Documentation for Bart's decisions. docs/ has a .gdignore, so Godot never imports them, and they are not exported. |
+| docs/design/review/*.png | Review captures | Ignored by git; working files only. |
+| tools/ | Phase 1 prototypes, the token mirror, the contrast, ramp and label checks, the capture tool and the launcher icon tool | Excluded from the export; nothing under tools/ ships. Only the launcher icon tool's output is used by the export. |
+
+## 6. Confirmation
+
+On 2026-10-11:
+- The repo tracks no image, audio or font file other than the documentation captures in docs/design/.
+- It has no addons and no third party code.
+- Checked with:
+
+```bash
+git ls-files | grep -iE '\.(png|jpg|jpeg|webp|svg|bmp|tga|ttf|otf|woff2?|wav|ogg|mp3|flac)$'
+```
+
+That command listed only `docs/design/*.png`. Rerun it at every phase end. Every new hit must be in sections 1, 3 or 5 above.

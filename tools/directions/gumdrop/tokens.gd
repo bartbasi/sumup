@@ -1,163 +1,207 @@
 extends "res://tools/directions/shared/direction_tokens.gd"
-## Gumdrop: tactile candy. Chunky squircle tiles with a darker lip underneath,
-## like keycaps or gummy sweets, on a deep plum night. Everything sits in soft
-## rounded containers and moves with a springy bounce.
+## Gumdrop: tactile candy. The default skin. Mirrors docs/DESIGN_SYSTEM.md,
+## section "Gumdrop"; change the document first, then this file.
 ##
 ## Owner: senior-graphic-designer. Artists read these values; they do not
-## edit this file. Ask for any value that is missing.
+## edit this file.
 
 
 func _init() -> void:
 	id = "gumdrop"
 	display_name = "Gumdrop"
+	font_family = FAMILY_OUTFIT
 
-	# Palette. Text only uses the pairs listed in text_pairs below.
 	palette = {
-		"bg": Color("#150820"),               # screen background, deep plum
-		"tray": Color("#20112F"),             # board tray behind the tiles
-		"slot": Color("#2A1A3A"),             # empty cell, seen while tiles fall
-		"surface": Color("#2B183D"),          # pills, dock, cards, sheets
-		"surface_raised": Color("#3F2956"),   # booster buttons, secondary buttons, chips
-		"surface_lip": Color("#090213"),      # the lip under raised surfaces and the dock
-		"ink": Color("#FFF7FC"),              # main text on dark surfaces
-		"ink_soft": Color("#D3BDE5"),         # labels and secondary text
-		"ink_dark": Color("#1C0D2B"),         # text on bright fills
-		"accent": Color("#FF63B2"),           # hot pink: primary button, active booster, selected chip
+		# Shared roles
+		"bg": Color("#150820"),
+		"surface": Color("#2B183D"),
+		"surface_raised": Color("#3F2956"),
+		"line": Color("#3F2956"),
+		"ink": Color("#FFF7FC"),
+		"ink_muted": Color("#D3BDE5"),
+		"ink_dark": Color("#1C0D2B"),
+		"accent": Color("#FF63B2"),
 		"accent_pressed": Color("#EB4B9F"),
-		"accent_lip": Color("#A9246E"),       # lip under accent buttons
-		"lemon": Color("#FFDC4F"),            # hint pill, new best badge
-		"lemon_lip": Color("#BF9007"),
-		"disabled_surface": Color("#1D1625"), # flat, lipless booster that cannot be afforded
-		"disabled_ink": Color("#A39AAE"),     # its cost and icon
-		"chain": Color("#FFF7FC"),            # chain rope and chained tile ring
-		"target": Color("#FFF7FC"),           # targeting ring, drawn with a target_edge outline
+		"disabled_ink": Color("#A39AAE"),
+		"chain": Color("#FFF7FC"),
+		"target": Color("#FFF7FC"),
+		"joinable": Color("#FFDC4F"),
+		"scrim": Color("#150820C7"),
+		"badge": Color("#FFDC4F"),
+		"badge_ink": Color("#1C0D2B"),
+		# Extras
+		"tray": Color("#20112F"),
+		"slot": Color("#2A1A3A"),
+		"surface_lip": Color("#090213"),
+		"accent_lip": Color("#A9246E"),
+		"badge_lip": Color("#BF9007"),
+		"disabled_surface": Color("#1D1625"),
 		"target_edge": Color("#1C0D2B"),
-		"scrim": Color("#150820C7"),          # bg at 78 percent over the board behind dialogs
-		"divider": Color("#3F2956"),         # Hairline: a 4 px rounded groove, visible on bg and on surface
+		"shine": Color("#FFFFFF"),
 	}
 
-	# Tile ramp, value 2 first. Low values are bright candy with dark numbers,
-	# 512 to 16K are deep jewel tones with light numbers, and from 32K up each
-	# tile is a special: licorice, pearl and gold, with the candy rim effect.
+	# Categorical ramp: each step jumps far round the hue wheel, so any four
+	# values in play look different. Chroma rises by tier, so big tiles are the
+	# most vivid on the board. Every number is ink_dark.
 	tile_fill = [
-		Color("#35F3B5"), # 2 mint
-		Color("#58CCFF"), # 4 sky
-		Color("#9398FF"), # 8 periwinkle
-		Color("#E17AF8"), # 16 orchid
-		Color("#FF81B6"), # 32 bubblegum
-		Color("#FF6170"), # 64 watermelon
-		Color("#FF9A5F"), # 128 tangerine
-		Color("#FFDC4F"), # 256 lemon
-		Color("#047B60"), # 512 emerald
-		Color("#1957D2"), # 1024 sapphire
-		Color("#7D24D3"), # 2K amethyst
-		Color("#B70385"), # 4K fuchsia
-		Color("#C2152F"), # 8K ruby
-		Color("#AB4B01"), # 16K ember
-		Color("#2C1A3F"), # 32K licorice
+		Color("#8FFFD0"), # 2 mint
+		Color("#B681EF"), # 4 lavender
+		Color("#FFE47D"), # 8 lemon
+		Color("#5DAFF1"), # 16 sky
+		Color("#F37069"), # 32 coral
+		Color("#32F3FC"), # 64 aqua
+		Color("#F721B6"), # 128 hot pink
+		Color("#AAFA2E"), # 256 lime
+		Color("#6A88FA"), # 512 periwinkle
+		Color("#FB8822"), # 1024 tangerine
+		Color("#3BBEFE"), # 2K azure
+		Color("#FE4F6D"), # 4K cherry
+		Color("#5EFF8F"), # 8K spring green
+		Color("#D056FF"), # 16K grape
+		Color("#2FA9FF"), # 32K electric blue
 		Color("#FDF1FC"), # 64K pearl
 		Color("#F7C243"), # 128K gold
 	]
 	var dark: Color = Color("#1C0D2B")
-	var light: Color = Color("#FFF7FC")
-	tile_ink = [
-		dark, dark, dark, dark, dark, dark, dark, dark,
-		light, light, light, light, light, light, light,
-		dark, dark,
-	]
+	tile_ink = [dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark]
 	beyond_fill = Color("#F7C243")
 	beyond_ink = dark
+	# Tier 1 sorbet (2 to 32), 2 candy (64 to 1K), 3 neon with shine (2K to
+	# 32K), 4 special with the candy rim (64K up). Lip height grows by tier.
+	tile_tier = PackedInt32Array([1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4])
+	beyond_tier = 4
 
 	text_pairs = [
-		pair("Score on the background", "ink", "bg"),
-		pair("HUD labels on the background", "ink_soft", "bg"),
+		pair("Score and HUD numbers on the background", "ink", "bg"),
+		pair("HUD labels on the background", "ink_muted", "bg"),
 		pair("Pill, dock and card text", "ink", "surface"),
-		pair("Pill, dock and card labels", "ink_soft", "surface"),
-		pair("Booster cost", "ink", "surface_raised"),
+		pair("Pill, dock and card labels", "ink_muted", "surface"),
+		pair("Booster cost, secondary buttons, chips", "ink", "surface_raised"),
+		pair("Labels on raised surfaces", "ink_muted", "surface_raised"),
 		pair("Booster cost, targeting", "ink_dark", "accent"),
 		pair("Booster cost, disabled", "disabled_ink", "disabled_surface"),
-		pair("Targeting hint pill", "ink_dark", "lemon"),
-		pair("New best badge", "ink_dark", "lemon"),
-		pair("Primary button", "ink_dark", "accent"),
+		pair("Badges: hint pill, suggested, new best, clear notice", "badge_ink", "badge"),
+		pair("Primary button and selected chip", "ink_dark", "accent"),
 		pair("Primary button, pressed", "ink_dark", "accent_pressed"),
-		pair("Secondary button and skin chip", "ink", "surface_raised"),
-		pair("Labels on raised surfaces", "ink_soft", "surface_raised"),
-		pair("Skin chip, selected", "ink_dark", "accent"),
 		pair("Text straight on the scrim, worst case over a pearl tile", "ink", "scrim", "tile:65536"),
 	]
 
-	# Type: one heavy family, black weight for numbers, sentence case.
+	# Type: Outfit, heavy, sentence case.
 	type_roles = {
-		"display": {"size": 136, "weight": 900, "tracking": -2, "case": CASE_NONE}, # score
-		"title": {"size": 76, "weight": 900, "tracking": -1, "case": CASE_NONE},    # dialog titles
-		"body": {"size": 46, "weight": 700, "tracking": 0, "case": CASE_NONE},      # buttons, rows
-		"label": {"size": 34, "weight": 700, "tracking": 1, "case": CASE_NONE},     # labels, costs
-		"tile": {"weight": 900, "tracking": -1, "case": CASE_NONE},
+		"display": {"size": 120, "weight": 900, "tracking": -1, "case": CASE_NONE},
+		"title": {"size": 76, "weight": 900, "tracking": 0, "case": CASE_NONE},
+		"body": {"size": 46, "weight": 700, "tracking": 0, "case": CASE_NONE},
+		"label": {"size": 34, "weight": 700, "tracking": 1, "case": CASE_NONE},
+		"tile": {"weight": 900, "tracking": 0, "case": CASE_NONE},
 	}
 	tile_number_scale = PackedFloat32Array([0.48, 0.44, 0.36, 0.31])
 
-	# Shape and layout. Lengths in px on the 1080 px canvas unless noted.
 	shape = {
-		"board_margin": 36.0,     # screen edge to tray edge
-		"tray_padding": 22.0,     # tray edge to the outer tiles
-		"tray_radius": 60.0,
-		"gap": 18.0,              # between tiles
-		"tile_radius": 0.30,      # fraction of tile side, squircle corners
-		"lip_depth": 0.075,       # fraction of tile side: the darker base under the top face
-		"lip_darken": 0.34,       # lip color = fill.darkened(lip_darken)
-		"lip_pressed": 0.02,      # fraction of tile side: lip of a chained tile, pressed in
-		"target_lift": 0.04,      # fraction of tile side: targeted tile rises by this much
-		"rope_width": 30.0,       # chain rope, drawn under the tiles so it shows in the gaps
-		"ring_width": 7.0,        # ring on chained tiles
-		"target_ring_width": 9.0,
-		"preview_scale": 0.46,    # preview mini tile, fraction of tile side. It sits on the gap
-		                          # crossing at the top left corner of the last chain tile (top
-		                          # right in column 0), covering only rounded corners, never numbers.
-		"preview_ring": 6.0,      # px, chain color ring round the preview mini tile
-		"target_edge_width": 4.0, # px, dark outer edge of the target ring
-		"special_rim_width": 8.0, # px, candy rim on special tiles
-		"special_rim_segments": 16.0, # color segments in the candy rim, cycling the 2 to 256 colors
-		"label_fit": 0.88,        # widest tile label as a fraction of the tile side (6 percent padding each side)
-		"special_from": 32768.0,  # tiles from this value get the candy rim effect
-		"pill_height": 96.0,
-		"pill_radius": 48.0,
-		"button_radius": 44.0,
-		"button_lip": 10.0,
-		"dock_height": 208.0,
-		"dock_radius": 68.0,
-		"card_radius": 60.0,
+		# Shared names. Lengths in px on the 1080 px base canvas unless noted.
+		"board_margin": 36.0,
+		"board_gap": 16.0,
+		"board_padding": 18.0,       # tray padding
+		"tile_radius": 0.30,         # fraction of the tile side
+		"label_fit": 0.88,           # widest label, fraction of the tile side
+		"display_fit_min": 76.0,     # the score shrinks to fit, never below this
+		"preview_scale": 0.46,       # preview mini tile, fraction of the tile side
+		"special_from": 65536.0,
+		"chain_width": 30.0,         # rope, drawn under the tiles
+		"chain_ring": 7.0,           # white ring on chained tiles
+		"joinable_ring": 6.0,        # lemon ring on joinable tiles
+		"target_ring": 9.0,          # ring under the finger in targeting
 		"space_xs": 12.0,
 		"space_s": 24.0,
 		"space_m": 36.0,
 		"space_l": 56.0,
 		"space_xl": 88.0,
-		"touch_min": 132.0,       # smallest touch target side
-		# Interface sizes, px
-		"booster_icon": 84.0,     # icon inside a booster button
-		"active_raise": 6.0,      # how much higher the active booster sits
-		"hud_icon": 84.0,         # settings icon in the HUD
-		"icon_stroke": 3.5,       # icon stroke on the 24 unit grid
+		"touch_min": 144.0,         # 48 dp on a 360 dp wide phone
+		"radius_button": 44.0,
+		"radius_card": 60.0,
+		"radius_chip": 40.0,
+		"hairline": 4.0,
+		"hud_height": 255.0,
+		"bar_height": 272.0,         # dock plus the hint row above it
+		"hint_height": 88.0,
+		"button_height": 144.0,
+		"row_height": 144.0,
+		"icon_booster": 84.0,
+		"icon_hud": 84.0,
+		"icon_stroke": 3.5,          # on the 24 unit icon grid
+		"toggle_w": 140.0,
+		"toggle_h": 76.0,
+		"toggle_knob": 54.0,
+		"notice_height": 88.0,
+		# Extras
+		"tray_radius": 60.0,
+		"lip_darken": 0.34,          # lip color = fill.darkened(lip_darken)
+		"lip_t1": 0.060,             # lip depth by tier, fraction of the tile side
+		"lip_t2": 0.075,
+		"lip_t3": 0.090,
+		"lip_t4": 0.090,
+		"lip_pressed": 0.020,
+		"joinable_lift": 0.030,      # joinable tiles rise by this
+		"target_lift": 0.040,        # Swap's selected tile rises by this
+		"shine_alpha": 0.35,
+		"shine_from_tier": 3.0,
+		"preview_ring": 6.0,
+		"target_edge_width": 4.0,
+		"special_rim_width": 8.0,
+		"special_rim_segments": 16.0,
+		"hud_top_row": 96.0,
+		"pill_height": 96.0,
+		"pill_radius": 48.0,
+		"button_lip": 10.0,
 		"button_lip_pressed": 3.0,
+		"active_raise": 6.0,
+		"dock_height": 184.0,
+		"dock_radius": 64.0,
 		"focus_width": 5.0,
 		"focus_gap": 6.0,
-		"divider_width": 4.0,
-		"toggle_track_w": 140.0,
-		"toggle_track_h": 76.0,
-		"toggle_knob": 54.0,
 		"toggle_knob_lip": 5.0,
 	}
 
-	# Motion: springy. Overshoot on arrival, squash on landing, nothing linear.
 	motion = {
-		"spawn": {"duration": 0.32, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "from_scale": 0.2, "stagger": 0.035},
-		"fall": {"duration": 0.28, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "squash": 0.12},
+		"spawn": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "from_scale": 0.2, "stagger": 0.03},
+		"fall": {"duration": 0.26, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "squash": 0.12},
 		"chain_add": {"duration": 0.10, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT, "press_scale": 0.94},
+		"chain_remove": {"duration": 0.10, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT},
+		"joinable_in": {"duration": 0.12, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT},
 		"merge_travel": {"duration": 0.18, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN},
 		"merge_pop": {"duration": 0.34, "trans": Tween.TRANS_ELASTIC, "ease": Tween.EASE_OUT, "peak_scale": 1.22},
+		"clear": {"duration": 0.28, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN, "burst_dots": 6.0},
+		"clear_notice": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "hold": 1.6, "out": 0.20},
+		"press": {"duration": 0.08, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT},
 		"button_press": {"duration": 0.08, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT, "press_scale": 0.92},
 		"button_release": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT},
 		"dialog_in": {"duration": 0.42, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "from_offset": 240.0},
+		"dialog_out": {"duration": 0.20, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_IN},
 		"screen_fade": {"duration": 0.22, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT},
 		"target_pulse": {"duration": 0.90, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT, "wobble_degrees": 4.0},
 		"score_count": {"duration": 0.50, "trans": Tween.TRANS_CUBIC, "ease": Tween.EASE_OUT},
+		"skin_switch": {"duration": 0.30, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT},
 	}
+
+	_add_phase1_aliases()
+
+
+## Phase 1 names that the prototype components in tools/directions still
+## read. Not part of the schema; remove when the prototypes are retired.
+func _add_phase1_aliases() -> void:
+	palette["ink_soft"] = palette["ink_muted"]
+	palette["divider"] = palette["line"]
+	palette["lemon"] = palette["badge"]
+	palette["lemon_lip"] = palette["badge_lip"]
+	shape["gap"] = shape["board_gap"]
+	shape["tray_padding"] = shape["board_padding"]
+	shape["lip_depth"] = shape["lip_t2"]
+	shape["rope_width"] = shape["chain_width"]
+	shape["ring_width"] = shape["chain_ring"]
+	shape["target_ring_width"] = shape["target_ring"]
+	shape["card_radius"] = shape["radius_card"]
+	shape["button_radius"] = shape["radius_button"]
+	shape["divider_width"] = shape["hairline"]
+	shape["booster_icon"] = shape["icon_booster"]
+	shape["hud_icon"] = shape["icon_hud"]
+	shape["toggle_track_w"] = shape["toggle_w"]
+	shape["toggle_track_h"] = shape["toggle_h"]

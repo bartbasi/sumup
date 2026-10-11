@@ -265,6 +265,7 @@ var final_score: int
 var best_score: int
 var best_tile: int
 var run_highest: int
+var new_best_score: bool  # this run set the Best Score (the New best badge)
 var no_moves_left: bool   # the run ended because nothing was usable (12.2 step 3)
 ```
 
@@ -294,6 +295,7 @@ func start_new_run() -> void                            # D-14; fresh random see
 func resume(saved: RunState) -> void                    # D-33 on load; see flow rule 7
 func phase() -> Phase
 func is_run_in_progress() -> bool                       # phase is PLAYING, TARGETING or OFFER
+func is_offer_open() -> bool                            # phase OFFER, or TARGETING entered from the offer
 func is_waiting_for_view() -> bool                      # D-35: true from a resolved move until move_shown()
 func can_start_chain() -> bool                          # PLAYING, not waiting for the view, no drag open
 func begin_drag() -> bool                               # a finger started a chain; false (and no drag) unless can_start_chain()
@@ -324,8 +326,8 @@ Flow rules GameSession must follow:
 4. **Booster taps (13.1).** `press_booster` on an unusable booster does nothing.
    - Shuffle or Undo applies at once. If another booster is targeting, that targeting is cancelled first with nothing charged (AT-63).
    - Hammer, Swap or Double enters TARGETING and emits `targeting_changed(id, Vector2i(-1, -1))`. The same booster again cancels; a different usable targeting booster switches (nothing charged).
-   - From OFFER: Shuffle and Undo apply at once. Hammer, Swap and Double enter TARGETING; leaving OFFER emits `offer_changed(false, &"")` first, so the panel hides and the board can be tapped.
-5. **Leaving targeting.** Cancelling (`cancel_targeting`, the same booster again) emits `targeting_changed(&"", Vector2i(-1, -1))`. If the board has no valid move, the phase returns to OFFER and emits `offer_changed(true, suggested)` worked out afresh; otherwise it returns to PLAYING. A booster that resolves from targeting goes through rules 2 and 3.
+   - From OFFER: Shuffle and Undo apply at once. Hammer, Swap and Double enter TARGETING with the offer still open (`is_offer_open()` stays true, no `offer_changed`). The offer panel replaces the HUD, not the board, so the board stays tappable (DESIGN_SYSTEM.md 7.5).
+5. **Leaving targeting.** Cancelling (`cancel_targeting`, the same booster again) emits `targeting_changed(&"", Vector2i(-1, -1))`. If the offer is open, the phase returns to OFFER and emits `offer_changed(true, suggested)` worked out afresh; otherwise it returns to PLAYING. A booster that resolves from targeting goes through rules 2 and 3, which close the offer (PLAY), refresh it (OFFER) or end the run (END).
 6. **Targeting taps (D-43).** In TARGETING, `tap_cell` applies Hammer or Double to that cell, or records Swap's first cell (emits `targeting_changed` with it), deselects it when tapped again, or applies Swap on a valid second cell. A refused second Swap pick does nothing.
 7. **Resume (D-33, 9.5).** `resume(saved)` takes a fresh random seed (`rng.use_random_seed()`), updates the records from the board (step 7), and emits `run_started` with a NEW_RUN result whose `cells_before` and `cells_after` are the loaded board and whose `spawn_cells` is empty, so the view shows it without a spawn animation. It then sets the session waiting like any move, so `move_shown()` runs the move check and opens the offer if there is no valid move (GO7). `start_new_run()` does the same with `spawn_cells` holding all 40 cells.
 8. **Run end.** On `run_ended` the App deletes the saved run and saves the profile (12.3). Records were already saved with the last move.
@@ -346,6 +348,8 @@ class_name Skin extends Resource
 @export var tile_ink: PackedColorArray                      # number color for each fill
 @export var beyond_fill: Color                              # rule above 131072, as DESIGN_SYSTEM.md defines it
 @export var beyond_ink: Color
+@export var tile_tier: PackedInt32Array                     # tier per value 2 to 131072, 17 entries; what a tier changes is per skin
+@export var beyond_tier: int
 @export var text_pairs: Array[Dictionary]                   # every text color on background pair the screens may use
 @export var font_path: String                               # "" for the system font, else a res:// font file
 @export var system_font_names: PackedStringArray            # used when font_path is ""
@@ -355,13 +359,15 @@ class_name Skin extends Resource
 @export var motion: Dictionary[StringName, Dictionary]      # name to {duration, trans, ease, plus extras}
 func fill_for(value: int) -> Color
 func ink_for(value: int) -> Color
+func tier_for(value: int) -> int
 func color(token: StringName) -> Color
 func num(token: StringName) -> float
 func motion_spec(motion_name: StringName) -> Dictionary
 func duration(motion_name: StringName) -> float
 func font(role: StringName) -> Font                         # cached FontVariation; weight applied through the wght axis tag
 func font_size(role: StringName) -> int
-func tile_font_size(tile_side: float, label: String) -> int
+func tile_font_size(tile_side: float, label: String) -> int  # by label length, then shrunk until the label fits label_fit of the side (DESIGN_SYSTEM.md 2.5)
+func score_font_size(text: String, max_width: float) -> int # display size, shrunk to fit max_width, never below display_fit_min (2.6)
 func cased(role: StringName, text: String) -> String
 func validate() -> PackedStringArray                        # every schema token present; empty when valid
 ```
@@ -439,13 +445,16 @@ static func make_backdrop(skin: Skin) -> SkinBackdrop
 
 ```gdscript
 class_name SkinHud extends Control
-signal menu_pressed()                                     # opens Pause
+signal pause_pressed()                                    # the HUD's pause button
 func setup(skin: Skin) -> void
 func set_scores(score: int, best_score: int) -> void
 func set_context(text: String, highlight: bool) -> void   # a skin that has no context row ignores it
 func preview_slot() -> Control                            # where the screen puts a SkinTileView preview; null when the skin previews on the board
 func score_label() -> Label                               # for Motion.count_up
-func show_notice(text: String) -> void                    # D-38 clear notice (AT-104), drawn as DESIGN_SYSTEM.md says
+## D-38 clear notice (AT-104). Builds its own copy from DESIGN_SYSTEM.md 7.8 and places itself:
+## Gumdrop and Nova on the board's top edge (board_rect is global), Slate in its context row.
+## Never blocks input; a later call replaces a notice still showing.
+func show_clear_notice(cleared_values: PackedInt64Array, board_rect: Rect2) -> void
 func preferred_height() -> float
 
 class_name SkinBoosterBar extends Control
@@ -633,7 +642,7 @@ class_name GameScreen extends Control
 func setup(session: GameSession, settings: Settings, audio: AudioService, skin: Skin) -> void
 func apply_skin(skin: Skin) -> void                          # live switch: rebuild backdrop, HUD, booster bar, board view
 func board() -> BoardController
-signal menu_requested()                                      # HUD menu button
+signal pause_requested()                                     # HUD pause button
 
 class_name MainMenu extends Control
 signal continue_chosen()
@@ -645,7 +654,6 @@ class_name PausePanel extends Control
 signal resume_chosen()
 signal new_game_chosen()
 signal settings_chosen()
-signal main_menu_chosen()
 func setup(skin: Skin) -> void
 
 class_name SettingsPanel extends Control
@@ -678,13 +686,13 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 1. **Start.** App loads the profile, sets the theme for `settings.skin_id`, then shows MainMenu (Continue only when a valid run is saved).
 2. **Continue** calls `session.resume(saved)`; **New game** calls `session.start_new_run()`. When a run exists, New game asks through ConfirmDialog first (D-34).
 3. **Play.** GameScreen shows Backdrop, HUD, BoardController and BoosterBar for the current skin, laid out inside the safe area as DESIGN_SYSTEM.md arranges it. It re-reads `session.booster_statuses()` on `status_changed`, mirrors scores into the HUD, and passes `chain_changed` to the HUD context row and preview slot for skins that use them.
-4. **Clear notice.** When a `move_resolved` result has `cleared_values`, GameScreen calls `hud.show_notice()` with the text DESIGN_SYSTEM.md gives (AT-104).
-5. **Offer.** On `offer_changed(true, ...)` GameScreen shows OfferPanel over the board, keeping the board visible. A booster choice calls `session.press_booster`. End run calls `session.end_run()`.
+4. **Clear notice.** When a `move_resolved` result has `cleared_values`, GameScreen calls `hud.show_clear_notice(result.cleared_values, board_global_rect)` (AT-104).
+5. **Offer.** While `session.is_offer_open()`, OfferPanel takes the HUD's place (DESIGN_SYSTEM.md 7.5); the board and booster bar stay visible and usable. Its buy button and the booster bar both call `session.press_booster`. End run calls `session.end_run()`. GameScreen shows the panel on `offer_changed(true, ...)`, refreshes it on every `status_changed`, and restores the HUD on `offer_changed(false, ...)`.
 6. **End.** On `run_ended` the App deletes the saved run, saves the profile and shows EndPanel. It never saves a run unless `session.is_run_in_progress()` is true.
 7. **Settings.** Reached from MainMenu and PausePanel. Sound calls `settings.set_sound_on`; a skin chip calls `settings.set_skin_id`. The App listens: sound goes to `audio.set_enabled`; a skin change rebuilds the theme and calls `apply_skin` on every live screen and panel. Both save the profile.
 8. **Saving.** On `save_requested` the App saves the run (only while `session.is_run_in_progress()`) and the profile at once. It also saves on NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT and NOTIFICATION_WM_CLOSE_REQUEST, after calling `board.cancel_drag()` and `session.cancel_targeting()` (13.1).
-9. **Pause.** Opening PausePanel by any route (the HUD menu button or the back button) first calls `board.cancel_drag()` and `session.cancel_targeting()` (13.1).
-10. **Back button.** The App sets `get_tree().quit_on_go_back = false` and handles NOTIFICATION_WM_GO_BACK_REQUEST in this order: cancel targeting; else close the top panel (ConfirmDialog, SettingsPanel, PausePanel); else on GameScreen (offer included) open PausePanel; else on MainMenu quit after saving.
+9. **Pause.** Opening PausePanel by any route (the HUD pause button or the back button) first calls `board.cancel_drag()` and `session.cancel_targeting()` (13.1). Pause offers Resume, New game and Settings (DESIGN_SYSTEM.md 7.3). The main menu is reached at launch and from the end of run screen.
+10. **Back button.** The App sets `get_tree().quit_on_go_back = false` and handles NOTIFICATION_WM_GO_BACK_REQUEST in this order: cancel targeting; else close the top panel (ConfirmDialog, SettingsPanel, PausePanel, where closing Pause resumes); else on GameScreen (offer included) open PausePanel; else on MainMenu or EndPanel quit after saving.
 
 ## 12. How skins and the theme are read
 
@@ -693,7 +701,7 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 - **Interface components.** Screens ask UiKit for the HUD, booster bar, icons, toggle and backdrop of the current skin and use only the base class methods.
 - **Theme.** App sets `UiKit.build_theme(skin)` on its root Control. Panels use the Theme's type variations and never set colors or sizes themselves.
 - **Tokens elsewhere.** Anything else reads `skin.color()`, `skin.num()`, `skin.font()`, `skin.font_size()`, `skin.cased()` and `Motion`. No literal color, size or timing appears outside src/skins/ and src/design/.
-- **Live switch.** On `settings.skin_changed`, the App rebuilds the theme and every screen calls `apply_skin`, which frees the old skinned components and creates new ones. The board keeps its state; only its look changes.
+- **Live switch.** On `settings.skin_changed`, the App rebuilds the theme and every screen calls `apply_skin`, which frees the old skinned components and creates new ones. The board keeps its state; only its look changes. The App cross-fades: before rebuilding it shows a still of the current frame (from the viewport texture) in a full screen TextureRect on top, then fades that still out over the new skin's `skin_switch` motion (DESIGN_SYSTEM.md 7.7).
 - **Checks.** In Phase 3 the contrast and label checks in tools/ move from the Phase 1 token files to the Skin resources, so they prove what ships.
 
 ## 13. Test hooks (GDD section 20)
@@ -727,7 +735,7 @@ Each area's tests live in `tests/<area>/` and extend `res://tests/base_test.gd`.
 
 - No autoloads. No input map entries: the board reads touch and mouse events directly, and the back button arrives as a notification.
 - platform-dev owns display, stretch and Android settings, the export preset named `Android` (excluding tools/, tests/ and docs/), and the build and install scripts. Release builds request no permissions.
-- The launcher icon image is made by a tool script in tools/ (senior-graphic-designer) and wired into the export by platform-dev.
+- The launcher icon: `tools/launcher_icon.gd` (senior-graphic-designer) draws it from the Gumdrop Skin values and writes the four PNGs of DESIGN_SYSTEM.md 9.1 to `launcher/` at the repo root. Only that tool writes there. The PNGs are committed, so a build never depends on running the tool, and docs/ASSETS.md logs them as generated by code. platform-dev points the export preset's launcher icon settings and the project icon at them.
 
 ## 15. Phase 3 order
 

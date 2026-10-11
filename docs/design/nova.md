@@ -1,5 +1,7 @@
 # Direction 3: Nova
 
+> Phase 1 record of the direction as Bart saw it at Hard Stop 1. The shipping values, including the ramp and sizing changes from the Hard Stop 1 review, are in docs/DESIGN_SYSTEM.md.
+
 **Tiles are stars.** Merging is fusion.
 
 Screens: nova-board.png, nova-targeting.png, nova-gameover.png, nova-settings.png in this folder.

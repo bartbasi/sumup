@@ -1,13 +1,15 @@
 extends RefCounted
-## Design tokens for one Phase 1 direction. This is the single source of truth
-## for the direction's colors, tile ramp, type, shape and motion. Each
-## direction's tokens.gd extends this script and fills every field in _init().
+## Design tokens for one skin. Since Phase 2 these mirror docs/DESIGN_SYSTEM.md
+## exactly, and they stay the checked source (contrast, label and ramp checks)
+## until the production Skin Resources exist. Each skin's tokens.gd extends
+## this script and fills every field in _init().
 ##
-## Artists read values from here and never hardcode a color, size or timing.
-## The contrast checker (res://tools/contrast_check.gd) reads the same values.
-## If a value you need is missing, ask the senior-graphic-designer.
+## The shared schema: every skin defines every name in SHARED_PALETTE,
+## SHARED_SHAPE, TYPE_ROLES and MOTION_NAMES. Anything else is a per skin
+## extra, marked as such in its tokens.gd. Phase 1 names that the prototype
+## components still read are kept as aliases at the end of each tokens.gd.
 ##
-## Phase 1 prototype code. Nothing under tools/ ships with the game.
+## Prototype and check code. Nothing under tools/ ships with the game.
 ## Load it with preload, not class_name, so tools/ adds nothing to the global
 ## class list that Phase 2 code will use:
 ##     const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
@@ -26,23 +28,48 @@ const CASE_LOWER: String = "lower"
 ## The type roles every direction defines.
 const TYPE_ROLES: PackedStringArray = ["display", "title", "body", "label", "tile"]
 
-## The motion names every direction defines.
+## The motion names every skin defines.
 const MOTION_NAMES: PackedStringArray = [
-	"spawn", "fall", "chain_add", "merge_travel", "merge_pop",
-	"button_press", "button_release", "dialog_in", "screen_fade",
-	"target_pulse", "score_count",
+	"spawn", "fall", "chain_add", "chain_remove", "joinable_in",
+	"merge_travel", "merge_pop", "clear", "clear_notice", "press",
+	"button_press", "button_release", "dialog_in", "dialog_out",
+	"screen_fade", "target_pulse", "score_count", "skin_switch",
 ]
 
-## Absolute path to a .ttf or .otf file outside the repo. When set, every role
-## uses that file instead of the system font. Only the capture tool sets this,
-## for the Hard Stop 1 font comparison.
+## The palette roles every skin defines.
+const SHARED_PALETTE: PackedStringArray = [
+	"bg", "surface", "surface_raised", "line", "ink", "ink_muted", "ink_dark",
+	"accent", "accent_pressed", "disabled_ink", "chain", "target", "joinable",
+	"scrim", "badge", "badge_ink",
+]
+
+## The shape, layout and size names every skin defines.
+const SHARED_SHAPE: PackedStringArray = [
+	"board_margin", "board_gap", "board_padding", "tile_radius", "label_fit",
+	"display_fit_min", "preview_scale", "special_from", "chain_width",
+	"chain_ring", "joinable_ring", "target_ring", "space_xs", "space_s",
+	"space_m", "space_l", "space_xl", "touch_min", "radius_button",
+	"radius_card", "radius_chip", "hairline", "hud_height", "bar_height",
+	"hint_height", "button_height", "row_height", "icon_booster", "icon_hud",
+	"icon_stroke", "toggle_w", "toggle_h", "toggle_knob", "notice_height",
+]
+
+## Font families a skin can use.
+const FAMILY_SYSTEM: String = "system"
+const FAMILY_OUTFIT: String = "outfit"
+
+## Absolute path to the Outfit font file outside the repo. When set, skins
+## whose font_family is "outfit" use it; system font skins never do. The
+## capture tool and the label check set this until the font is in the repo.
 static var override_font_path: String = ""
 static var _override_font: FontFile = null
 
 ## Short id, also the folder name under tools/directions/.
 var id: String = ""
-## Name shown to Bart.
+## Name shown to the player in the skin picker.
 var display_name: String = ""
+## FAMILY_SYSTEM or FAMILY_OUTFIT.
+var font_family: String = FAMILY_SYSTEM
 
 ## Named palette colors, for example "bg", "ink", "accent". Every key is
 ## documented in the direction's tokens.gd.
@@ -54,6 +81,10 @@ var tile_ink: Array[Color] = []
 ## Values above 131072 use these.
 var beyond_fill: Color = Color.BLACK
 var beyond_ink: Color = Color.WHITE
+## Tier of each ramp value, in ramp order. What a tier changes is per skin
+## (lip height, shine, slab or block, corona); the skin's tokens.gd says.
+var tile_tier: PackedInt32Array = PackedInt32Array()
+var beyond_tier: int = 0
 
 ## Every text color on its background, as drawn on screen. Built with pair().
 ## Text may only be drawn with a pair listed here. The contrast checker holds
@@ -121,6 +152,16 @@ func fill_for(value: int) -> Color:
 	if index >= RAMP_SIZE:
 		return beyond_fill
 	return tile_fill[index]
+
+
+## Tier for a value (see tile_tier).
+func tier_for(value: int) -> int:
+	var index: int = ramp_index(value)
+	if index < 0 or tile_tier.size() != RAMP_SIZE:
+		return 0
+	if index >= RAMP_SIZE:
+		return beyond_tier
+	return tile_tier[index]
 
 
 ## Number color for a value.
@@ -196,7 +237,7 @@ func font(role: String) -> Font:
 	var spec: Dictionary = _role(role)
 	var weight: int = int(spec.get("weight", 400))
 	var variation: FontVariation = FontVariation.new()
-	var file: FontFile = _load_override_font()
+	var file: FontFile = _load_override_font() if font_family == FAMILY_OUTFIT else null
 	if file != null:
 		variation.base_font = file
 		# The weight axis must be keyed by its integer tag. The string key
@@ -255,6 +296,16 @@ func validate() -> PackedStringArray:
 			problems.append("missing type role '%s'" % role)
 	if tile_number_scale.size() != 4:
 		problems.append("tile_number_scale needs 4 entries (1 to 4 characters)")
+	if tile_tier.size() != RAMP_SIZE:
+		problems.append("tile_tier has %d entries, needs %d" % [tile_tier.size(), RAMP_SIZE])
+	if font_family != FAMILY_SYSTEM and font_family != FAMILY_OUTFIT:
+		problems.append("unknown font_family '%s'" % font_family)
+	for token: String in SHARED_PALETTE:
+		if not palette.has(token):
+			problems.append("missing shared palette role '%s'" % token)
+	for key: String in SHARED_SHAPE:
+		if not shape.has(key):
+			problems.append("missing shared shape name '%s'" % key)
 	for motion_name: String in MOTION_NAMES:
 		if not motion.has(motion_name):
 			problems.append("missing motion '%s'" % motion_name)
