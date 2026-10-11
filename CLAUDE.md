@@ -7,8 +7,8 @@ numbersgame is a number merge puzzle game (same core mechanic as "2248") for And
 - Engine: Godot 4.7.2 stable (`4.7.2.stable.official.ed1daf0bf`), Compatibility renderer.
 - Language: GDScript, statically typed everywhere (typed variables, parameters and return values). No C#, no GDExtension. project.godot treats untyped declarations as errors.
 - Platform for v1: Android, portrait only. Develop and iterate in the Godot editor on Windows.
-- Repo: github.com/bartbasi/numbersgame, private. Nothing is created on GitHub and nothing is pushed until Bart approves at Hard Stop 2.
-- Assets: nothing paid, nothing third party. Every visual and every sound is made in code (StyleBoxFlat, Theme resources, `_draw()`, shaders, Tweens, AudioStreamWAV filled by code). No image files, no audio files, no asset store downloads, no addons. Font files are an open question until Hard Stop 1; until then use Godot's built-in font or SystemFont.
+- Repo: github.com/bartbasi/numbersgame, private. Only the DM pushes.
+- Assets: nothing paid, nothing third party. Every visual and every sound is made in code (StyleBoxFlat, Theme resources, `_draw()`, shaders, Tweens, AudioStreamWAV filled by code). No image files, no audio files, no asset store downloads, no addons. The one exception is the Outfit font (see Bart's decisions below).
 - Network: none. No accounts, ads, analytics or leaderboards. Release builds request no Android permissions.
 - Skins: built in only for v1. No import of any kind.
 - Level goals: not in v1. Keep game rules separate from UI so they can be added later, but build nothing for them.
@@ -43,6 +43,11 @@ Autoload and input map entries in project.godot are added by the DM during integ
 - 2026-10-10: Skin Resources. The senior-graphic-designer specifies every value in docs/DESIGN_SYSTEM.md. The tile-board-artist writes the Resource files in src/skins/. The senior-graphic-designer reviews them.
 - 2026-10-10: Android launcher icon. It is drawn in code by a tool script in tools/ that saves the icon image the export uses, and it is logged in docs/ASSETS.md. No hand made or downloaded image.
 - 2026-10-10: Commits are authored as the bartbasi GitHub account (set in this repo's git config, not globally).
+- 2026-10-10, Hard Stop 1: Gumdrop is the default look. Slate and Nova ship as built in skins the player can switch to in Settings.
+- 2026-10-10, Hard Stop 1: Fonts. Gumdrop uses Outfit (SIL Open Font License 1.1). Slate uses the system font (Roboto on Android). Nova uses Outfit, following the senior designer, unless Bart says otherwise. `Outfit[wght].ttf` and its `OFL.txt` are the only third party files allowed in the repo, unmodified, side by side, and logged in docs/ASSETS.md.
+- 2026-10-10, Hard Stop 1: Best Score updates live (GDD D-16). All GDD rules are approved as recommended.
+- 2026-10-10, Hard Stop 1: Three additions to v1 scope: small tiles are cleared automatically as the game moves up, as in 2248; tiles that could join next are highlighted while dragging; the end of run screen shows this run's highest tile. Not added: a confirm step before Shuffle and Undo.
+- 2026-10-10: Bart approved creating the private GitHub repo bartbasi/numbersgame and pushing (Hard Stop 2 cleared early).
 
 ## Rules for every session and agent
 
@@ -52,7 +57,7 @@ Autoload and input map entries in project.godot are added by the DM during integ
 - Priority for every decision and fix: security and bugs first, then fun and polish.
 - No em dashes and no double hyphens in prose: docs, UI text, code comments, commit messages. Write plainly, like a person. Command line flags inside code formatting are fine.
 - If anything is unclear, conflicts, or would force a guess, stop and ask. Do not pick an interpretation silently.
-- Hard stops: Phase 2 does not start until Bart signs off at Hard Stop 1. Nothing goes to GitHub until Bart approves at Hard Stop 2.
+- Hard stops: Hard Stop 1 and Hard Stop 2 are both cleared. Ask Bart before any store work, release signing, or anything else outside the brief.
 - Every agent finishes with a short report: what changed (file list), how it was proven (command and result, screenshot path, or test names), open questions, and any contract change requests.
 
 ## Commands
