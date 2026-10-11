@@ -85,3 +85,5 @@ godot --headless --path . --script res://tests/run_tests.gd   # all tests; exit 
 - Do not use `godot_console.exe`. It fails with "CreateProcess failed, error 193" because a stray installer log file named `C:\Users\Bart` breaks the wrapper's unquoted path. Bart wants that file left alone: never move, rename or delete it.
 - Android SDK: `C:\Android\Sdk`. adb is at `C:\Android\Sdk\platform-tools\adb.exe` and is not on PATH. JDK 17 (Temurin) is on PATH. The Android debug keystore lives outside the repo in Godot's editor settings folder.
 - docs/ has a `.gdignore`, so Godot never imports the design screenshots into the game.
+- Pushing (DM only): git's credential manager has no GitHub login here, so push through the gh login without changing git config: `git -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin main`.
+- Public classes in src/ use `class_name` (names fixed in docs/ARCHITECTURE.md). After adding one, run `godot --headless --path . --import`. If several agents import at once and you then see "could not find type" errors, import again. tools/ code uses preload and adds no class names.
