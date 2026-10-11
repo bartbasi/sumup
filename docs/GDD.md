@@ -1274,7 +1274,27 @@ row 7:   8  32   8  32   8
 
 **AT-94. Settings persist and sound starts on.** Type: Play. Setup: a fresh install. Action: check the sound setting; turn sound off and pick a different skin; close the app fully and reopen. Expected: sound is on at first launch. After reopening, sound is off and the chosen skin is shown.
 
-**AT-95. A broken saved run is discarded.** Type: Unit. Setup: valid records (Best Score 5,000, Best Tile 512), and in turn each of these saved runs: 39 values; a value of 3; a value of 0; a score of minus 1; a snapshot with 40 valid values and points 2; a run highest tile of 512 on a board holding a 1024; a run highest tile of 600. Action: load. Expected: each time the run is discarded and a new run starts. Best Score 5,000 and Best Tile 512 are kept.
+**AT-95. A broken saved run is discarded.** Type: Unit (TH18, save format of docs/ARCHITECTURE.md section 10: tile values as exponents, scores and points as digit strings). Setup: a valid profile file with records `"best_score": "5000"` and `"best_tile": 9` (Best Score 5,000, Best Tile 512), plus a valid run file. First load that valid run file unchanged as a control. Then, in turn, replace the run file with a copy of it that has exactly one of these faults:
+- (a) `"cells"` holds 39 exponents.
+- (b) One cell exponent is 1.5.
+- (c) One cell exponent is 0.
+- (d) One cell exponent is 63.
+- (e) `"score": "-1"`.
+- (f) `"score": "12a"`.
+- (g) `"score": "007"`.
+- (h) `"run_highest": 9` while the cells include exponent 10 (a 1024).
+- (i) A snapshot with 40 valid exponents and `"points": "2"`.
+- (j) `"columns": 6`.
+- (k) The file is larger than 64 KB.
+- (l) The file is malformed JSON, for example cut off part way through.
+
+Action: load each file.
+
+Expected:
+- The control loads and equals the saved run exactly.
+- Each faulty file is refused: the run loader returns no run, and nothing crashes or shows a raw error.
+- The run is discarded, Continue is not offered, and the next game is a new run.
+- Every time, the profile is untouched: Best Score 5,000 and Best Tile 512 are kept.
 
 **AT-96. New game asks first.** Type: Play. Setup: a run in progress. Action: choose New game, cancel; choose New game, confirm. Expected: after cancel the run is unchanged. After confirm a new run starts with score 0 and Undo disabled, and Best Score still holds the old run's highest score.
 
