@@ -243,7 +243,14 @@ Each has a duration (seconds; for loops the period), a transition and an ease (G
 
 **Clear notice exit.** The notice fades out over `clear_notice.out` on the skin's `screen_fade` curve, because Gumdrop's back curve would overshoot alpha. Slate uses `clear_notice`'s own curve both ways (5.7).
 
-**Move sequence.** A committed chain plays: chain tiles `merge_travel` into the last tile, then `merge_pop` and `clear` together, then `fall` and `spawn` together (new tiles start as the falls land, staggered by `spawn.stagger` per tile in fill order). The clear notice appears with the clear and holds on its own. Input reopens when every tile is at rest.
+**Move sequence.** A committed chain plays:
+1. Chain tiles `merge_travel` into the last tile.
+2. `merge_pop` and `clear` together.
+3. `fall` and `spawn` start together. New tiles start at the same moment as the falls, staggered by `spawn.stagger` per tile in fill order, and draw under the falling tiles, so a new tile seems to appear from behind the tile that drops away from its cell. Do not wait for the falls to land: over hundreds of moves that wait is felt.
+
+The clear notice appears with the clear and holds on its own. Input reopens when every tile is at rest. From lift to input, a chain with no small tile clear takes about 0.75 s in Gumdrop, 0.45 s in Slate and 0.65 s in Nova.
+
+**The chain line's tail** (the part from the last chain tile toward the finger, Gumdrop and Nova) ends at the finger, clamped to the board's rect (Gumdrop: the tray's outer edge). When the finger leaves the board the chain stays (AT-19), and the tail stops at the board's edge on the way to the finger.
 
 **Booster effects.** No booster has motion of its own; each reuses the names above:
 - *Hammer:* the smashed tile plays `clear`, then `fall` and `spawn` as after a chain.
@@ -386,13 +393,13 @@ Closest pairs (ramp check): neighbors 0.206, times 4 0.141, times 8 0.210.
 
 | Name | Duration | Transition, ease | Extras |
 |---|---|---|---|
-| spawn | 0.30 | back, out | from_scale 0.2, stagger 0.03 |
+| spawn | 0.24 | back, out | from_scale 0.2, stagger 0.03 |
 | fall | 0.26 | back, out | squash 0.12 on landing |
 | chain_add | 0.10 | quad, out | press_scale 0.94 |
 | chain_remove | 0.10 | quad, out | |
 | joinable_in | 0.12 | sine, out | |
 | merge_travel | 0.18 | back, in | |
-| merge_pop | 0.34 | elastic, out | peak_scale 1.22 |
+| merge_pop | 0.28 | elastic, out | peak_scale 1.22 |
 | clear | 0.28 | back, in | burst_dots 6, burst_dot_size 0.07 (of the tile side), burst_reach 0.6 (of the tile side), burst_fade 0.36 s |
 | clear_notice | 0.30 | back, out | from_scale 0.6, hold 1.6, out 0.20 |
 | press | 0.08 | quad, out | |
@@ -405,7 +412,7 @@ Closest pairs (ramp check): neighbors 0.206, times 4 0.141, times 8 0.210.
 | score_count | 0.50 | cubic, out | |
 | skin_switch | 0.30 | sine, in out | |
 
-A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then fall and spawn.
+A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then fall and spawn together, about 0.3 with the stagger. Phase 3 trimmed the pop from 0.34 and the spawn from 0.30 so the default skin keeps a brisk rhythm over hundreds of moves.
 
 ### 4.7 Components
 
@@ -428,7 +435,7 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 
 **Chain line**
 - A rope in chain, `chain_width` wide, round caps and joins, drawn **under** the tiles from center to center, so it shows in the gaps like beads on a string.
-- It also runs from the last tile toward the finger.
+- It also runs from the last tile toward the finger, clamped to the tray (3.6).
 
 **Merge preview**
 - A mini tile of the result (`preview_scale` of the tile side, with its lip) and a `preview_ring` ring in chain.
@@ -706,7 +713,7 @@ A committed chain settles in about 0.45 s.
 
 **Buttons, panels and chips**
 - *Primary:* accent fill, ink_dark text, `radius_button` corners, text left aligned.
-- *Secondary:* a `hairline` outline in ink, ink text; pressed fills surface.
+- *Secondary:* a `hairline` outline in ink, ink text, left aligned like the primary (7); pressed fills surface.
 - *Disabled (buttons and chips):* a `hairline` outline in line, no fill, disabled_ink text, on bg only (5.3).
 - *Chip:* surface; selected fills ink (paper) with ink_dark text.
 - *Sheet panel:* bg with a `hairline` line on its open edge, square corners, `space_m` padding, rows split by hairlines.
@@ -862,7 +869,7 @@ Disabled buttons and chips have no fill (a faint ring), so their text sits on wh
 | score_count | 0.60 | sine, out | |
 | skin_switch | 0.40 | sine, in out | |
 
-A committed chain settles in about 0.8 s; the bloom fades after.
+A committed chain settles in about 0.65 s; the bloom fades after.
 
 ### 6.7 Components
 
@@ -885,7 +892,7 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 - Drawn under the orbs, center to center, round joins.
 - A `beam_glow_width` glow at `beam_glow_alpha` that takes the chained orbs' fill colors along its length.
 - A chain core, `chain_width` wide, on top of the glow.
-- It also runs to the finger.
+- It also runs to the finger, clamped to the board (3.6).
 
 **Merge preview**
 - A small orb with its glow, `preview_scale` of the orb diameter.
@@ -956,6 +963,12 @@ Dialog panels anchor to the bottom of the safe area (thumb zone) and come in wit
 
 The copy below is the design's working copy. Where the GDD fixes wording, the GDD wins.
 
+**Alignment.**
+- A panel title alone in its row is centered.
+- A title that shares its row with something on the right (Settings' close button, the offer's score) is left aligned.
+- Slate left aligns every title and text block.
+- In Slate every button's text is left aligned, primary and secondary alike; chips center their text.
+
 ### 7.1 Play screen frame
 
 - HUD, board and booster bar as in section 2.3.
@@ -967,12 +980,15 @@ The copy below is the design's working copy. Where the GDD fixes wording, the GD
 
 Shown only at first launch (no valid saved run) and after a run ends. Reopening the app with a saved run goes straight back into play (ARCHITECTURE.md section 11), so the main menu never offers Continue.
 
-Over the backdrop, top to bottom:
+Over the backdrop, in the safe area, top to bottom:
 1. The settings icon button, top right.
-2. The wordmark "numbersgame" in the title role, ink, centered. Slate left aligns it.
-3. A decorative row of four tiles (2, 4, 8, 16) drawn by the skin's tile component, `space_s` apart.
-4. Records: "Best score" with the number, "Best tile" with a mini tile.
-5. **New game**, the only button: primary, full width less `board_margin` each side, at the bottom of the safe area.
+2. The brand block, centered (Slate: left aligned, the wordmark and the tile row both):
+   - the wordmark "numbersgame" in the **display role**, ink, auto fitting the width inside `board_margin` like the score (2.6), never below `display_fit_min`;
+   - `space_m` below it, a decorative row of four tiles (2, 4, 8, 16) drawn by the skin's tile component at the menu tile size (7.9), `space_s` apart.
+3. The records, `space_l` above the button: "Best score" with the number, then a divider and "Best tile" with a mini tile once a best tile exists.
+4. **New game**, the only button: primary, full width less `board_margin` each side, at the bottom of the safe area.
+
+The free height between the settings button's touch area and the records splits 2 to 3 above and below the brand block. So the brand sits near the upper golden section rather than low in the middle. The records and the button form one group in the thumb zone.
 
 ### 7.3 Pause
 
@@ -986,11 +1002,11 @@ Over the backdrop, top to bottom:
 
 ### 7.5 Out of moves offer (D-19, D-42)
 
-- The HUD is replaced, in place, by an offer panel:
-  - "Out of moves" (title; Slate uses its accent signal label in capitals).
-  - The current score.
+- The HUD is replaced, in place, by an offer panel. One arrangement for every skin:
+  - "Out of moves" (title; Slate uses its accent signal label in capitals), left aligned, with the current score at the right of the same row: the label "Score" over the number in the body role.
   - "Pick a booster to keep this run going." (body, muted).
-  - A row with the suggested buy button (primary, for example "Shuffle for 4K") and **End run** (secondary).
+  - A row with the suggested buy button (primary, for example "Shuffle for 4K") and **End run** (secondary), sharing the width.
+- Gumdrop draws it on its lipped card. Slate and Nova draw it with no box, straight on the backdrop: their dialog panel is a bottom sheet, which does not suit a panel at the top.
 - The board stays fully visible and may shrink to fit under the taller panel.
 - The booster bar stays: every booster with its cost, usable ones in the normal look, the rest disabled.
 - The suggested booster (D-42) shows the Suggested badge in the bar:
@@ -1015,7 +1031,7 @@ Over the backdrop, top to bottom:
   - "Sound" row with the toggle.
   - A divider.
   - "Skin" (label role), then three skin choices side by side.
-  - The version line (label role, muted, centered; Slate left).
+  - The version line (label role, muted, centered; Slate left): "numbersgame", followed by the version from `application/config/version` when one is set, cased by the label role (Slate in capitals).
 - **Each skin choice:**
   - A preview swatch in that skin's own bg (`radius_chip` of the current skin), holding tiles 2, 4 and 8 drawn by that skin's own tile component at 72 px.
   - Under it, a chip with the skin's name in that skin's font.
@@ -1033,7 +1049,8 @@ These numbers are the same in every skin and are not tokens. The components hold
 
 | Constant | Value | Where |
 |---|---|---|
-| Main menu decorative tiles | 112 px side | 7.2 |
+| Main menu decorative tiles | 160 px side | 7.2 |
+| Record row mini tiles (main menu and end of run) | 72 px side | 7.2, 7.6 |
 | Skin choice preview tiles | 72 px side | 7.7 |
 | Skin choice swatch padding | 0.22 of the preview tile side | 7.7 |
 | Skin choice swatch hairline edge | 2 px | 7.7 |
