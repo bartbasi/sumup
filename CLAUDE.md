@@ -49,6 +49,8 @@ Autoload and input map entries in project.godot are added by the DM during integ
 - 2026-10-10, Hard Stop 1: Best Score updates live (GDD D-16). All GDD rules are approved as recommended.
 - 2026-10-10, Hard Stop 1: Three additions to v1 scope: small tiles are cleared automatically as the game moves up, as in 2248; tiles that could join next are highlighted while dragging; the end of run screen shows this run's highest tile. Not added: a confirm step before Shuffle and Undo.
 - 2026-10-10: Bart approved creating the private GitHub repo bartbasi/numbersgame and pushing (Hard Stop 2 cleared early).
+- 2026-10-11: Bart approved the rebuilt tile colors (DESIGN_SYSTEM.md) and the working copy in DESIGN_SYSTEM.md 7.8.
+- 2026-10-11: Reopening the app with a saved run goes straight back into the run. The main menu shows only at first launch, when no valid run is saved, and after a run ends.
 
 ## Rules for every session and agent
 

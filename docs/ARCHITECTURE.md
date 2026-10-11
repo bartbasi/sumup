@@ -645,10 +645,9 @@ func board() -> BoardController
 signal pause_requested()                                     # HUD pause button
 
 class_name MainMenu extends Control
-signal continue_chosen()
 signal new_game_chosen()
 signal settings_chosen()
-func setup(skin: Skin, records: Records, has_run: bool) -> void
+func setup(skin: Skin, records: Records) -> void
 
 class_name PausePanel extends Control
 signal resume_chosen()
@@ -683,8 +682,8 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 
 ### Flow
 
-1. **Start.** App loads the profile, sets the theme for `settings.skin_id`, then shows MainMenu (Continue only when a valid run is saved).
-2. **Continue** calls `session.resume(saved)`; **New game** calls `session.start_new_run()`. When a run exists, New game asks through ConfirmDialog first (D-34).
+1. **Start (Bart's decision).** App loads the profile and sets the theme for `settings.skin_id`. If a valid run is saved, it goes straight to GameScreen and calls `session.resume(saved)`. Otherwise it shows MainMenu. MainMenu also follows a finished run (EndPanel's Main menu), so it never sees a saved run.
+2. **New game** calls `session.start_new_run()`. From Pause, while a run is in progress, it asks through ConfirmDialog first (D-34).
 3. **Play.** GameScreen shows Backdrop, HUD, BoardController and BoosterBar for the current skin, laid out inside the safe area as DESIGN_SYSTEM.md arranges it. It re-reads `session.booster_statuses()` on `status_changed`, mirrors scores into the HUD, and passes `chain_changed` to the HUD context row and preview slot for skins that use them.
 4. **Clear notice.** When a `move_resolved` result has `cleared_values`, GameScreen calls `hud.show_clear_notice(result.cleared_values, board_global_rect)` (AT-104).
 5. **Offer.** While `session.is_offer_open()`, OfferPanel takes the HUD's place (DESIGN_SYSTEM.md 7.5); the board and booster bar stay visible and usable. Its buy button and the booster bar both call `session.press_booster`. End run calls `session.end_run()`. GameScreen shows the panel on `offer_changed(true, ...)`, refreshes it on every `status_changed`, and restores the HUD on `offer_changed(false, ...)`.
