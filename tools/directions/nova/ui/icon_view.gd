@@ -3,7 +3,7 @@ extends Control
 ## suits, a small spark dot. Drawn in code on a 24 unit grid scaled to
 ## min(size.x, size.y) and centered, kept inside a circle so they sit well
 ## in Nova's ring buttons. The active look adds a soft cyan glow behind the
-## icon. The geometry is rebuilt only when the icon or the size changes;
+## icon. The geometry is built only when the icon or the size changes;
 ## _draw() replays it.
 ##
 ## Phase 1 prototype code. Nothing under tools/ ships with the game.
@@ -17,16 +17,6 @@ const LOOK_ACTIVE: int = 1
 const LOOK_DISABLED: int = 2
 const ICONS: PackedStringArray = ["hammer", "swap", "shuffle", "double", "undo", "settings", "sound_on", "sound_off", "close", "check"]
 
-## Stroke width on the 24 unit grid.
-const STROKE: float = 1.5 # Proposed token: icon_stroke
-## Radius of the spark dot on the 24 unit grid.
-const SPARK: float = 1.0 # Proposed token: icon_spark
-## Share of the icon size the 24 unit grid is fitted to, so Nova's thin
-## icons keep air between them and their ring. Strokes are widened by the
-## same share, so they stay STROKE units of the full icon size.
-const FIT: float = 0.86 # Proposed token: icon_fit
-## Alpha of the glow behind an active icon.
-const GLOW_ALPHA: float = 0.4 # Proposed token: icon_glow_alpha
 
 var _tokens: DirectionTokens = null
 var _icon: String = ""
@@ -36,6 +26,9 @@ var _glow_color: Color = Color.TRANSPARENT
 var _has_override: bool = false
 var _override: Color = Color.WHITE
 var _pen: IconPen = IconPen.new()
+## Size and icon the recorded geometry was built for.
+var _built_size: Vector2 = Vector2(-1.0, -1.0)
+var _built_icon: String = ""
 
 
 func _init() -> void:
@@ -44,7 +37,7 @@ func _init() -> void:
 
 func setup(tokens: DirectionTokens) -> void:
 	_tokens = tokens
-	_glow_color = Color(tokens.color("accent"), GLOW_ALPHA)
+	_glow_color = Color(tokens.color("accent"), tokens.num("icon_glow_alpha"))
 	_pick_color()
 	_rebuild()
 
@@ -79,6 +72,10 @@ func _notification(what: int) -> void:
 func _draw() -> void:
 	if _tokens == null or _icon.is_empty():
 		return
+	# A view sized while outside the tree gets no resize notification, so
+	# it builds here when it first draws at a new size.
+	if size != _built_size or _icon != _built_icon:
+		_build()
 	if _look == LOOK_ACTIVE:
 		Glow.draw(self, size * 0.5, minf(size.x, size.y) * 0.5, _glow_color)
 	_pen.replay(self, _color)
@@ -98,24 +95,39 @@ func _pick_color() -> void:
 
 
 func _rebuild() -> void:
-	_pen.begin(Rect2(size * (1.0 - FIT) * 0.5, size * FIT))
+	_build()
+	queue_redraw()
+
+
+## Records the current icon at the current size.
+func _build() -> void:
+	_built_size = size
+	_built_icon = _icon
+	if _tokens == null:
+		return
+	# The grid is fitted to icon_fit of the size, so Nova's thin icons keep
+	# air inside their ring. Strokes widen by the same share, so they stay
+	# icon_stroke units of the full icon size.
+	var fit: float = _tokens.num("icon_fit")
+	_pen.begin(Rect2(size * (1.0 - fit) * 0.5, size * fit))
 	_pen.cap = IconPen.CAP_ROUND
-	var w: float = STROKE / FIT
+	var w: float = _tokens.num("icon_stroke") / fit
+	var spark: float = _tokens.num("icon_spark")
 	match _icon:
 		"hammer":
 			_pen.rotate_around(-40.0)
 			_pen.outline(_pen.round_rect_points(Rect2(6.5, 5.0, 11.0, 4.5), 1.2), w)
 			_pen.line(Vector2(12.0, 9.5), Vector2(12.0, 19.5), w)
 			_pen.rotate_around(0.0)
-			_pen.disc(Vector2(5.0, 17.0), SPARK)
+			_pen.disc(Vector2(5.0, 17.0), spark)
 		"swap":
 			# Two thin arrows passing each other, each trailing a spark.
 			_pen.line(Vector2(7.0, 8.5), Vector2(19.0, 8.5), w)
 			_pen.chevron(Vector2(19.5, 8.5), 0.0, 2.5, 2.5, w)
-			_pen.disc(Vector2(4.25, 8.5), SPARK)
+			_pen.disc(Vector2(4.25, 8.5), spark)
 			_pen.line(Vector2(17.0, 15.5), Vector2(5.0, 15.5), w)
 			_pen.chevron(Vector2(4.5, 15.5), 180.0, 2.5, 2.5, w)
-			_pen.disc(Vector2(19.75, 15.5), SPARK)
+			_pen.disc(Vector2(19.75, 15.5), spark)
 		"shuffle":
 			_pen.polyline(_pen.curve_points(Vector2(4.5, 8.0), Vector2(10.5, 8.0), Vector2(11.5, 16.0), Vector2(18.5, 16.0)), w)
 			_pen.chevron(Vector2(19.5, 16.0), 0.0, 2.5, 2.5, w)
@@ -129,7 +141,7 @@ func _rebuild() -> void:
 			two.append(Vector2(13.5, 15.25))
 			two.append(Vector2(19.25, 15.25))
 			_pen.polyline(two, w)
-			_pen.disc(Vector2(19.5, 5.5), SPARK)
+			_pen.disc(Vector2(19.5, 5.5), spark)
 		"undo":
 			# A counterclockwise orbit ending in an arrow pointing down.
 			_pen.arc(Vector2(12.5, 12.0), 6.5, 45.0, -180.0, w)
@@ -150,7 +162,6 @@ func _rebuild() -> void:
 			_pen.line(Vector2(17.0, 7.0), Vector2(7.0, 17.0), w)
 		"check":
 			_pen.polyline(PackedVector2Array([Vector2(5.5, 12.5), Vector2(10.0, 17.0), Vector2(18.5, 7.5)]), w)
-	queue_redraw()
 
 
 ## A point on the circle of radius around the grid center.

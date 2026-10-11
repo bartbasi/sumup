@@ -52,8 +52,16 @@ func preferred_height() -> float:
 	return _tokens.num("rule_width") + _tokens.num("strip_height")
 
 
+## Local y where the always visible part starts. Slate keeps no hint row,
+## so the whole strip, hairline included, is always visible.
+func content_top() -> float:
+	return 0.0
+
+
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 

@@ -3,7 +3,7 @@ extends RefCounted
 ## buttons, the icon buttons and the HUD. A surface is laid out in a rect
 ## that holds the face and the lip under it at rest:
 ##   normal: surface_raised face on a surface_lip lip
-##   active: accent face on an accent_lip lip, raised ACTIVE_RAISE higher
+##   active: accent face on an accent_lip lip, raised active_raise higher
 ##   disabled: disabled_surface, flat with no lip, sitting at the bottom
 ##
 ## Phase 1 prototype code. Nothing under tools/ ships with the game.
@@ -15,9 +15,6 @@ const LOOK_NORMAL: int = 0
 const LOOK_ACTIVE: int = 1
 const LOOK_DISABLED: int = 2
 
-## How much higher an active surface stands than a normal one, px.
-const ACTIVE_RAISE: float = 6.0 # Proposed token: active_raise
-
 
 ## A new StyleBoxFlat for a look. Build these once and keep them.
 static func style(tokens: DirectionTokens, look: int, radius: float) -> StyleBoxFlat:
@@ -27,7 +24,7 @@ static func style(tokens: DirectionTokens, look: int, radius: float) -> StyleBox
 		LOOK_ACTIVE:
 			made = ThemeKit.box(tokens.color("accent"), radius)
 			made.border_color = tokens.color("accent_lip")
-			made.border_width_bottom = roundi(lip + ACTIVE_RAISE)
+			made.border_width_bottom = roundi(lip + tokens.num("active_raise"))
 		LOOK_DISABLED:
 			made = ThemeKit.box(tokens.color("disabled_surface"), radius)
 		_:
@@ -38,21 +35,24 @@ static func style(tokens: DirectionTokens, look: int, radius: float) -> StyleBox
 
 
 ## Where to draw the style for a look, given the rest rect (face and lip).
-static func style_rect(rest: Rect2, look: int, lip: float) -> Rect2:
+static func style_rect(tokens: DirectionTokens, rest: Rect2, look: int) -> Rect2:
+	var lip: float = tokens.num("button_lip")
+	var raise: float = tokens.num("active_raise")
 	match look:
 		LOOK_ACTIVE:
-			return Rect2(rest.position.x, rest.position.y - ACTIVE_RAISE, rest.size.x, rest.size.y + ACTIVE_RAISE)
+			return Rect2(rest.position.x, rest.position.y - raise, rest.size.x, rest.size.y + raise)
 		LOOK_DISABLED:
 			return Rect2(rest.position.x, rest.position.y + lip, rest.size.x, rest.size.y - lip)
 	return rest
 
 
 ## The top face for a look, where icons and text sit.
-static func face_rect(rest: Rect2, look: int, lip: float) -> Rect2:
+static func face_rect(tokens: DirectionTokens, rest: Rect2, look: int) -> Rect2:
+	var lip: float = tokens.num("button_lip")
 	var face: Rect2 = Rect2(rest.position, Vector2(rest.size.x, rest.size.y - lip))
 	match look:
 		LOOK_ACTIVE:
-			face.position.y -= ACTIVE_RAISE
+			face.position.y -= tokens.num("active_raise")
 		LOOK_DISABLED:
 			face.position.y += lip
 	return face

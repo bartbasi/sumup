@@ -17,6 +17,12 @@ func setup(tokens: DirectionTokens) -> void:
 	queue_redraw()
 
 
+## Areas to keep clear of backdrop decoration, in global coordinates. The
+## flat backdrop has none, so this does nothing.
+func set_clear_rects(_rects: Array[Rect2]) -> void:
+	pass
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		queue_redraw()

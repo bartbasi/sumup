@@ -12,19 +12,18 @@ signal toggled(on: bool)
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const Motion: GDScript = preload("res://tools/directions/ui_common/motion.gd")
 
-## Track size and the gap between the track edge and the knob, px.
-const TRACK_SIZE: Vector2 = Vector2(120.0, 60.0) # Proposed token: toggle_track
-const KNOB_INSET: float = 8.0 # Proposed token: toggle_knob_inset
-
 var _tokens: DirectionTokens = null
 var _on: bool = false
 var _t: float = 0.0
+## Track size from the toggle_track tokens.
+var _track_size: Vector2 = Vector2.ZERO
 var _tween: Tween = null
 
 
 func setup(tokens: DirectionTokens) -> void:
 	_tokens = tokens
-	custom_minimum_size = Vector2(maxf(TRACK_SIZE.x, tokens.num("touch_min")), maxf(TRACK_SIZE.y, tokens.num("touch_min")))
+	_track_size = Vector2(tokens.num("toggle_track_w"), tokens.num("toggle_track_h"))
+	custom_minimum_size = Vector2(maxf(_track_size.x, tokens.num("touch_min")), maxf(_track_size.y, tokens.num("touch_min")))
 	_set_t(1.0 if _on else 0.0)
 
 
@@ -48,12 +47,13 @@ func _set_t(value: float) -> void:
 func _draw() -> void:
 	if _tokens == null:
 		return
-	var track: Rect2 = Rect2(((size - TRACK_SIZE) * 0.5).round(), TRACK_SIZE)
+	var track: Rect2 = Rect2(((size - _track_size) * 0.5).round(), _track_size)
 	var rule: float = _tokens.num("rule_width")
-	var knob_side: float = TRACK_SIZE.y - KNOB_INSET * 2.0
-	var left: float = track.position.x + KNOB_INSET
-	var right: float = track.end.x - KNOB_INSET - knob_side
-	var knob: Rect2 = Rect2(roundf(lerpf(left, right, _t)), track.position.y + KNOB_INSET, knob_side, knob_side)
+	var inset: float = _tokens.num("toggle_knob_inset")
+	var knob_side: float = _track_size.y - inset * 2.0
+	var left: float = track.position.x + inset
+	var right: float = track.end.x - inset - knob_side
+	var knob: Rect2 = Rect2(roundf(lerpf(left, right, _t)), track.position.y + inset, knob_side, knob_side)
 	# The paper fill cuts in at the halfway point: Slate steps, it does not blend.
 	if _t >= 0.5:
 		draw_rect(track, _tokens.color("ink"))

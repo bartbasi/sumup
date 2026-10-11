@@ -14,8 +14,6 @@ const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd
 const IconView: GDScript = preload("res://tools/directions/slate/ui/icon_view.gd")
 const Motion: GDScript = preload("res://tools/directions/ui_common/motion.gd")
 
-## Icon size in a column, px.
-const ICON_SIZE: float = 66.0 # Proposed token: booster_icon
 ## Grid units of empty space at the left of an icon's 24 unit grid, so the
 ## drawn icon lines up with the text below it.
 const ICON_INSET_UNITS: float = 3.0
@@ -39,7 +37,8 @@ func setup(tokens: DirectionTokens, booster_id: String, cost: int) -> void:
 	_tokens = tokens
 	_id = booster_id
 	_name_text = tokens.cased("label", MockState.booster_name(booster_id))
-	_cost_text = tokens.cased("label", MockState.format_number(cost))
+	# Costs keep the tile label format exactly (D-32), so no case rule: "2K", never "2k".
+	_cost_text = MockState.cost_label(cost)
 	_font = tokens.font("label")
 	_font_size = tokens.font_size("label")
 	if _icon == null:
@@ -63,7 +62,9 @@ func set_look(look: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 
@@ -73,12 +74,13 @@ func _layout() -> void:
 	var inset: float = _tokens.num("space_s")
 	var line: float = _font.get_height(_font_size)
 	var gap: float = _tokens.num("space_xs")
-	var block: float = ICON_SIZE + gap + line * 2.0
+	var icon_side: float = _tokens.num("booster_icon")
+	var block: float = icon_side + gap + line * 2.0
 	var top: float = (size.y - block) * 0.5
-	_icon.size = Vector2(ICON_SIZE, ICON_SIZE)
-	_icon.position = Vector2(inset - ICON_INSET_UNITS * ICON_SIZE / 24.0, top)
+	_icon.size = Vector2(icon_side, icon_side)
+	_icon.position = Vector2(inset - ICON_INSET_UNITS * icon_side / 24.0, top)
 	var ascent: float = _font.get_ascent(_font_size)
-	_name_origin = Vector2(inset, top + ICON_SIZE + gap + ascent)
+	_name_origin = Vector2(inset, top + icon_side + gap + ascent)
 	_cost_origin = Vector2(inset, _name_origin.y + line)
 	# The strike runs through the middle of the digits (about 0.36 of the
 	# font size above the baseline) and reaches one rule width past them.

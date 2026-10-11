@@ -44,7 +44,9 @@ func set_look(look: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_place_icon()
 
 

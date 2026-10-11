@@ -69,8 +69,16 @@ func preferred_height() -> float:
 	return _tokens.num("pill_height") + _tokens.num("space_s") + _tokens.num("dock_height")
 
 
+## Local y where the always visible part starts: the dock top. Above it is
+## the hint row, empty while no hint shows. Valid once the bar has its size.
+func content_top() -> float:
+	return _dock_rect().position.y
+
+
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 

@@ -8,10 +8,6 @@ extends RefCounted
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const ThemeKit: GDScript = preload("res://tools/directions/ui_common/theme_kit.gd")
 
-## Focus outline width and its gap from the button edge, px.
-const FOCUS_WIDTH: float = 4.0 # Proposed token: focus_width
-const FOCUS_GAP: float = 4.0 # Proposed token: focus_gap
-
 
 static func build(tokens: DirectionTokens) -> Theme:
 	var theme: Theme = Theme.new()
@@ -35,7 +31,7 @@ static func build(tokens: DirectionTokens) -> Theme:
 	var body_line: float = ThemeKit.line_height(tokens, "body")
 	var side: float = tokens.num("space_m")
 	var text_pad: float = maxf(0.0, (tokens.num("button_height") - body_line) * 0.5)
-	var focus: StyleBoxFlat = ThemeKit.focus_ring(tokens.color("accent"), FOCUS_WIDTH, radius, FOCUS_GAP)
+	var focus: StyleBoxFlat = ThemeKit.focus_ring(tokens.color("accent"), tokens.num("focus_width"), radius, tokens.num("focus_gap"))
 
 	# Disabled, for every button: a ruled outline on bg, text in disabled_ink.
 	var disabled: StyleBoxFlat = _ruled(tokens, "bg", radius, rule)

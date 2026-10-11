@@ -11,24 +11,21 @@ const DirectionTokens: GDScript = preload("res://tools/directions/shared/directi
 const ThemeKit: GDScript = preload("res://tools/directions/ui_common/theme_kit.gd")
 const Motion: GDScript = preload("res://tools/directions/ui_common/motion.gd")
 
-## Track size at rest, lip included, px.
-const TRACK_SIZE: Vector2 = Vector2(140.0, 76.0) # Proposed token: toggle_track
-## Knob diameter and the depth of the knob's own lip, px.
-const KNOB: float = 54.0 # Proposed token: toggle_knob
-const KNOB_LIP: float = 5.0 # Proposed token: toggle_knob_lip
-
 var _tokens: DirectionTokens = null
 var _on: bool = false
 var _t: float = 0.0
 var _track: StyleBoxFlat = null
+## Track size at rest, lip included, from the toggle_track tokens.
+var _track_size: Vector2 = Vector2.ZERO
 var _tween: Tween = null
 
 
 func setup(tokens: DirectionTokens) -> void:
 	_tokens = tokens
-	_track = ThemeKit.box(tokens.color("surface_raised"), TRACK_SIZE.y * 0.5)
+	_track_size = Vector2(tokens.num("toggle_track_w"), tokens.num("toggle_track_h"))
+	_track = ThemeKit.box(tokens.color("surface_raised"), _track_size.y * 0.5)
 	_track.border_width_bottom = roundi(tokens.num("button_lip"))
-	custom_minimum_size = Vector2(maxf(TRACK_SIZE.x, tokens.num("touch_min")), maxf(TRACK_SIZE.y, tokens.num("touch_min")))
+	custom_minimum_size = Vector2(maxf(_track_size.x, tokens.num("touch_min")), maxf(_track_size.y, tokens.num("touch_min")))
 	_set_t(1.0 if _on else 0.0)
 
 
@@ -55,7 +52,7 @@ func _set_t(value: float) -> void:
 
 
 func _track_rect() -> Rect2:
-	return Rect2((size - TRACK_SIZE) * 0.5, TRACK_SIZE)
+	return Rect2((size - _track_size) * 0.5, _track_size)
 
 
 func _draw() -> void:
@@ -63,13 +60,15 @@ func _draw() -> void:
 		return
 	var track: Rect2 = _track_rect()
 	draw_style_box(_track, track)
-	var face_height: float = TRACK_SIZE.y - _tokens.num("button_lip")
-	var inset: float = (face_height - KNOB) * 0.5
-	var radius: float = KNOB * 0.5
+	var knob: float = _tokens.num("toggle_knob")
+	var knob_lip: float = _tokens.num("toggle_knob_lip")
+	var face_height: float = _track_size.y - _tokens.num("button_lip")
+	var inset: float = (face_height - knob) * 0.5
+	var radius: float = knob * 0.5
 	var left: float = track.position.x + inset + radius
 	var right: float = track.end.x - inset - radius
-	var center: Vector2 = Vector2(lerpf(left, right, _t), track.position.y + face_height * 0.5 - KNOB_LIP * 0.5)
-	draw_circle(center + Vector2(0.0, KNOB_LIP), radius, _tokens.color("ink_soft"), true, -1.0, true)
+	var center: Vector2 = Vector2(lerpf(left, right, _t), track.position.y + face_height * 0.5 - knob_lip * 0.5)
+	draw_circle(center + Vector2(0.0, knob_lip), radius, _tokens.color("ink_soft"), true, -1.0, true)
 	draw_circle(center, radius, _tokens.color("ink"), true, -1.0, true)
 
 

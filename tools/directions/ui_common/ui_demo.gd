@@ -5,7 +5,7 @@ extends Control
 ##     godot --path . res://tools/directions/<id>/ui/ui_demo.tscn
 ##
 ## The loop: a booster press (Shuffle), targeting on with its pulse (Hammer)
-## and the cancel tap, a tap on the disabled Double that is ignored, the
+## and the cancel tap, a tap on the disabled booster that is ignored, the
 ## sound toggle switching off and on, a card coming in with dialog_in, and
 ## the score counting up from 20,450 to SCORE. Taps are real pointer events
 ## pushed through the viewport, so the controls' own input code runs. Each
@@ -65,7 +65,7 @@ func _ready() -> void:
 	_hud.position = Vector2(0.0, float(MockState.SAFE_TOP))
 	_hud.size = Vector2(canvas.x, float(_hud.call("preferred_height")))
 	_hud.call("set_scores", MockState.SCORE, MockState.BEST_SCORE)
-	_score_label = _hud.find_child("ScoreLabel", true, false) as Label
+	_score_label = _hud.call("score_label") as Label
 
 	_bar = _make("booster_bar")
 	_bar.connect("booster_pressed", _on_booster_pressed)
@@ -139,7 +139,8 @@ func _build_card(width: float) -> PanelContainer:
 	stack.add_child(body)
 	var rescue: Button = Button.new()
 	rescue.theme_type_variation = "PrimaryButton"
-	rescue.text = _tokens.cased("body", "%s for %s" % [MockState.booster_name(MockState.RESCUE_BOOSTER), MockState.format_number(MockState.booster_cost(MockState.RESCUE_BOOSTER))])
+	var rescue_cost: int = MockState.GAMEOVER_COSTS[MockState.BOOSTER_IDS.find(MockState.RESCUE_BOOSTER)]
+	rescue.text = _tokens.cased("body", MockState.buy_text(MockState.RESCUE_BOOSTER, rescue_cost))
 	stack.add_child(rescue)
 	var end: Button = Button.new()
 	end.theme_type_variation = "SecondaryButton"
@@ -172,13 +173,13 @@ func _on_beat(beat: String) -> void:
 			_tap(_booster("hammer"))
 		"disabled":
 			_pressed_ids.clear()
-			_say("tap Double, which costs more than the score")
-			_tap(_booster("double"))
+			_say("tap %s, which is not usable now" % MockState.booster_name(_disabled_id()))
+			_tap(_booster(_disabled_id()))
 		"toggle_off", "toggle_on":
-			if beat == "toggle_off" and _pressed_ids.has("double"):
-				push_error("demo %s: the disabled Double reacted to a tap" % direction_id)
+			if beat == "toggle_off" and _pressed_ids.has(_disabled_id()):
+				push_error("demo %s: the disabled %s reacted to a tap" % [direction_id, _disabled_id()])
 			elif beat == "toggle_off":
-				_say("Double ignored the tap")
+				_say("%s ignored the tap" % MockState.booster_name(_disabled_id()))
 			_say("tap the sound toggle")
 			_tap(_toggle)
 		"card_in":
@@ -208,14 +209,22 @@ func _on_booster_pressed(booster_id: String) -> void:
 
 
 func _show_bar(active_id: String) -> void:
-	var affordable: Array[bool] = []
-	for booster_id: String in MockState.BOOSTER_IDS:
-		affordable.append(MockState.is_affordable(booster_id))
-	_bar.call("show_boosters", MockState.BOOSTER_IDS, MockState.BOOSTER_COSTS, affordable, active_id)
+	_bar.call("show_boosters", MockState.BOOSTER_IDS, MockState.BOOSTER_COSTS, MockState.board_usable(), active_id)
 	var targeting: bool = not active_id.is_empty()
 	_bar.call("set_hint", MockState.TARGET_HINT if targeting else "")
 	var context: String = "%s: %s" % [MockState.booster_name(active_id), MockState.TARGET_HINT] if targeting else ""
 	_hud.call("set_context", context, targeting)
+
+
+## The first booster that is not usable on the board screen (Undo, with no
+## snapshot to go back to).
+func _disabled_id() -> String:
+	var usable: Array[bool] = MockState.board_usable()
+	for i: int in usable.size():
+		if not usable[i]:
+			return MockState.BOOSTER_IDS[i]
+	push_error("demo %s: every booster is usable, so there is no disabled tap to show" % direction_id)
+	return MockState.BOOSTER_IDS[0]
 
 
 ## The booster button for an id: the bar's buttons are its children in bar order.

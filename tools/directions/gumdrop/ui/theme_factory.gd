@@ -8,14 +8,6 @@ extends RefCounted
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const ThemeKit: GDScript = preload("res://tools/directions/ui_common/theme_kit.gd")
 
-## Lip left under a pressed button, px.
-const PRESSED_LIP: float = 3.0 # Proposed token: button_lip_pressed
-## Focus outline width and its gap from the button edge, px.
-const FOCUS_WIDTH: float = 5.0 # Proposed token: focus_width
-const FOCUS_GAP: float = 6.0 # Proposed token: focus_gap
-## Divider groove thickness, px.
-const DIVIDER_WIDTH: float = 4.0 # Proposed token: divider_width
-
 
 static func build(tokens: DirectionTokens) -> Theme:
 	var theme: Theme = Theme.new()
@@ -75,14 +67,16 @@ static func build(tokens: DirectionTokens) -> Theme:
 	ThemeKit.pad(hint, side, hint_pad, side, hint_pad + lip)
 	theme.set_stylebox("panel", "HintPanel", hint)
 
-	# Divider: a groove in the lip color, at home on cards and the dock.
-	var groove: StyleBoxLine = StyleBoxLine.new()
-	groove.color = tokens.color("surface_lip")
-	groove.thickness = roundi(DIVIDER_WIDTH)
+	# Divider: a divider_width px line with round ends in the divider color,
+	# visible on bg and on cards. A separator draws its style at the style's
+	# minimum height, so the content margins set the line's thickness.
+	var width: float = tokens.num("divider_width")
+	var groove: StyleBoxFlat = ThemeKit.box(tokens.color("divider"), width * 0.5)
+	ThemeKit.pad(groove, 0.0, width * 0.5, 0.0, width * 0.5)
 	theme.set_stylebox("separator", "HSeparator", groove)
-	theme.set_constant("separation", "HSeparator", roundi(DIVIDER_WIDTH))
+	theme.set_constant("separation", "HSeparator", roundi(width))
 	theme.set_stylebox("separator", "Hairline", groove)
-	theme.set_constant("separation", "Hairline", roundi(DIVIDER_WIDTH))
+	theme.set_constant("separation", "Hairline", roundi(width))
 	return theme
 
 
@@ -105,17 +99,18 @@ static func _button_styles(tokens: DirectionTokens, fill: String, pressed_fill: 
 	ThemeKit.pad(normal, side, text_pad, side, text_pad + lip)
 
 	# Pressed: the face sinks onto the lip, the text moves down with it.
-	var sink: float = lip - PRESSED_LIP
-	var pressed: StyleBoxFlat = _raised(tokens.color(pressed_fill), tokens.color(lip_color), radius, PRESSED_LIP)
+	var pressed_lip: float = tokens.num("button_lip_pressed")
+	var sink: float = lip - pressed_lip
+	var pressed: StyleBoxFlat = _raised(tokens.color(pressed_fill), tokens.color(lip_color), radius, pressed_lip)
 	pressed.expand_margin_top = -sink
-	ThemeKit.pad(pressed, side, text_pad + sink, side, text_pad + PRESSED_LIP)
+	ThemeKit.pad(pressed, side, text_pad + sink, side, text_pad + pressed_lip)
 
 	# Disabled: flat, no lip, sitting at the bottom of the lip's space.
 	var disabled: StyleBoxFlat = ThemeKit.box(tokens.color("disabled_surface"), radius)
 	disabled.expand_margin_top = -lip
 	ThemeKit.pad(disabled, side, text_pad + lip, side, text_pad)
 
-	var focus: StyleBoxFlat = ThemeKit.focus_ring(tokens.color("accent"), FOCUS_WIDTH, radius, FOCUS_GAP)
+	var focus: StyleBoxFlat = ThemeKit.focus_ring(tokens.color("accent"), tokens.num("focus_width"), radius, tokens.num("focus_gap"))
 	return {
 		"normal": normal,
 		"hover": normal,

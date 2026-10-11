@@ -15,10 +15,6 @@ const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd
 const IconView: GDScript = preload("res://tools/directions/nova/ui/icon_view.gd")
 const RingGlow: GDScript = preload("res://tools/directions/nova/ui/ring_glow.gd")
 const Motion: GDScript = preload("res://tools/directions/ui_common/motion.gd")
-const ThemeFactory: GDScript = preload("res://tools/directions/nova/ui/theme_factory.gd")
-
-## Icon size inside the ring, px.
-const ICON_SIZE: float = 88.0 # Proposed token: booster_icon
 
 var _tokens: DirectionTokens = null
 var _id: String = ""
@@ -34,13 +30,14 @@ var _text_origin: Vector2 = Vector2.ZERO
 
 ## Height a booster needs: the glow area and one cost line.
 static func needed_height(tokens: DirectionTokens) -> float:
-	return tokens.num("ring_button") * RingGlow.GLOW_SPREAD + tokens.font("label").get_height(tokens.font_size("label"))
+	return tokens.num("ring_button") * tokens.num("ring_glow_spread") + tokens.font("label").get_height(tokens.font_size("label"))
 
 
 func setup(tokens: DirectionTokens, booster_id: String, cost: int) -> void:
 	_tokens = tokens
 	_id = booster_id
-	_cost_text = tokens.cased("label", MockState.format_number(cost))
+	# Costs keep the tile label format exactly (D-32), so no case rule: "2K", never "2k".
+	_cost_text = MockState.cost_label(cost)
 	_font = tokens.font("label")
 	_font_size = tokens.font_size("label")
 	if _icon == null:
@@ -72,7 +69,9 @@ func set_look(look: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 
@@ -80,10 +79,11 @@ func _layout() -> void:
 	if _tokens == null:
 		return
 	var radius: float = _tokens.num("ring_button") * 0.5
-	var glow_radius: float = radius * RingGlow.GLOW_SPREAD
+	var glow_radius: float = radius * _tokens.num("ring_glow_spread")
 	_center = Vector2(size.x * 0.5, glow_radius)
 	_glow.place(_center, radius)
-	_icon.size = Vector2(ICON_SIZE, ICON_SIZE)
+	var icon_side: float = _tokens.num("booster_icon")
+	_icon.size = Vector2(icon_side, icon_side)
 	_icon.position = _center - _icon.size * 0.5
 	_text_origin = Vector2(0.0, glow_radius * 2.0 + _font.get_ascent(_font_size))
 	queue_redraw()
@@ -107,7 +107,7 @@ func _draw() -> void:
 	if _look == IconView.LOOK_ACTIVE:
 		draw_circle(_center, radius, _tokens.color("accent"), true, -1.0, true)
 	elif _look == IconView.LOOK_DISABLED:
-		draw_circle(_center, radius - width * 0.5, Color(_tokens.color("ring"), ThemeFactory.DISABLED_RING_ALPHA), false, width, true)
+		draw_circle(_center, radius - width * 0.5, Color(_tokens.color("ring"), _tokens.num("disabled_ring_alpha")), false, width, true)
 	else:
 		draw_circle(_center, radius - width * 0.5, _tokens.color("ring"), false, width, true)
 	draw_string(_font, _text_origin, _cost_text, HORIZONTAL_ALIGNMENT_CENTER, size.x, _font_size, _ink(false))

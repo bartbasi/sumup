@@ -12,7 +12,6 @@ const DirectionTokens: GDScript = preload("res://tools/directions/shared/directi
 const IconView: GDScript = preload("res://tools/directions/nova/ui/icon_view.gd")
 const RingGlow: GDScript = preload("res://tools/directions/nova/ui/ring_glow.gd")
 const Motion: GDScript = preload("res://tools/directions/ui_common/motion.gd")
-const ThemeFactory: GDScript = preload("res://tools/directions/nova/ui/theme_factory.gd")
 
 var _tokens: DirectionTokens = null
 var _look: int = IconView.LOOK_NORMAL
@@ -56,7 +55,9 @@ func set_look(look: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_place()
 
 
@@ -77,7 +78,7 @@ func _draw() -> void:
 	if _look == IconView.LOOK_ACTIVE:
 		draw_circle(center, radius, _tokens.color("accent"), true, -1.0, true)
 	elif _look == IconView.LOOK_DISABLED:
-		draw_circle(center, radius - width * 0.5, Color(_tokens.color("ring"), ThemeFactory.DISABLED_RING_ALPHA), false, width, true)
+		draw_circle(center, radius - width * 0.5, Color(_tokens.color("ring"), _tokens.num("disabled_ring_alpha")), false, width, true)
 	else:
 		draw_circle(center, radius - width * 0.5, _tokens.color("ring"), false, width, true)
 

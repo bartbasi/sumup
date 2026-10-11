@@ -9,13 +9,6 @@ extends RefCounted
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const ThemeKit: GDScript = preload("res://tools/directions/ui_common/theme_kit.gd")
 
-## Alpha of a ring outline on a disabled control.
-const DISABLED_RING_ALPHA: float = 0.4 # Proposed token: disabled_ring_alpha
-## Focus outline gap from the button edge, px. Its width is ring_width.
-const FOCUS_GAP: float = 6.0 # Proposed token: focus_gap
-## Divider thickness, px.
-const DIVIDER_WIDTH: float = 2.0 # Proposed token: divider_width
-
 
 static func build(tokens: DirectionTokens) -> Theme:
 	var theme: Theme = Theme.new()
@@ -41,10 +34,11 @@ static func build(tokens: DirectionTokens) -> Theme:
 	var body_line: float = ThemeKit.line_height(tokens, "body")
 	var side: float = tokens.num("space_m")
 	var text_pad: float = maxf(0.0, (height - body_line) * 0.5)
-	var focus: StyleBoxFlat = ThemeKit.focus_ring(tokens.color("accent"), ring, radius, FOCUS_GAP)
+	# The focus outline is ring_width wide, focus_gap outside the button.
+	var focus: StyleBoxFlat = ThemeKit.focus_ring(tokens.color("accent"), ring, radius, tokens.num("focus_gap"))
 
 	# Disabled, for every button: a faint ring, text in disabled_ink.
-	var disabled: StyleBoxFlat = _ring(Color(tokens.color("ring"), DISABLED_RING_ALPHA), radius, ring)
+	var disabled: StyleBoxFlat = _ring(Color(tokens.color("ring"), tokens.num("disabled_ring_alpha")), radius, ring)
 	ThemeKit.pad(disabled, side, text_pad, side, text_pad)
 
 	var primary: StyleBoxFlat = ThemeKit.box(tokens.color("accent"), radius)
@@ -88,11 +82,12 @@ static func build(tokens: DirectionTokens) -> Theme:
 
 	var divider: StyleBoxLine = StyleBoxLine.new()
 	divider.color = tokens.color("ring")
-	divider.thickness = roundi(DIVIDER_WIDTH)
+	var divider_width: int = roundi(tokens.num("divider_width"))
+	divider.thickness = divider_width
 	theme.set_stylebox("separator", "HSeparator", divider)
-	theme.set_constant("separation", "HSeparator", roundi(DIVIDER_WIDTH))
+	theme.set_constant("separation", "HSeparator", divider_width)
 	theme.set_stylebox("separator", "Hairline", divider)
-	theme.set_constant("separation", "Hairline", roundi(DIVIDER_WIDTH))
+	theme.set_constant("separation", "Hairline", divider_width)
 	return theme
 
 

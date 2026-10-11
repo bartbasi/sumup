@@ -2,8 +2,7 @@ extends Control
 ## Gumdrop HUD: a raised settings squircle on the left of the top row, a
 ## "Best" pill on the right, and below them, centered, the "Score" caption
 ## over the big score. Placed full width with its top edge at SAFE_TOP.
-## The score label is named "ScoreLabel", so a screen can count it up with
-## Motion.count_up().
+## A screen counts the score up with Motion.count_up() on score_label().
 ##
 ## Phase 1 prototype code. Nothing under tools/ ships with the game.
 
@@ -14,8 +13,6 @@ const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd
 const ThemeFactory: GDScript = preload("res://tools/directions/gumdrop/ui/theme_factory.gd")
 const IconButton: GDScript = preload("res://tools/directions/gumdrop/ui/icon_button.gd")
 
-## Icon size on the settings squircle, px.
-const SETTINGS_ICON: float = 84.0 # Proposed token: hud_icon
 ## Cap height of the system font as a share of the font size, used to sit
 ## the score's digits right under the caption. A font metric, not a token.
 const CAP_HEIGHT: float = 0.71
@@ -34,7 +31,7 @@ func setup(tokens: DirectionTokens) -> void:
 	if _settings == null:
 		_build()
 	var face: float = tokens.num("touch_min") - tokens.num("button_lip")
-	_settings.setup(tokens, "settings", face, SETTINGS_ICON)
+	_settings.setup(tokens, "settings", face, tokens.num("hud_icon"))
 	_caption.text = tokens.cased("label", MockState.SCORE_LABEL)
 	_layout()
 
@@ -53,6 +50,11 @@ func set_context(_text: String, _highlight: bool) -> void:
 ## Gumdrop shows the chain preview on the board, not in the HUD.
 func preview_slot() -> Control:
 	return null
+
+
+## The score label, so a screen can count it up with Motion.count_up().
+func score_label() -> Label:
+	return _score
 
 
 func preferred_height() -> float:
@@ -95,7 +97,9 @@ func _build() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 

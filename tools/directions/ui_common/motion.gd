@@ -14,10 +14,6 @@ extends RefCounted
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
 const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd")
 
-## Lowest alpha of the breathing pulse, used when target_pulse has no
-## wobble_degrees and no alpha_low of its own (Nova).
-const PULSE_ALPHA_LOW: float = 0.45 # Proposed token: nova target_pulse "alpha_low"
-
 ## Smallest scale a wipe starts from. A scale of exactly 0 makes the control
 ## transform impossible to invert, which Godot reports as an error.
 const MIN_SCALE: float = 0.001
@@ -111,13 +107,16 @@ static func count_up(label: Label, tokens: DirectionTokens, from_value: int, to_
 
 
 ## The target_pulse loop. Returns null when the duration is 0 (Slate).
-## With wobble_degrees (Gumdrop) the item rocks around its center; otherwise
-## (Nova) its alpha breathes between 1 and alpha_low. The item must be a
-## Control or a Node2D for the wobble. Stop it with stop_pulse().
+## With wobble_degrees (Gumdrop) the item rocks around its center; with
+## alpha_low (Nova) its alpha breathes between 1 and alpha_low. The item must
+## be a Control or a Node2D for the wobble. Stop it with stop_pulse().
 static func pulse(item: CanvasItem, tokens: DirectionTokens) -> Tween:
 	var spec: Dictionary = tokens.motion_spec("target_pulse")
 	var period: float = float(spec.get("duration", 0.0))
 	if period <= 0.0:
+		return null
+	if not spec.has("wobble_degrees") and not spec.has("alpha_low"):
+		push_error("%s: target_pulse needs wobble_degrees or alpha_low" % tokens.id)
 		return null
 	var tween: Tween = tween_for(item, tokens, "target_pulse")
 	tween.set_loops()
@@ -134,7 +133,7 @@ static func pulse(item: CanvasItem, tokens: DirectionTokens) -> Tween:
 		tween.tween_property(item, "rotation", -swing, quarter).set_ease(Tween.EASE_OUT)
 		tween.tween_property(item, "rotation", 0.0, quarter).set_ease(Tween.EASE_IN)
 	else:
-		var low: float = float(spec.get("alpha_low", PULSE_ALPHA_LOW))
+		var low: float = float(spec["alpha_low"])
 		tween.tween_property(item, "modulate:a", low, period * 0.5)
 		tween.tween_property(item, "modulate:a", 1.0, period * 0.5)
 	_claim(item, "pulse", tween)

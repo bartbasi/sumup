@@ -13,17 +13,12 @@ const ThemeKit: GDScript = preload("res://tools/directions/ui_common/theme_kit.g
 const Glow: GDScript = preload("res://tools/directions/ui_common/glow.gd")
 const Motion: GDScript = preload("res://tools/directions/ui_common/motion.gd")
 
-## Track size and knob diameter, px.
-const TRACK_SIZE: Vector2 = Vector2(124.0, 64.0) # Proposed token: toggle_track
-const KNOB: float = 40.0 # Proposed token: toggle_knob
-## Knob glow radius as a multiple of the knob radius, and its alpha.
-const KNOB_GLOW_SPREAD: float = 1.9 # Proposed token: toggle_glow_spread
-const KNOB_GLOW_ALPHA: float = 0.6 # Proposed token: toggle_glow_alpha
-
 var _tokens: DirectionTokens = null
 var _on: bool = false
 var _t: float = 0.0
 var _track: StyleBoxFlat = null
+## Track size from the toggle_track tokens.
+var _track_size: Vector2 = Vector2.ZERO
 var _knob_color: Color = Color.WHITE
 var _glow_color: Color = Color.TRANSPARENT
 var _tween: Tween = null
@@ -31,10 +26,11 @@ var _tween: Tween = null
 
 func setup(tokens: DirectionTokens) -> void:
 	_tokens = tokens
-	_track = ThemeKit.box(Color(tokens.color("ring"), 0.0), TRACK_SIZE.y * 0.5)
+	_track_size = Vector2(tokens.num("toggle_track_w"), tokens.num("toggle_track_h"))
+	_track = ThemeKit.box(Color(tokens.color("ring"), 0.0), _track_size.y * 0.5)
 	_track.draw_center = false
 	_track.set_border_width_all(roundi(tokens.num("ring_width")))
-	custom_minimum_size = Vector2(maxf(TRACK_SIZE.x, tokens.num("touch_min")), maxf(TRACK_SIZE.y, tokens.num("touch_min")))
+	custom_minimum_size = Vector2(maxf(_track_size.x, tokens.num("touch_min")), maxf(_track_size.y, tokens.num("touch_min")))
 	_set_t(1.0 if _on else 0.0)
 
 
@@ -56,22 +52,23 @@ func _set_t(value: float) -> void:
 		return
 	_track.border_color = _tokens.color("ring").lerp(_tokens.color("accent"), _t)
 	_knob_color = _tokens.color("ink_muted").lerp(_tokens.color("accent"), _t)
-	_glow_color = Color(_tokens.color("accent"), KNOB_GLOW_ALPHA * _t)
+	_glow_color = Color(_tokens.color("accent"), _tokens.num("toggle_glow_alpha") * _t)
 	queue_redraw()
 
 
 func _draw() -> void:
 	if _tokens == null:
 		return
-	var track: Rect2 = Rect2((size - TRACK_SIZE) * 0.5, TRACK_SIZE)
+	var track: Rect2 = Rect2((size - _track_size) * 0.5, _track_size)
 	draw_style_box(_track, track)
-	var radius: float = KNOB * 0.5
-	var inset: float = (TRACK_SIZE.y - KNOB) * 0.5
+	var knob: float = _tokens.num("toggle_knob")
+	var radius: float = knob * 0.5
+	var inset: float = (_track_size.y - knob) * 0.5
 	var left: float = track.position.x + inset + radius
 	var right: float = track.end.x - inset - radius
 	var center: Vector2 = Vector2(lerpf(left, right, _t), track.get_center().y)
 	if _t > 0.0:
-		Glow.draw(self, center, radius * KNOB_GLOW_SPREAD, _glow_color)
+		Glow.draw(self, center, radius * _tokens.num("toggle_glow_spread"), _glow_color)
 	draw_circle(center, radius, _knob_color, true, -1.0, true)
 
 

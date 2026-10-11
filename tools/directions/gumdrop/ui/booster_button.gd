@@ -14,9 +14,6 @@ const IconView: GDScript = preload("res://tools/directions/gumdrop/ui/icon_view.
 const Candy: GDScript = preload("res://tools/directions/gumdrop/ui/candy.gd")
 const Motion: GDScript = preload("res://tools/directions/ui_common/motion.gd")
 
-## Icon size on the booster face, px.
-const ICON_SIZE: float = 84.0 # Proposed token: booster_icon
-
 var _tokens: DirectionTokens = null
 var _id: String = ""
 var _look: int = IconView.LOOK_NORMAL
@@ -32,7 +29,8 @@ var _text_origin: Vector2 = Vector2.ZERO
 func setup(tokens: DirectionTokens, booster_id: String, cost: int) -> void:
 	_tokens = tokens
 	_id = booster_id
-	_cost_text = tokens.cased("label", MockState.format_number(cost))
+	# Costs keep the tile label format exactly (D-32), so no case rule: "2K", never "2k".
+	_cost_text = MockState.cost_label(cost)
 	_font = tokens.font("label")
 	_font_size = tokens.font_size("label")
 	var radius: float = tokens.num("button_radius")
@@ -68,29 +66,31 @@ func set_look(look: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 
 func _layout() -> void:
 	if _tokens == null or _icon == null:
 		return
-	var face: Rect2 = Candy.face_rect(Rect2(Vector2.ZERO, size), _look, _tokens.num("button_lip"))
+	var face: Rect2 = Candy.face_rect(_tokens, Rect2(Vector2.ZERO, size), _look)
+	var icon_side: float = _tokens.num("booster_icon")
 	var line: float = _font.get_height(_font_size)
-	var block: float = ICON_SIZE + line
+	var block: float = icon_side + line
 	var top: float = face.position.y + (face.size.y - block) * 0.5
-	_icon.size = Vector2(ICON_SIZE, ICON_SIZE)
-	_icon.position = Vector2(face.get_center().x - ICON_SIZE * 0.5, top)
+	_icon.size = Vector2(icon_side, icon_side)
+	_icon.position = Vector2(face.get_center().x - icon_side * 0.5, top)
 	_icon.pivot_offset = _icon.size * 0.5
-	_text_origin = Vector2(face.position.x, top + ICON_SIZE + _font.get_ascent(_font_size))
+	_text_origin = Vector2(face.position.x, top + icon_side + _font.get_ascent(_font_size))
 	queue_redraw()
 
 
 func _draw() -> void:
 	if _tokens == null:
 		return
-	var lip: float = _tokens.num("button_lip")
-	draw_style_box(_styles[_look], Candy.style_rect(Rect2(Vector2.ZERO, size), _look, lip))
+	draw_style_box(_styles[_look], Candy.style_rect(_tokens, Rect2(Vector2.ZERO, size), _look))
 	draw_string(_font, _text_origin, _cost_text, HORIZONTAL_ALIGNMENT_CENTER, size.x, _font_size, _inks[_look])
 
 

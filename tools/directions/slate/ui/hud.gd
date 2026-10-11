@@ -4,8 +4,8 @@ extends Control
 ## aligned. A hairline under the header, then the context row: plain caps
 ## text, or a full width vermilion bar while a booster is targeting, with a
 ## slot for the preview tile at its right. Placed full width with its top
-## edge at SAFE_TOP. The score label is named "ScoreLabel", so a screen can
-## count it up with Motion.count_up().
+## edge at SAFE_TOP. A screen counts the score up with
+## Motion.count_up() on score_label().
 ##
 ## Phase 1 prototype code. Nothing under tools/ ships with the game.
 
@@ -16,8 +16,6 @@ const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd
 const ThemeFactory: GDScript = preload("res://tools/directions/slate/ui/theme_factory.gd")
 const IconButton: GDScript = preload("res://tools/directions/slate/ui/icon_button.gd")
 
-## Settings icon size, px. Its touch area is touch_min.
-const SETTINGS_ICON: float = 72.0 # Proposed token: hud_icon
 ## Cap height of the system font as a share of the font size, used to sit
 ## the score's digits right under the caption. A font metric, not a token.
 const CAP_HEIGHT: float = 0.71
@@ -45,7 +43,7 @@ func setup(tokens: DirectionTokens) -> void:
 	_font_size = tokens.font_size("label")
 	if _settings == null:
 		_build()
-	_settings.setup(tokens, "settings", tokens.num("touch_min"), SETTINGS_ICON)
+	_settings.setup(tokens, "settings", tokens.num("touch_min"), tokens.num("hud_icon"))
 	_caption.text = tokens.cased("label", MockState.SCORE_LABEL)
 	_best_caption.text = tokens.cased("label", MockState.BEST_LABEL)
 	_slot.custom_minimum_size = Vector2(tokens.num("preview_tile"), tokens.num("preview_tile"))
@@ -69,6 +67,11 @@ func set_context(text: String, highlight: bool) -> void:
 ## An empty square at the right of the context row for the preview tile.
 func preview_slot() -> Control:
 	return _slot
+
+
+## The score label, so a screen can count it up with Motion.count_up().
+func score_label() -> Label:
+	return _score
 
 
 func preferred_height() -> float:
@@ -99,7 +102,9 @@ func _label(variation: String, align: HorizontalAlignment) -> Label:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 
@@ -135,7 +140,7 @@ func _layout() -> void:
 	var touch: float = _tokens.num("touch_min")
 	# The icon's box lines up with the right margin; its touch area reaches past it.
 	_settings.size = Vector2(touch, touch)
-	_settings.position = Vector2(size.x - margin - (touch + SETTINGS_ICON) * 0.5, 0.0)
+	_settings.position = Vector2(size.x - margin - (touch + _tokens.num("hud_icon")) * 0.5, 0.0)
 	_caption.position = Vector2(margin, 0.0)
 	_caption.size = Vector2(size.x * 0.5, _caption_height())
 	_score.position = Vector2(margin, _score_top())

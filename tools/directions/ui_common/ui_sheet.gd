@@ -107,10 +107,7 @@ func _icons(y: float) -> float:
 
 func _bar(y: float, active_id: String) -> float:
 	var bar: Control = _make("booster_bar")
-	var affordable: Array[bool] = []
-	for booster_id: String in MockState.BOOSTER_IDS:
-		affordable.append(MockState.is_affordable(booster_id))
-	bar.call("show_boosters", MockState.BOOSTER_IDS, MockState.BOOSTER_COSTS, affordable, active_id)
+	bar.call("show_boosters", MockState.BOOSTER_IDS, MockState.BOOSTER_COSTS, MockState.board_usable(), active_id)
 	bar.call("set_hint", MockState.TARGET_HINT if not active_id.is_empty() else "")
 	var height: float = float(bar.call("preferred_height"))
 	bar.position = Vector2(0.0, y)
@@ -131,7 +128,7 @@ func _hint_reserve() -> float:
 
 func _buttons(y: float) -> float:
 	var column: float = (_width - _gap) * 0.5
-	var shuffle_text: String = "%s for %s" % [MockState.booster_name(MockState.RESCUE_BOOSTER), MockState.format_number(MockState.booster_cost(MockState.RESCUE_BOOSTER))]
+	var shuffle_text: String = MockState.buy_text(MockState.RESCUE_BOOSTER, MockState.booster_cost(MockState.RESCUE_BOOSTER))
 	var cells: Array[Control] = [
 		_button("PrimaryButton", shuffle_text, false, false),
 		_button("PrimaryButton", shuffle_text, true, false),

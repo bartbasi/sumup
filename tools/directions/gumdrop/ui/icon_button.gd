@@ -50,7 +50,9 @@ func set_look(look: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_place_icon()
 
 
@@ -63,7 +65,7 @@ func _rest_rect() -> Rect2:
 func _place_icon() -> void:
 	if _tokens == null or _icon == null:
 		return
-	var face: Rect2 = Candy.face_rect(_rest_rect(), _look, _tokens.num("button_lip"))
+	var face: Rect2 = Candy.face_rect(_tokens, _rest_rect(), _look)
 	_icon.size = Vector2(_icon_side, _icon_side)
 	_icon.position = face.get_center() - _icon.size * 0.5
 
@@ -71,8 +73,7 @@ func _place_icon() -> void:
 func _draw() -> void:
 	if _tokens == null:
 		return
-	var lip: float = _tokens.num("button_lip")
-	draw_style_box(_styles[_look], Candy.style_rect(_rest_rect(), _look, lip))
+	draw_style_box(_styles[_look], Candy.style_rect(_tokens, _rest_rect(), _look))
 
 
 func _gui_input(event: InputEvent) -> void:

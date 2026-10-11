@@ -58,8 +58,20 @@ func preferred_height() -> float:
 	return _hint_height() + _tokens.num("space_xs") + BoosterButton.needed_height(_tokens)
 
 
+## Local y where the always visible part starts: the top of the ring row.
+## Above it are the hint row, empty while no hint shows, and the room for an
+## active ring's glow, which reaches (ring_glow_spread - 1) times the ring
+## radius above the rings. Valid once the bar has its size.
+func content_top() -> float:
+	var radius: float = _tokens.num("ring_button") * 0.5
+	var glow_overhang: float = radius * (_tokens.num("ring_glow_spread") - 1.0)
+	return size.y - BoosterButton.needed_height(_tokens) + glow_overhang
+
+
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 

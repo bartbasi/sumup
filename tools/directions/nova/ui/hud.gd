@@ -1,9 +1,9 @@
 extends Control
-## Nova HUD, centered: the score in a thin, very large numeral with
-## "best 48,212" small and lowercase under it, and the settings icon in a
-## small ring at the top right. No containers. Placed full width with its
-## top edge at SAFE_TOP. The score label is named "ScoreLabel", so a screen
-## can count it up with Motion.count_up().
+## Nova HUD, centered: the score in a thin, very large numeral with the
+## best score ("best 96,520") small and lowercase under it, and the settings
+## icon in a small ring at the top right. No containers. Placed full width
+## with its top edge at SAFE_TOP. A screen counts the score up with
+## Motion.count_up() on score_label().
 ##
 ## Phase 1 prototype code. Nothing under tools/ ships with the game.
 
@@ -14,9 +14,6 @@ const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd
 const ThemeFactory: GDScript = preload("res://tools/directions/nova/ui/theme_factory.gd")
 const IconButton: GDScript = preload("res://tools/directions/nova/ui/icon_button.gd")
 
-## Settings ring diameter and icon size, px. Its touch area is touch_min.
-const SETTINGS_RING: float = 96.0 # Proposed token: hud_ring
-const SETTINGS_ICON: float = 72.0 # Proposed token: hud_icon
 ## Cap height of the system font as a share of the font size, used to place
 ## the score's digits. A font metric, not a token.
 const CAP_HEIGHT: float = 0.71
@@ -32,7 +29,7 @@ func setup(tokens: DirectionTokens) -> void:
 	theme = ThemeFactory.build(tokens)
 	if _settings == null:
 		_build()
-	_settings.setup(tokens, "settings", SETTINGS_RING, SETTINGS_ICON)
+	_settings.setup(tokens, "settings", tokens.num("hud_ring"), tokens.num("hud_icon"))
 	_layout()
 
 
@@ -50,6 +47,11 @@ func set_context(_text: String, _highlight: bool) -> void:
 ## Nova shows the chain preview on the board, not in the HUD.
 func preview_slot() -> Control:
 	return null
+
+
+## The score label, so a screen can count it up with Motion.count_up().
+func score_label() -> Label:
+	return _score
 
 
 func preferred_height() -> float:
@@ -73,7 +75,9 @@ func _build() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED:
+	# Also lay out on entering the tree: a control sized while outside the
+	# tree gets no resize notification.
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
 
 
@@ -84,10 +88,16 @@ func _score_top() -> float:
 	return _tokens.num("space_m") - (display.get_ascent(display_size) - CAP_HEIGHT * float(display_size))
 
 
+## Top of the best label box: space_xs below the bottom of the score's line,
+## which holds the comma's tail, measured to the top of the best line's
+## tallest letters.
 func _best_top() -> float:
 	var display: Font = _tokens.font("display")
-	var baseline: float = _score_top() + display.get_ascent(_tokens.font_size("display"))
-	return baseline + _tokens.num("space_xs")
+	var score_bottom: float = _score_top() + display.get_height(_tokens.font_size("display"))
+	var caption: Font = _tokens.font("label")
+	var caption_size: int = _tokens.font_size("label")
+	var empty_above_letters: float = caption.get_ascent(caption_size) - CAP_HEIGHT * float(caption_size)
+	return score_bottom + _tokens.num("space_xs") - empty_above_letters
 
 
 func _layout() -> void:
@@ -97,7 +107,7 @@ func _layout() -> void:
 	var touch: float = _tokens.num("touch_min")
 	# The ring's edge lines up with the right margin; its touch area reaches past it.
 	_settings.size = Vector2(touch, touch)
-	_settings.position = Vector2(size.x - margin - (touch + SETTINGS_RING) * 0.5, 0.0)
+	_settings.position = Vector2(size.x - margin - (touch + _tokens.num("hud_ring")) * 0.5, 0.0)
 	_score.position = Vector2(0.0, _score_top())
 	_score.size = Vector2(size.x, _score.get_combined_minimum_size().y)
 	_best.position = Vector2(0.0, _best_top())
