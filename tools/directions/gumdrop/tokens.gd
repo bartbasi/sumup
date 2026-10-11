@@ -126,12 +126,14 @@ func _init() -> void:
 		"button_height": 144.0,
 		"row_height": 144.0,
 		"icon_booster": 84.0,
-		"icon_hud": 84.0,
+		"icon_hud": 64.0,           # in the 96 px HUD button face
 		"icon_stroke": 3.5,          # on the 24 unit icon grid
 		"toggle_w": 140.0,
 		"toggle_h": 76.0,
 		"toggle_knob": 54.0,
 		"notice_height": 88.0,
+		"notice_tile_scale": 0.6,   # mini tiles in the clear notice, share of notice_height
+		"notice_strike": 4.0,       # strike line across them
 		# Extras
 		"tray_radius": 60.0,
 		"lip_darken": 0.34,          # lip color = fill.darkened(lip_darken)
@@ -144,11 +146,14 @@ func _init() -> void:
 		"target_lift": 0.040,        # Swap's selected tile rises by this
 		"shine_alpha": 0.35,
 		"shine_from_tier": 3.0,
+		"shine_inset": 0.05,         # shine arc: inset from the face edge, fraction of the side
+		"shine_width": 0.045,        # and its width
 		"preview_ring": 6.0,
 		"target_edge_width": 4.0,
 		"special_rim_width": 8.0,
 		"special_rim_segments": 16.0,
 		"hud_top_row": 96.0,
+		"hud_button_face": 96.0,     # pause button face in the HUD
 		"pill_height": 96.0,
 		"pill_radius": 48.0,
 		"button_lip": 10.0,
@@ -169,8 +174,8 @@ func _init() -> void:
 		"joinable_in": {"duration": 0.12, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT},
 		"merge_travel": {"duration": 0.18, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN},
 		"merge_pop": {"duration": 0.34, "trans": Tween.TRANS_ELASTIC, "ease": Tween.EASE_OUT, "peak_scale": 1.22},
-		"clear": {"duration": 0.28, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN, "burst_dots": 6.0},
-		"clear_notice": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "hold": 1.6, "out": 0.20},
+		"clear": {"duration": 0.28, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN, "burst_dots": 6.0, "burst_dot_size": 0.07, "burst_reach": 0.6, "burst_fade": 0.36},
+		"clear_notice": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT, "hold": 1.6, "out": 0.20, "from_scale": 0.6},
 		"press": {"duration": 0.08, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT},
 		"button_press": {"duration": 0.08, "trans": Tween.TRANS_QUAD, "ease": Tween.EASE_OUT, "press_scale": 0.92},
 		"button_release": {"duration": 0.30, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_OUT},

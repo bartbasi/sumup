@@ -2,19 +2,19 @@
 
 Owner: senior-graphic-designer. Status: Phase 2, for building in Phase 3.
 
-This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the Skin Resources from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
+This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the SkinData resources (src/skins/<id>/<id>.tres) from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
 
 How the code reads skins (class names, methods, signals, file layout) is in docs/ARCHITECTURE.md. This document gives the token names, the values, and how each component looks and moves.
 
-**Checked source.** Until the Skin Resources exist, the token files `tools/directions/<skin>/tokens.gd` mirror this document exactly, and three scripts prove them:
+**Checked source.** The token files `tools/directions/<skin>/tokens.gd` mirror this document exactly, and three scripts prove them. The skin tests in tests/skins/ prove that every SkinData resource holds exactly those values:
 
 ```bash
 godot --headless --path . --script res://tools/contrast_check.gd   # every number on its tile, every text pair: 4.5:1 or better
 godot --headless --path . --script res://tools/ramp_check.gd       # neighboring tile colors look different (section 1.3)
-godot --headless --path . --script res://tools/label_check.gd -- --font <path to Outfit[wght].ttf>   # labels fit, digits 12 dp or more
+godot --headless --path . --script res://tools/label_check.gd -- --font "res://src/design/fonts/Outfit[wght].ttf"   # labels fit, digits 12 dp or more
 ```
 
-In Phase 3 the checks move to read the Skin Resources. If this document and a token file disagree, this document wins and the token file is a bug.
+If this document and a token file or a SkinData resource disagree, this document wins and the other is a bug.
 
 ## Contents
 
@@ -34,7 +34,7 @@ In Phase 3 the checks move to read the Skin Resources. If this document and a to
 
 ### 1.1 Everything is made in code
 
-Every visual is drawn in code: StyleBoxFlat, Theme resources, `_draw()`, gradients and meshes built in code, canvas_item shaders that work on the Compatibility renderer, and Tweens. The only files that are not code are the Outfit font and its license (docs/ASSETS.md), and the launcher icon PNGs, which a tool script draws (section 9).
+Every visual is drawn in code: StyleBoxFlat, Theme resources, `_draw()`, gradients and meshes built in code, canvas_item shaders that work on the Compatibility renderer, and Tweens. The only files that are not code are the Outfit font and its license in src/design/fonts/ (docs/ASSETS.md), and the launcher icon PNGs, which a tool script draws (section 9).
 
 ### 1.2 The number is always shown
 
@@ -132,7 +132,7 @@ Every touch target is at least `touch_min` (144 px, 48 dp on a 360 dp wide phone
 
 ## 3. The skin token schema
 
-Every skin defines every shared name below. Anything else a skin needs is an **extra**, listed under "Extras" in its section. Production code reads tokens through the Skin API that ARCHITECTURE.md defines; it stays close to the prototype one (fill for a value, ink for a value, tier for a value, color, number, motion spec, font, font size, cased text, tile font size).
+Every skin defines every shared name below. Anything else a skin needs is an **extra**, listed under "Extras" in its section. Production code reads tokens through the SkinData API that ARCHITECTURE.md defines (fill for a value, ink for a value, tier for a value, color, number, motion spec, font, font size, cased text, tile font size, score font size).
 
 ### 3.1 Identity
 
@@ -204,7 +204,9 @@ Outfit is a variable font: weights are set on its `wght` axis by integer tag (th
 | button_height, row_height | buttons and settings rows |
 | icon_booster, icon_hud, icon_stroke | icon sizes; stroke on the 24 unit icon grid |
 | toggle_w, toggle_h, toggle_knob | sound toggle |
-| notice_height | the clear notice pill |
+| notice_height | the clear notice pill (Slate: the HUD context row it takes over) |
+| notice_tile_scale | mini tiles in the clear notice, share of notice_height |
+| notice_strike | the strike line across those mini tiles |
 
 ### 3.6 Motion names
 
@@ -243,7 +245,7 @@ Tactile candy. Chunky squircle tiles with a darker lip underneath, like keycaps 
 | bg | #150820 | deep plum |
 | surface | #2B183D | pills, dock, cards, sheets |
 | surface_raised | #3F2956 | booster buttons, secondary buttons, chips |
-| line | #3F2956 | 4 px rounded divider |
+| line | #3F2956 | rounded divider, `hairline` thick |
 | ink | #FFF7FC | |
 | ink_muted | #D3BDE5 | |
 | ink_dark | #1C0D2B | every tile number |
@@ -336,17 +338,18 @@ Closest pairs (ramp check): neighbors 0.206, times 4 0.141, times 8 0.210.
 | chain_ring | 7 | | button_height | 144 |
 | joinable_ring | 6 | | row_height | 144 |
 | target_ring | 9 | | icon_booster | 84 |
-| space_xs, s, m, l, xl | 12, 24, 36, 56, 88 | | icon_hud | 84 |
+| space_xs, s, m, l, xl | 12, 24, 36, 56, 88 | | icon_hud | 64 |
 | touch_min | 144 | | icon_stroke | 3.5 |
 | notice_height | 88 | | toggle_w, toggle_h, toggle_knob | 140, 76, 54 |
+| notice_tile_scale | 0.6 | | notice_strike | 4 |
 
 **Extras:**
 - Tray: `tray_radius` 60.
 - Lip: `lip_darken` 0.34 (lip color = fill darkened by this). Depth by tier, as a fraction of the tile side: `lip_t1` 0.060, `lip_t2` 0.075, `lip_t3` 0.090, `lip_t4` 0.090. `lip_pressed` 0.020.
 - Lift: `joinable_lift` 0.030, `target_lift` 0.040.
-- Shine: `shine_alpha` 0.35, `shine_from_tier` 3.
+- Shine: `shine_alpha` 0.35, `shine_from_tier` 3, `shine_inset` 0.05, `shine_width` 0.045 (fractions of the tile side).
 - Rings and rim: `preview_ring` 6, `target_edge_width` 4, `special_rim_width` 8, `special_rim_segments` 16.
-- HUD and dock: `hud_top_row` 96, `pill_height` 96, `pill_radius` 48, `dock_height` 184, `dock_radius` 64.
+- HUD and dock: `hud_top_row` 96, `hud_button_face` 96, `pill_height` 96, `pill_radius` 48, `dock_height` 184, `dock_radius` 64.
 - Buttons: `button_lip` 10, `button_lip_pressed` 3, `active_raise` 6, `focus_width` 5, `focus_gap` 6.
 - Toggle: `toggle_knob_lip` 5.
 
@@ -361,8 +364,8 @@ Closest pairs (ramp check): neighbors 0.206, times 4 0.141, times 8 0.210.
 | joinable_in | 0.12 | sine, out | |
 | merge_travel | 0.18 | back, in | |
 | merge_pop | 0.34 | elastic, out | peak_scale 1.22 |
-| clear | 0.28 | back, in | burst_dots 6 |
-| clear_notice | 0.30 | back, out | hold 1.6, out 0.20 |
+| clear | 0.28 | back, in | burst_dots 6, burst_dot_size 0.07 (of the tile side), burst_reach 0.6 (of the tile side), burst_fade 0.36 s |
+| clear_notice | 0.30 | back, out | from_scale 0.6, hold 1.6, out 0.20 |
 | press | 0.08 | quad, out | |
 | button_press | 0.08 | quad, out | press_scale 0.92 |
 | button_release | 0.30 | back, out | |
@@ -378,14 +381,14 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 ### 4.7 Components
 
 **Tile**
-- Squircle, corner radius 0.30 of the side.
+- Squircle, corner radius `tile_radius` of the side.
 - The lip is the full tile shape in fill darkened by `lip_darken`. The top face, in the fill, is raised by the tier's lip depth, so the lip shows only along the bottom. The label is centered on the face.
-- Tier 3 and 4 tiles get a shine: a soft white crescent (shine at `shine_alpha`) hugging the face's top left corner, clear of the label box.
+- Tier 3 and 4 tiles get a shine: a quarter circle arc in shine at `shine_alpha`, round caps, following the face's top left corner. Its center is the corner's radius center, its radius is the corner radius less `shine_inset` of the side, and its width is `shine_width` of the side. It stays above the label box at every label length.
 
 **Tile states**
 - *Normal:* as above.
 - *Chained:* pressed in. The lip shrinks to `lip_pressed`, the face moves down with it, the tile is scaled to `press_scale` 0.94, and a `chain_ring` ring in chain sits just outside the face. It stays this way while the tile is in the chain.
-- *Joinable (D-40):* the tile lifts by `joinable_lift` (lip deeper, face higher) and gets a `joinable_ring` lemon ring with a 4 px target_edge outline outside it, so it reads on every tile and on the tray. It eases in over `joinable_in` and moves as the chain changes. Never on a chained tile.
+- *Joinable (D-40):* the tile lifts by `joinable_lift` (lip deeper, face higher) and gets a `joinable_ring` lemon ring with a `target_edge_width` target_edge outline outside it, so it reads on every tile and on the tray. It eases in over `joinable_in` and moves as the chain changes. Never on a chained tile.
 - *Press feedback (D-43):* while a finger is down on a tile in targeting mode, the tile presses in (lip_pressed) and gets a `target_ring` ring in target with a target_edge outline. It means only "this is the tile under your finger".
 - *Selected (Swap's first tile):* lifted by `target_lift` with the same double ring, wobbling by `wobble_degrees` on the `target_pulse` loop.
 - *Special (64K up):* a candy rim round the face, `special_rim_width` wide, in `special_rim_segments` segments cycling the tier 1 and 2 fills.
@@ -409,26 +412,26 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 
 **Small tile clear (D-38)**
 - Every cleared tile squashes and shrinks to nothing (`clear`, back ease in).
-- At the end it bursts into `burst_dots` candy dots in its own fill color. The dots fly out about 0.6 of a tile side and fade in 0.36 s.
+- At the end it bursts into `burst_dots` candy dots in its own fill color, each `burst_dot_size` of the tile side across. They fly out `burst_reach` of the tile side, evenly spaced round the circle, and fade over `burst_fade` seconds.
 - All cleared tiles clear together.
 
 **Clear notice (AT-104)**
 - A badge pill, `notice_height` tall, in badge with a badge_lip lip. It is centered horizontally on the board's top edge, overlapping the seam between HUD and board, so it never covers the rows the player works in.
-- Content: a mini tile (0.6 of `notice_height`) of each cleared value with a 4 px badge_ink strike line across it, then the text in the body role, badge_ink.
+- Content: a mini tile (`notice_tile_scale` of `notice_height`) of each cleared value with a `notice_strike` px badge_ink strike line across it, then the text in the body role, badge_ink. Padding `space_s` left and right, items `space_xs` apart.
 - Text: "No more 2s" for one value, "No more 2s or 4s" for two, "No more 2s to 8s" for three or more. Values use the tile label format ("No more 2Ks").
-- Motion: it springs in (`clear_notice`, from 0.6 scale), holds `hold` seconds, fades out over `out`. It never blocks input.
+- Motion: it springs in (`clear_notice`, from `from_scale`), holds `hold` seconds, fades out over `out`. It never blocks input.
 
 **HUD (slimmed)**
 - Top row, `hud_top_row` tall:
-  - The pause button on the left: a raised squircle, face 96, icon_hud icon, touch area `touch_min`.
-  - A Best pill on the right: surface with lip, "Best" in label role ink_muted, the number in body role ink.
+  - The pause button on the left: a raised squircle, face `hud_button_face`, an `icon_hud` icon, touch area `touch_min`.
+  - A Best pill on the right: surface with a surface_lip lip, `pill_height` tall, `pill_radius` corners, sides padded by `space_s`; "Best" in label role ink_muted, the number in body role ink.
 - Under it, the score, centered, in the display role, auto fitting (section 2.6).
 - No caption above the score.
 
 **Booster bar**
 - A floating dock, `dock_height` tall and `dock_radius` corners, in surface with a surface_lip lip. It sits `board_margin` from the screen sides, with five raised buttons inside.
 - The `hint_height` row above it holds the hint pill.
-- Each button: surface_raised face, `radius_button` corners, `button_lip` lip. The icon (`icon_booster`) sits over the cost in the label role, as a tile label.
+- Each button: surface_raised face, `radius_button` corners, `button_lip` lip. The dock pads its buttons by `space_xs` all round and spaces them `space_xs` apart. The five faces share the width equally, and each face is `dock_height` less 2 x `space_xs` less `button_lip` tall. The icon (`icon_booster`) sits over the cost in the label role, as a tile label.
 - Looks:
   - *Normal:* as above.
   - *Pressed:* scale `press_scale`, lip down to `button_lip_pressed`.
@@ -444,7 +447,7 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 
 **Sound toggle**
 - A pill track `toggle_w` by `toggle_h` with a surface_lip lip.
-- Off: surface_raised track, white knob (`toggle_knob`, with a `toggle_knob_lip` lip) on the left.
+- Off: surface_raised track, ink knob (`toggle_knob`, with a `toggle_knob_lip` lip in surface_lip) on the left.
 - On: accent track, knob on the right.
 - It slides with button_release.
 
@@ -455,7 +458,7 @@ A committed chain settles in about 0.9 s: travel 0.18, pop and clear 0.34, then 
 - *Secondary:* surface_raised with surface_lip lip, ink text.
 - *Chip:* surface_raised, `radius_chip` corners. Selected: accent with ink_dark text.
 - *Card and sheet panel:* surface, `radius_card` corners, surface_lip lip, `space_m` padding.
-- *Divider:* a 4 px rounded line in line.
+- *Divider:* a `hairline` rounded line in line.
 - *Focus:* a `focus_width` accent outline `focus_gap` outside the button.
 
 ---
@@ -559,11 +562,13 @@ Closest pairs (ramp check): neighbors 0.210, times 4 0.135, times 8 0.094.
 | target_ring | 6 | | icon_booster | 66 |
 | space_xs, s, m, l, xl | 8, 20, 40, 64, 104 | | icon_hud | 72 |
 | touch_min | 144 | | icon_stroke | 2 |
-| notice_height | 88 | | toggle_w, toggle_h, toggle_knob | 132, 64, 44 |
+| notice_height | 112 (the HUD context row) | | toggle_w, toggle_h, toggle_knob | 132, 64, 44 |
+| notice_tile_scale | 0.5 | | notice_strike | 2 |
 
 **Extras:**
 - Tile number: `number_inset` 0.11, `number_plate` 6.
 - Chain line: `line_edge` 3, `node_size` 24.
+- Joinable and selected: `joinable_node_stroke` 3 (the hollow node's stroke; `joinable_ring` is the frame), `selected_frame` 4.
 - Brackets and frame: `target_bracket` 0.30, `special_inset` 0.06.
 - Merge flash: `flash_cut` 0.05.
 - Bar: `strip_height` 192.
@@ -602,9 +607,10 @@ A committed chain settles in about 0.45 s.
 
 **Tile states**
 - *Chained:* a `chain_ring` frame in chain, inset inside the tile edge, plus a filled `node_size` square node in chain at the center.
-- *Joinable (D-40):* a `joinable_ring` (2 px) frame in joinable inset like the chain frame, plus a hollow `node_size` square at the center (3 px stroke). It means "the line can come here".
+- *Joinable (D-40):* a `joinable_ring` frame in joinable, inset like the chain frame, plus a hollow `node_size` square at the center with a `joinable_node_stroke` stroke. It means "the line can come here".
 - *Press feedback (D-43):* four corner brackets in target, `target_ring` thick, arms `target_bracket` of the side, hugging the outside of the tile edge with no offset.
-- *Selected (Swap's first tile):* the same brackets plus a 4 px target frame inside the edge. They hold still.
+- *Selected (Swap's first tile):* the same brackets plus a `selected_frame` frame in target inside the edge. They hold still.
+- *Marks on blocks:* paper vanishes on the light blocks. On tier 2 and 3 tiles the chained frame, the joinable frame and the hollow node draw in ink_dark instead of chain and joinable. Every node, filled or hollow, gets a `line_edge` outline in chain_edge, like the chain line, so it reads on any tile.
 - *Special (32K up):* an inner hairline frame in ink_dark, `hairline` thick, inset `special_inset`.
 
 **Board:** no tray and no background. An empty cell shows a `hairline` frame in line.
@@ -633,7 +639,7 @@ A committed chain settles in about 0.45 s.
 
 **Clear notice (AT-104)**
 - It takes the HUD's context row for its hold time: a full width bar in badge.
-- Content: the cleared values as small struck-through tiles, then the text in the label role, badge_ink, in capitals: "NO MORE 2S".
+- Content: the cleared values as small tiles (`notice_tile_scale` of `notice_height`) with a `notice_strike` px badge_ink strike line, then the text in the label role, badge_ink, in capitals: "NO MORE 2S". Padding `space_m` on the left, items `space_xs` apart.
 - Motion: it cuts in and out with `clear_notice`.
 - If a chain is being dragged, the notice waits until the finger lifts.
 
@@ -779,6 +785,7 @@ Closest pairs (ramp check): neighbors 0.194, times 4 0.169, times 8 0.258.
 | space_xs, s, m, l, xl | 12, 28, 44, 72, 112 | | icon_hud | 72 |
 | touch_min | 144 | | icon_stroke | 1.5 |
 | notice_height | 80 | | toggle_w, toggle_h, toggle_knob | 124, 64, 40 |
+| notice_tile_scale | 0.6 | | notice_strike | 2 |
 
 **Extras:**
 - Orb and rim: `orb_scale` 0.88, `rim_width` 4, `rim_lighten` 0.35.
@@ -786,7 +793,7 @@ Closest pairs (ramp check): neighbors 0.194, times 4 0.169, times 8 0.258.
 - Beam: `beam_glow_width` 44, `beam_glow_alpha` 0.28.
 - Orbits: `orbit_offset` 0.10, `joinable_orbit` 0.05, `orbit_dashes` 24, `orbit_dash_fill` 0.55, `orbit_breath` 0.05, `orbit_turn` 0.08.
 - Glow multipliers: `joinable_glow` 1.25, `chain_glow` 1.4, `target_glow` 1.5, `spawn_bloom` 0.6.
-- Corona: `ray_count` 12, `ray_inner` 1.08, `ray_outer` 1.24, `ray_width` 3.
+- Corona: `ray_count` 12, `ray_inner` 1.08, `ray_outer` 1.24, `ray_width` 3, `ray_lighten` 0.35, `ray_alpha` 0.6.
 - Ring buttons: `ring_button` 136, `ring_width` 3.
 - Disabled: `disabled_ring_alpha` 0.35, `disabled_ring_dashes` 16, `disabled_icon_alpha` 0.6.
 - Star dust: `star_count` 70, `star_alpha_min` 0.08, `star_alpha_max` 0.35, `star_size_min` 1.5, `star_size_max` 3.5, `star_seed` 20261010, `star_clearance` 24.
@@ -806,8 +813,8 @@ Closest pairs (ramp check): neighbors 0.194, times 4 0.169, times 8 0.258.
 | joinable_in | 0.20 | sine, out | |
 | merge_travel | 0.24 | cubic, in out | orbs glide along the beam path |
 | merge_pop | 0.40 | sine, out | peak_glow 1.8; the glow tail does not block input |
-| clear | 0.36 | sine, in | sparks 8 |
-| clear_notice | 0.40 | sine, out | hold 1.8, out 0.30 |
+| clear | 0.36 | sine, in | to_scale 0.4, sparks 8, spark_size 4 px, spark_reach 0.7 (of the orb diameter) |
+| clear_notice | 0.40 | sine, out | from_offset 16 (rises 16 px), from_alpha 0, hold 1.8, out 0.30 |
 | press | 0.10 | sine, out | |
 | button_press | 0.10 | sine, out | press_scale 0.96 |
 | button_release | 0.24 | sine, out | |
@@ -833,7 +840,7 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 - *Joinable (D-40):* a thin solid orbit in joinable, `joinable_ring` wide, at radius times (1 + `joinable_orbit`), and glow times `joinable_glow`. It eases in over `joinable_in`.
 - *Press feedback (D-43):* a dashed orbit in target, `target_ring` wide, at radius times (1 + `orbit_offset`), `orbit_dashes` dashes, and glow times `target_glow`.
 - *Selected (Swap's first tile):* the dashed orbit turning `orbit_turn` per loop and breathing by `orbit_breath` on `target_pulse`.
-- *Special (32K up):* `ray_count` corona rays from `ray_inner` to `ray_outer` orb radii, `ray_width` wide, in fill lightened at 60% alpha.
+- *Special (32K up):* `ray_count` corona rays from `ray_inner` to `ray_outer` orb radii, `ray_width` wide, in the fill lightened by `ray_lighten`, at `ray_alpha`.
 
 **Board:** no tray and no grid lines. The orbs float on the backdrop.
 
@@ -853,12 +860,12 @@ A committed chain settles in about 0.8 s; the bloom fades after.
 - Fall: cubic ease out.
 
 **Small tile clear (D-38)**
-- Every cleared orb dims and shrinks (`clear`, sine in) while `sparks` small sparks in its fill color drift outward and fade.
+- Every cleared orb dims and shrinks to `to_scale` (`clear`, sine in) while `sparks` sparks in its fill color, `spark_size` px across, drift out `spark_reach` of the orb diameter and fade.
 - Its glow goes out with it.
 
 **Clear notice (AT-104)**
-- A badge pill, `notice_height` tall, centered on the board's top edge. Content and copy as Gumdrop, in the label role (lowercase): "no more 2s".
-- Motion: it fades and rises 16 px in (`clear_notice`), holds, fades out. It never blocks input.
+- A badge pill, `notice_height` tall, centered on the board's top edge. Content and padding as Gumdrop, with `notice_tile_scale` and `notice_strike`, and the text in the label role (lowercase): "no more 2s".
+- Motion: it fades in from `from_alpha` while rising `from_offset` px (`clear_notice`), holds, fades out. It never blocks input.
 
 **HUD**
 - Centered: the score in the display role (light, auto fitting).
@@ -919,12 +926,14 @@ The copy below is the design's working copy. Where the GDD fixes wording, the GD
 
 ### 7.2 Main menu
 
+Shown only at first launch (no valid saved run) and after a run ends. Reopening the app with a saved run goes straight back into play (ARCHITECTURE.md section 11), so the main menu never offers Continue.
+
 Over the backdrop, top to bottom:
 1. The settings icon button, top right.
 2. The wordmark "numbersgame" in the title role, ink, centered. Slate left aligns it.
-3. A decorative row of four tiles (2, 4, 8, 16) drawn by the skin's tile component.
+3. A decorative row of four tiles (2, 4, 8, 16) drawn by the skin's tile component, `space_s` apart.
 4. Records: "Best score" with the number, "Best tile" with a mini tile.
-5. Buttons at the bottom, `space_s` apart. With a saved run: **Continue** (primary) then **New game** (secondary). Without one: **New game** (primary) only.
+5. **New game**, the only button: primary, full width less `board_margin` each side, at the bottom of the safe area.
 
 ### 7.3 Pause
 
@@ -975,7 +984,23 @@ Over the backdrop, top to bottom:
   - The current skin's chip shows the selected look.
 - Tapping a choice switches the whole game live: the screen cross-fades over `skin_switch` of the new skin, and the setting saves at once.
 
-### 7.8 Copy for new strings
+### 7.8 Badges
+
+Every badge (the hint pill, Suggested, New best) is a pill in badge with badge_ink text in the label role. Its height is the label role's line height plus `space_xs` above and below, and its sides are padded by `space_s`. Gumdrop adds a badge_lip lip. Slate badges have square corners. Nova badges are full pills.
+
+### 7.9 Fixed component constants
+
+These numbers are the same in every skin and are not tokens. The components hold them as named constants:
+
+| Constant | Value | Where |
+|---|---|---|
+| Main menu decorative tiles | 112 px side | 7.2 |
+| Skin choice preview tiles | 72 px side | 7.7 |
+| Skin choice swatch padding | 0.22 of the preview tile side | 7.7 |
+| Skin choice swatch hairline edge | 2 px | 7.7 |
+| Icon design grid | 24 units, scaled to the icon box | 4.7, 5.7, 6.7 |
+
+### 7.10 Copy for new strings
 
 | Where | Copy |
 |---|---|
@@ -1040,4 +1065,4 @@ Adaptive icons are 108 by 108 dp. The launcher masks them to a shape that always
 - **Monochrome:** the two tile silhouettes and the rope in white, the labels cut out (transparent).
 - **Legacy 192:** the full composition scaled to 192, corners rounded at 22%.
 
-It reads as "two equal tiles join" at every launcher size, and its colors match the default skin. The tool reads every color from Gumdrop's Skin values, not from its own copies.
+It reads as "two equal tiles join" at every launcher size, and its colors match the default skin. The tool reads every color from Gumdrop's SkinData, not from its own copies.

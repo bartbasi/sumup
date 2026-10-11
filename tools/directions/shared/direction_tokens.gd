@@ -52,6 +52,7 @@ const SHARED_SHAPE: PackedStringArray = [
 	"radius_card", "radius_chip", "hairline", "hud_height", "bar_height",
 	"hint_height", "button_height", "row_height", "icon_booster", "icon_hud",
 	"icon_stroke", "toggle_w", "toggle_h", "toggle_knob", "notice_height",
+	"notice_tile_scale", "notice_strike",
 ]
 
 ## Font families a skin can use.

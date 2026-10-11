@@ -109,7 +109,7 @@ func _init() -> void:
 		"special_from": 32768.0,
 		"chain_width": 8.0,
 		"chain_ring": 6.0,           # paper frame inside chained tiles
-		"joinable_ring": 4.0,        # hollow node on joinable tiles, stroke
+		"joinable_ring": 2.0,        # frame inside joinable tiles
 		"target_ring": 6.0,          # corner brackets, thickness
 		"space_xs": 8.0,
 		"space_s": 20.0,
@@ -132,12 +132,16 @@ func _init() -> void:
 		"toggle_w": 132.0,
 		"toggle_h": 64.0,
 		"toggle_knob": 44.0,
-		"notice_height": 88.0,
+		"notice_height": 112.0,      # the notice takes the HUD context row
+		"notice_tile_scale": 0.5,
+		"notice_strike": 2.0,
 		# Extras
 		"number_inset": 0.11,        # number sits top left, this far in
 		"number_plate": 6.0,         # px: on chained tiles, a plate of the tile fill round the whole label
 		"line_edge": 3.0,            # dark edge each side of the chain line
 		"node_size": 24.0,
+		"joinable_node_stroke": 3.0, # hollow node on joinable tiles
+		"selected_frame": 4.0,       # target frame inside Swap's selected tile
 		"target_bracket": 0.30,      # arm length, fraction of the tile side
 		"special_inset": 0.06,
 		"flash_cut": 0.05,
