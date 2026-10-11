@@ -154,6 +154,7 @@ func _init() -> void:
 		"ray_width": 3.0,
 		"ray_lighten": 0.35,         # ray color = fill.lightened(ray_lighten)
 		"ray_alpha": 0.6,
+		"dark_rim_from": 131072.0,   # from this value the chained rim is ink_dark (white on the white hole vanishes)
 		"spawn_bloom": 0.6,
 		"chain_glow": 1.4,
 		"target_glow": 1.5,
@@ -195,7 +196,7 @@ func _init() -> void:
 		"joinable_in": {"duration": 0.20, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT},
 		"merge_travel": {"duration": 0.24, "trans": Tween.TRANS_CUBIC, "ease": Tween.EASE_IN_OUT},
 		"merge_pop": {"duration": 0.40, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT, "peak_glow": 1.8},
-		"clear": {"duration": 0.36, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN, "sparks": 8.0, "to_scale": 0.4, "spark_reach": 0.7, "spark_size": 4.0},
+		"clear": {"duration": 0.36, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN, "sparks": 8.0, "to_scale": 0.4, "spark_reach": 0.7, "spark_size": 8.0},
 		"clear_notice": {"duration": 0.40, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT, "hold": 1.8, "out": 0.30, "from_offset": 16.0, "from_alpha": 0.0},
 		"press": {"duration": 0.10, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT},
 		"button_press": {"duration": 0.10, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT, "press_scale": 0.96},

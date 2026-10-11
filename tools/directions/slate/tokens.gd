@@ -144,6 +144,7 @@ func _init() -> void:
 		"selected_frame": 4.0,       # target frame inside Swap's selected tile
 		"target_bracket": 0.30,      # arm length, fraction of the tile side
 		"special_inset": 0.06,
+		"frame_inset": 0.03,        # chained and joinable frames sit this far inside the tile edge, fraction of the side
 		"flash_cut": 0.05,
 		"strip_height": 192.0,
 		"toggle_knob_inset": 10.0,

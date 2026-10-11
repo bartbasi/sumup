@@ -172,6 +172,7 @@ numbers = Dictionary[StringName, float]({
 &"chain_glow": 1.4,
 &"chain_ring": 8.0,
 &"chain_width": 12.0,
+&"dark_rim_from": 131072.0,
 &"disabled_icon_alpha": 0.6,
 &"disabled_ring_alpha": 0.35,
 &"disabled_ring_dashes": 16.0,
@@ -271,7 +272,7 @@ motion = Dictionary[StringName, Dictionary]({
 "duration": 0.36,
 "ease": 0,
 "spark_reach": 0.7,
-"spark_size": 4.0,
+"spark_size": 8.0,
 "sparks": 8.0,
 "to_scale": 0.4,
 "trans": 1

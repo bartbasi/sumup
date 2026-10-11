@@ -226,6 +226,11 @@ func _frame_times(effect: String) -> PackedFloat32Array:
 			if burst > 0.0:
 				times.append(length + burst * 0.2)
 				times.append(length + burst * 0.6)
+			elif _skin.motion_spec(&"clear").has("sparks"):
+				# Sparks drift out and fade linearly: show them on their way.
+				times.clear()
+				for share: float in [0.3, 0.5, 0.7, 0.9]:
+					times.append(length * share)
 			else:
 				times.append(length * _curve_progress(&"clear", 0.9))
 				times.append(length * 0.97)

@@ -9,6 +9,8 @@ extends "res://tests/base_test.gd"
 
 const CommonBoardView: GDScript = preload("res://src/skins/common/common_board_view.gd")
 const MotionMath: GDScript = preload("res://src/skins/common/motion_math.gd")
+const SLATE_PAINTER: GDScript = preload("res://src/skins/slate/slate_tile_painter.gd")
+const NOVA_PAINTER: GDScript = preload("res://src/skins/nova/nova_tile_painter.gd")
 const BOARD_VIEWS: Dictionary = {
 	&"gumdrop": preload("res://src/skins/gumdrop/gumdrop_board_view.gd"),
 	&"slate": preload("res://src/skins/slate/slate_board_view.gd"),
@@ -458,6 +460,54 @@ func test_effects_on_cells_off_the_board_do_nothing() -> void:
 		assert_eq(board.play_clear(off), 0.0, "%s clear off the board" % skin_id)
 
 
+# Design review fixes (docs/design/briefs/tile-board-artist-prod-fixes.md).
+
+func test_slate_label_plate_clears_the_inset_chained_frame() -> void:
+	# The chained frame sits frame_inset inside the edge (DESIGN_SYSTEM.md
+	# 5.7). The plate over the number must stay inside the frame for every
+	# label up to 64M, at the board tile and smaller ones. (128M to 512M are
+	# wider than any real board reaches; reported to the designer.)
+	var skin: SkinData = SkinCatalog.get_skin(&"slate")
+	var painter: RefCounted = SLATE_PAINTER.new()
+	painter.call("setup", skin)
+	var highest_index: int = 25
+	for side: float in [_reference_side(skin), 168.0, 148.0, 120.0]:
+		var unit: float = side / float(painter.call("reference_side"))
+		painter.call("set_side", side, unit)
+		var tile: Rect2 = Rect2(Vector2(-side, -side) * 0.5, Vector2(side, side))
+		var inner: Rect2 = tile.grow(-(skin.num(&"frame_inset") * side + skin.num(&"chain_ring") * unit))
+		var top_left: Vector2 = tile.position + Vector2.ONE * skin.num(&"number_inset") * side
+		var labels: RefCounted = painter.get("labels")
+		for index: int in highest_index + 1:
+			var box: Rect2 = labels.call("box_top_left", top_left, index)
+			var plate: Rect2 = box.grow(skin.num(&"number_plate") * unit)
+			if not inner.encloses(plate):
+				fail("slate label %s at a %.0f px tile: plate %s crosses the frame %s" % [labels.call("label", index), side, plate, inner])
+
+
+func test_nova_chained_rim_is_dark_on_the_white_hole() -> void:
+	var skin: SkinData = SkinCatalog.get_skin(&"nova")
+	var painter: RefCounted = NOVA_PAINTER.new()
+	painter.call("setup", skin)
+	var rims: PackedColorArray = painter.get("_chain_rims")
+	var dark_from: int = int(skin.num(&"dark_rim_from"))
+	for index: int in rims.size():
+		var value: int = 2 << index
+		var expected: Color = skin.color(&"ink_dark") if value >= dark_from else skin.color(&"chain")
+		assert_eq(rims[index], expected, "nova chained rim for %d" % value)
+
+
+func test_nova_sparks_take_the_lightened_fill() -> void:
+	var skin: SkinData = SkinCatalog.get_skin(&"nova")
+	var painter: RefCounted = NOVA_PAINTER.new()
+	painter.call("setup", skin)
+	var sparks: PackedColorArray = painter.get("_spark_colors")
+	for index: int in SkinData.RAMP_SIZE + 1:
+		var value: int = 2 << index
+		assert_eq(sparks[index], skin.fill_for(value).lightened(skin.num(&"ray_lighten")), "nova spark color for %d" % value)
+	assert_eq(MotionMath.extra(skin, &"clear", "spark_size"), 8.0, "nova spark size")
+
+
 # Tile views.
 
 func test_tile_view_accepts_its_edge_values() -> void:
@@ -491,6 +541,12 @@ func _tile(skin_id: StringName) -> SkinTileView:
 
 func _board_width(skin: SkinData) -> float:
 	return float(ProjectSettings.get_setting("display/window/size/viewport_width")) - 2.0 * skin.num(&"board_margin")
+
+
+## The board tile side on the base canvas.
+func _reference_side(skin: SkinData) -> float:
+	var board: CommonBoardView = _board(skin.id)
+	return board.tile_side()
 
 
 func _cell(index: int) -> Vector2i:

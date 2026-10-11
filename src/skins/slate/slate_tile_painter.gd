@@ -14,7 +14,10 @@ const CORNER_DETAIL: int = 8
 const BLOCK_TIER: int = 2
 
 var _fill_box: StyleBoxFlat = null
+## Swap's selected frame, at the tile edge.
 var _frame_box: StyleBoxFlat = null
+## The chained and joinable frames, frame_inset inside the tile edge.
+var _inset_frame_box: StyleBoxFlat = null
 var _special_box: StyleBoxFlat = null
 var _empty_box: StyleBoxFlat = null
 
@@ -27,6 +30,7 @@ var _node_stroke: float = 0.0
 var _selected_frame: float = 0.0
 var _bracket: float = 0.0
 var _special_inset: float = 0.0
+var _frame_inset: float = 0.0
 var _hairline: float = 0.0
 var _chain_ring: float = 0.0
 var _joinable_ring: float = 0.0
@@ -42,6 +46,7 @@ var _paper: Color = Color.MAGENTA
 func _setup() -> void:
 	_fill_box = make_box(CORNER_DETAIL)
 	_frame_box = make_ring(CORNER_DETAIL)
+	_inset_frame_box = make_ring(CORNER_DETAIL)
 	_special_box = make_ring(CORNER_DETAIL)
 	_empty_box = make_ring(CORNER_DETAIL)
 	_radius_share = skin.num(&"tile_radius")
@@ -53,6 +58,7 @@ func _setup() -> void:
 	_selected_frame = skin.num(&"selected_frame")
 	_bracket = skin.num(&"target_bracket")
 	_special_inset = skin.num(&"special_inset")
+	_frame_inset = skin.num(&"frame_inset")
 	_hairline = skin.num(&"hairline")
 	_chain_ring = skin.num(&"chain_ring")
 	_joinable_ring = skin.num(&"joinable_ring")
@@ -71,6 +77,7 @@ func _on_side() -> void:
 	var radius: int = roundi(_radius_share * side)
 	_fill_box.set_corner_radius_all(radius)
 	_frame_box.set_corner_radius_all(radius)
+	_inset_frame_box.set_corner_radius_all(maxi(0, radius - roundi(_frame_inset * side)))
 	_empty_box.set_corner_radius_all(radius)
 	var hairline: int = maxi(1, roundi(_hairline * unit))
 	_empty_box.set_border_width_all(hairline)
@@ -100,11 +107,14 @@ func draw_body(canvas: RID, base: Transform2D, value: int, flash: bool, chain: f
 	_fill_box.draw(canvas, rect)
 	if value >= special_from and not flash:
 		_special_box.draw(canvas, rect.grow(-_special_inset * side))
+	# The chained and joinable frames sit frame_inset inside the edge, so a
+	# band of tile fill keeps an ink_dark frame visible on a light block.
 	var block: bool = tiers[index] >= BLOCK_TIER
+	var framed: Rect2 = rect.grow(-_frame_inset * side)
 	if chain > 0.0:
-		_frame(canvas, rect, _chain_ring * unit, faded(_dark if block else _chain_color, chain))
+		_frame(_inset_frame_box, canvas, framed, _chain_ring * unit, faded(_dark if block else _chain_color, chain))
 	if join > 0.0:
-		_frame(canvas, rect, _joinable_ring * unit, faded(_dark if block else _joinable_color, join))
+		_frame(_inset_frame_box, canvas, framed, _joinable_ring * unit, faded(_dark if block else _joinable_color, join))
 	end(canvas)
 
 
@@ -172,15 +182,16 @@ func draw_brackets(canvas: RID, rect: Rect2, alpha: float) -> void:
 	RenderingServer.canvas_item_add_rect(canvas, Rect2(left, bottom + width - length, width, length), color)
 
 
-## Swap's selected tile: a selected_frame frame in target inside the edge.
+## Swap's selected tile: a selected_frame frame in target at the edge, next
+## to its brackets.
 func draw_selected_frame(canvas: RID, rect: Rect2, alpha: float) -> void:
-	_frame(canvas, rect, _selected_frame * unit, faded(_target_color, alpha))
+	_frame(_frame_box, canvas, rect, _selected_frame * unit, faded(_target_color, alpha))
 
 
-func _frame(canvas: RID, rect: Rect2, width: float, frame_color: Color) -> void:
-	_frame_box.set_border_width_all(maxi(1, roundi(width)))
-	_frame_box.border_color = frame_color
-	_frame_box.draw(canvas, rect)
+func _frame(box: StyleBoxFlat, canvas: RID, rect: Rect2, width: float, frame_color: Color) -> void:
+	box.set_border_width_all(maxi(1, roundi(width)))
+	box.border_color = frame_color
+	box.draw(canvas, rect)
 
 
 ## A square outline width px wide, centered on rect's edges.

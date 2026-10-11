@@ -149,6 +149,7 @@ numbers = Dictionary[StringName, float]({
 &"flash_cut": 0.05,
 &"focus_gap": 4.0,
 &"focus_width": 4.0,
+&"frame_inset": 0.03,
 &"hairline": 2.0,
 &"hint_height": 112.0,
 &"hud_height": 350.0,

@@ -25,6 +25,9 @@ static var _glow_texture: GradientTexture2D = null
 
 var _rim_colors: PackedColorArray = PackedColorArray()
 var _ray_colors: PackedColorArray = PackedColorArray()
+## Per label index: the color of the chained rim and of the clear sparks.
+var _chain_rims: PackedColorArray = PackedColorArray()
+var _spark_colors: PackedColorArray = PackedColorArray()
 var _glow_spreads: PackedFloat32Array = PackedFloat32Array()
 var _glow_alphas: PackedFloat32Array = PackedFloat32Array()
 var _ray_directions: PackedVector2Array = PackedVector2Array()
@@ -89,15 +92,24 @@ func _setup() -> void:
 	var alpha_low: float = skin.num(&"glow_alpha_low")
 	var alpha_high: float = skin.num(&"glow_alpha_high")
 	var count: int = fills.size()
+	# From dark_rim_from (the white hole) the chained rim is ink_dark: a white
+	# rim on a white orb vanishes.
+	var dark_rim_from: int = int(skin.num(&"dark_rim_from"))
+	var dark_rim: Color = skin.color(&"ink_dark")
 	_rim_colors.resize(count)
 	_ray_colors.resize(count)
+	_chain_rims.resize(count)
+	_spark_colors.resize(count)
 	_glow_spreads.resize(count)
 	_glow_alphas.resize(count)
 	for index: int in count:
 		_rim_colors[index] = fills[index].lightened(rim_lighten)
 		var ray: Color = fills[index].lightened(ray_lighten)
+		# Sparks take the rays' lightened fill, so they show on deep space.
+		_spark_colors[index] = ray
 		ray.a *= ray_alpha
 		_ray_colors[index] = ray
+		_chain_rims[index] = dark_rim if TileLabels.value_of(index) >= dark_rim_from else _chain_color
 		# Both run by ramp index from value 2 to 131072; above that they stay
 		# at the top.
 		var t: float = clampf(float(index) / float(SkinData.RAMP_SIZE - 1), 0.0, 1.0)
@@ -170,7 +182,7 @@ func draw_orb(canvas: RID, base: Transform2D, value: int, chain: float, join: fl
 			RenderingServer.canvas_item_add_line(canvas, direction * inner, direction * outer, _ray_colors[index], _ray_width * unit, true)
 	# The rim is the fill circle in the rim color with the fill laid inside it.
 	var rim_width: float = lerpf(_rim_width, _chain_ring, chain) * unit
-	var rim: Color = _rim_colors[index].lerp(_chain_color, chain)
+	var rim: Color = _rim_colors[index].lerp(_chain_rims[index], chain)
 	RenderingServer.canvas_item_add_circle(canvas, Vector2.ZERO, radius, rim, true)
 	RenderingServer.canvas_item_add_circle(canvas, Vector2.ZERO, maxf(0.0, radius - rim_width), fills[index], true)
 	labels.draw_centered(canvas, Vector2.ZERO, index, inks[index])
@@ -191,14 +203,15 @@ func draw_dashed_orbit(canvas: RID, center: Vector2, turn: float, breath: float,
 	end(canvas)
 
 
-## The sparks of a clearing orb centered on center at a progress from 0 to 1:
-## they drift from the orb edge out to spark_reach of the diameter and fade.
+## The sparks of a clearing orb centered on center at a progress from 0 to 1,
+## in its fill lightened by ray_lighten: they drift from the orb edge out to
+## spark_reach of the diameter and fade.
 func draw_sparks(canvas: RID, center: Vector2, value: int, progress: float) -> void:
 	var index: int = index_of(value)
 	if index < 0 or progress <= 0.0 or progress >= 1.0:
 		return
 	var distance: float = lerpf(side * 0.5, side * _spark_reach, progress)
-	var color: Color = faded(fills[index], 1.0 - progress)
+	var color: Color = faded(_spark_colors[index], 1.0 - progress)
 	var spark_radius: float = _spark_size * unit * 0.5
 	for direction: Vector2 in _spark_directions:
 		RenderingServer.canvas_item_add_circle(canvas, center + direction * distance, spark_radius, color, true)
