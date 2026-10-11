@@ -6,13 +6,15 @@ This document specifies every visual value of the three built in skins: **Gumdro
 
 How the code reads skins (class names, methods, signals, file layout) is in docs/ARCHITECTURE.md. This document gives the token names, the values, and how each component looks and moves.
 
-**Checked source.** The token files `tools/directions/<skin>/tokens.gd` mirror this document exactly, and three scripts prove them. The skin tests in tests/skins/ prove that every SkinData resource holds exactly those values:
+**Checked source.** Three scripts prove the values that ship. They load the SkinData resources (src/skins/<id>/<id>.tres) through SkinCatalog, label tiles with NumberFormat.tile_label, and the label check measures each skin in its own font (Outfit for Gumdrop and Nova, the system font for Slate):
 
 ```bash
 godot --headless --path . --script res://tools/contrast_check.gd   # every number on its tile, every text pair: 4.5:1 or better
 godot --headless --path . --script res://tools/ramp_check.gd       # neighboring tile colors look different (section 1.3)
-godot --headless --path . --script res://tools/label_check.gd -- --font "res://src/design/fonts/Outfit[wght].ttf"   # labels fit, digits 12 dp or more
+godot --headless --path . --script res://tools/label_check.gd      # labels fit, digits 12 dp or more
 ```
+
+The Phase 1 token files `tools/directions/<skin>/tokens.gd` still mirror this document for the prototypes, and the skin tests in tests/skins/ prove that every SkinData resource holds exactly those values.
 
 If this document and a token file or a SkinData resource disagree, this document wins and the other is a bug.
 

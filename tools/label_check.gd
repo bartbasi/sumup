@@ -17,13 +17,13 @@ extends SceneTree
 ##     tile side
 ## Prints every result. Exits with code 0 when all pass and 1 otherwise.
 ##
+## Labels come from NumberFormat.tile_label, the format the game shows.
+##
 ## Each skin is measured in its own font: Outfit from its font file for
 ## Gumdrop and Nova, the system font for Slate. Here the system font resolves
 ## to Segoe UI (Windows). Roboto, the Android system font, has slightly taller
 ## digits (cap height 0.711 of the size against Segoe UI's 0.700), so a pass
 ## here holds on Android too.
-
-const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd")
 
 ## GDD section 18: SMALLEST_TILE_DP and MIN_LABEL_DIGIT_HEIGHT_DP.
 const SMALLEST_TILE_DP: float = 56.0
@@ -38,12 +38,10 @@ var _checked: int = 0
 
 
 func _initialize() -> void:
-	if OS.get_cmdline_user_args().has("--font"):
-		print("The --font option is no longer used: each skin is measured in its own font.")
 	print("Label size check. On a %d dp tile, digits need %d dp or more and every label must fit." % [int(SMALLEST_TILE_DP), int(MIN_DIGIT_DP)])
 	var labels_by_length: Array[PackedStringArray] = [PackedStringArray(), PackedStringArray(), PackedStringArray(), PackedStringArray()]
 	for power: int in range(1, HIGHEST_POWER + 1):
-		var label: String = MockState.tile_label(1 << power)
+		var label: String = NumberFormat.tile_label(1 << power)
 		if label.length() < 1 or label.length() > 4:
 			print("  FAIL label for 2^%d is '%s', more than 4 characters" % [power, label])
 			_checked += 1

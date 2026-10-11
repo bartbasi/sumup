@@ -18,8 +18,6 @@ extends SceneTree
 ## the smallest visible step. Prints every neighbor pair and every failure.
 ## Exits with code 0 when all pass and 1 otherwise.
 
-const MockState: GDScript = preload("res://tools/directions/shared/mock_state.gd")
-
 const MIN_BY_STEP: PackedFloat32Array = [0.17, 0.12, 0.09]
 const MIN_AGAINST_BG: float = 0.15
 
@@ -52,7 +50,7 @@ func _check(skin_id: StringName) -> void:
 	var worst: PackedFloat32Array = [INF, INF, INF]
 	for i: int in count:
 		var a: Vector3 = oklab(skin.tile_fill[i])
-		_record(a.distance_to(bg) >= MIN_AGAINST_BG, "  %s against the background: %.3f" % [MockState.tile_label(2 << i), a.distance_to(bg)], false)
+		_record(a.distance_to(bg) >= MIN_AGAINST_BG, "  %s against the background: %.3f" % [NumberFormat.tile_label(2 << i), a.distance_to(bg)], false)
 		for step: int in [1, 2, 3]:
 			var j: int = i + step
 			if j >= count:
@@ -60,7 +58,7 @@ func _check(skin_id: StringName) -> void:
 			var distance: float = a.distance_to(oklab(skin.tile_fill[j]))
 			worst[step - 1] = minf(worst[step - 1], distance)
 			var ok: bool = distance >= MIN_BY_STEP[step - 1]
-			_record(ok, "  %s and %s (times %d): %.3f" % [MockState.tile_label(2 << i), MockState.tile_label(2 << j), 1 << step, distance], step == 1)
+			_record(ok, "  %s and %s (times %d): %.3f" % [NumberFormat.tile_label(2 << i), NumberFormat.tile_label(2 << j), 1 << step, distance], step == 1)
 	print("  closest: neighbors %.3f, times 4 %.3f, times 8 %.3f" % [worst[0], worst[1], worst[2]])
 
 
