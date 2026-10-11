@@ -64,6 +64,12 @@ text_pairs = Array[Dictionary]([{
 "name": "Booster cost, disabled",
 "over": ""
 }, {
+"bg": "surface",
+"fg": "disabled_ink",
+"min": 4.5,
+"name": "Disabled button or chip on a sheet",
+"over": ""
+}, {
 "bg": "badge",
 "fg": "badge_ink",
 "min": 4.5,

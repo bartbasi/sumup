@@ -75,6 +75,7 @@ func _init() -> void:
 		pair("Labels on the darkest part of the backdrop", "ink_muted", "bg"),
 		pair("Booster cost, targeting", "accent", "bg_glow"),
 		pair("Booster cost, disabled", "disabled_ink", "bg_glow"),
+		pair("Disabled button or chip on a sheet", "disabled_ink", "surface"),
 		pair("Badges: suggested, new best, clear notice", "badge_ink", "badge"),
 		pair("Primary button and selected chip", "ink_dark", "accent"),
 		pair("Primary button, pressed", "ink_dark", "accent_pressed"),
