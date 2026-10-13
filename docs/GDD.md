@@ -1728,13 +1728,14 @@ Play setups that need stars or free boosters can use a run file written by hand 
   - every run of spaces and line breaks inside a paragraph counts as one space;
   - blank lines mark the paragraph breaks;
   - spaces at the start and end of a paragraph do not count;
+  - a rule line splits paragraphs too. A rule line is three or more of one character (`-`, `=` or `*`) and nothing else but spaces. The view draws it as the skin's divider (DESIGN_SYSTEM.md 10.5). It is not a paragraph, and the comparison leaves it out;
   - the headings and the "Copyright" and "License:" labels the view adds (DESIGN_SYSTEM.md 7.10) are left out of the comparison.
   Nothing else may differ, not one character.
 - The sources, in order:
   - SumUp license: the NOTICE file, then the unchanged COPYING file (GNU GPL version 3), both as shipped in the package.
   - Godot Engine: the engine's license text; every entry of its copyright info, with each part's copyright lines and license name; and every entry of its license info, with its full text.
   - Outfit font: the shipped OFL.txt.
-- Unit, completeness: each view has the same number of paragraphs as its sources, and its first and last paragraphs equal theirs.
+- Unit, completeness: each view has the same number of paragraphs as its sources, and its first and last paragraphs equal theirs. Both sides are split by the same rules above, blank lines and rule lines alike, and rule lines are not counted, so the counts still match.
 - Play: on a 360 x 640 dp screen each view scrolls from its first line to its last, which is visible. No line is clipped or cut short.
 
 **The 64 bit edge (SEC-01, D-37)**
