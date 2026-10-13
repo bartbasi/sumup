@@ -8,8 +8,11 @@ extends Control
 ## routes input, so this runs as its own scene and pushes real events into
 ## the root viewport, as Godot does on a phone:
 ##   godot --headless --path . res://scenes/design/tap_check.tscn
-## It prints one line per failure and exits with code 0 when every control
-## reacted exactly once to every way of tapping, and 1 otherwise.
+## It prints one line per failure and exits with code 0 only when every one
+## of EXPECTED_CHECKS checks ran and reacted exactly once, and no error was
+## logged while it ran; otherwise 1. A watchdog set up before anything else
+## quits with code 2 after WATCHDOG_SECONDS, so a script error that stops the
+## run part way can never leave this process running.
 ## tests/design/test_tap_input.gd runs it and checks the exit code.
 
 ## The ways a tap arrives. On a phone Godot sends the emulated mouse button
@@ -23,8 +26,47 @@ const WAYS: PackedStringArray = [
 	"touch with the emulated mouse", "touch alone", "mouse", "mouse with an emulated touch", "Enter key", "gamepad A",
 ]
 
+## Controls per skin (icon button, icon button in toggle mode, toggle, HUD
+## pause, booster button) times the ways of tapping, times the skins.
+const EXPECTED_CHECKS: int = 5 * 6 * 3
+const WATCHDOG_SECONDS: float = 30.0
+
+
+## Counts every error logged while the check runs, script errors included.
+## Godot can log from any thread, so access goes through a mutex.
+class ErrorCounter extends Logger:
+	var _mutex: Mutex = Mutex.new()
+	var _count: int = 0
+
+	func _log_error(_function: String, _file: String, _line: int, _code: String, _rationale: String, _editor_notify: bool, error_type: int, _script_backtraces: Array[ScriptBacktrace]) -> void:
+		if error_type == Logger.ERROR_TYPE_WARNING:
+			return
+		_mutex.lock()
+		_count += 1
+		_mutex.unlock()
+
+	func count() -> int:
+		_mutex.lock()
+		var result: int = _count
+		_mutex.unlock()
+		return result
+
+
 var _failures: PackedStringArray = PackedStringArray()
 var _heard: int = 0
+var _checks: int = 0
+var _errors: ErrorCounter = ErrorCounter.new()
+
+
+func _enter_tree() -> void:
+	# First, before anything can fail: the logger and the watchdog.
+	OS.add_logger(_errors)
+	get_tree().create_timer(WATCHDOG_SECONDS).timeout.connect(_on_watchdog)
+
+
+func _on_watchdog() -> void:
+	print("FAIL tap check did not finish within %d s" % WATCHDOG_SECONDS)
+	get_tree().quit(2)
 
 
 func _ready() -> void:
@@ -39,9 +81,14 @@ func _ready() -> void:
 	await get_tree().process_frame
 	for skin_id: StringName in SkinCatalog.IDS:
 		_check_skin(SkinCatalog.get_skin(skin_id))
+	if _checks != EXPECTED_CHECKS:
+		_failures.append("ran %d of %d checks" % [_checks, EXPECTED_CHECKS])
+	var errors: int = _errors.count()
+	if errors > 0:
+		_failures.append("%d errors logged while it ran" % errors)
 	for failure: String in _failures:
 		print("FAIL " + failure)
-	print("tap check: %d failures" % _failures.size())
+	print("tap check: %d checks, %d failures" % [_checks, _failures.size()])
 	get_tree().quit(1 if _failures.size() > 0 else 0)
 
 
@@ -103,6 +150,7 @@ func _check(skin: SkinData, what: String, control: Control) -> void:
 		if keyed:
 			control.release_focus()
 			control.focus_mode = old_focus
+		_checks += 1
 		if _heard != 1:
 			_failures.append("%s %s: %s reacted %d times" % [skin.id, what, way, _heard])
 

@@ -8,6 +8,9 @@ extends "res://tests/base_test.gd"
 ## handling runs too.
 
 const TAP_CHECK: String = "res://scenes/design/tap_check.tscn"
+## Longer than the check's own watchdog (30 s), so the child normally quits
+## by itself; the parent kills it only past this.
+const CHILD_SECONDS: float = 45.0
 
 var _made: Array[Node] = []
 
@@ -120,13 +123,28 @@ func test_a_touch_lifted_outside_does_not_tap() -> void:
 func test_qa6_01_through_a_live_viewport() -> void:
 	# BaseButton's own touch handling only runs when a viewport routes the
 	# events, which needs a running scene tree: the check runs as its own
-	# Godot process and exits 0 when every control reacted exactly once.
-	var output: Array = []
-	var args: PackedStringArray = PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), TAP_CHECK])
-	var code: int = OS.execute(OS.get_executable_path(), args, output, true)
-	var text: String = "\n".join(PackedStringArray(output))
-	assert_eq(code, 0, "tap check exit code; its output:\n" + text)
-	assert_true(text.contains("tap check: 0 failures"), "tap check ran to the end")
+	# Godot process. It exits 0 only when every expected check ran, each
+	# control reacted exactly once and no error was logged; for details, run
+	# it by hand: godot --headless --path . res://scenes/design/tap_check.tscn
+	var code: int = run_child(TAP_CHECK, CHILD_SECONDS)
+	assert_eq(code, 0, "tap check exit code (1: a check failed, 2: its watchdog fired, -1: killed)")
+
+
+## Runs scene in a child Godot and returns its exit code. Waits at most
+## seconds; if it overruns, kills that child only, by its PID, and returns
+## -1. The child's output is not read: a pipe nobody empties can stall it.
+static func run_child(scene: String, seconds: float) -> int:
+	var args: PackedStringArray = PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), scene])
+	var pid: int = OS.create_process(OS.get_executable_path(), args)
+	if pid <= 0:
+		return -1
+	var deadline: int = Time.get_ticks_msec() + roundi(seconds * 1000.0)
+	while OS.is_process_running(pid):
+		if Time.get_ticks_msec() > deadline:
+			OS.kill(pid)
+			return -1
+		OS.delay_msec(50)
+	return OS.get_process_exit_code(pid)
 
 
 func _ways() -> PackedStringArray:
