@@ -2,9 +2,17 @@ extends SkinIcon
 ## What the three skins' icons share: the name, look and color state, and a
 ## recording of the drawing that is rebuilt only when the icon or its size
 ## changes, so _draw() allocates nothing. Each skin's icon extends this and
-## gives _record() (the drawing) and _look_color() (its colors).
+## gives _record() (the drawing), _look_color() (its colors) and its STAR.
+##
+## The chevron and the arrow are quiet marks (rows that open a screen, How to
+## play's example rows): in the normal look they draw in ink_muted in every
+## skin (DESIGN_SYSTEM.md 4.7, 5.7, 6.7).
 
 const IconPen: GDScript = preload("res://src/design/shared/icon_pen.gd")
+const StarShape: GDScript = preload("res://src/design/shared/star_shape.gd")
+
+## Icons whose normal look is ink_muted.
+const MUTED_ICONS: Array[StringName] = [&"chevron", &"arrow"]
 
 var _skin: SkinData = null
 var _icon: StringName = &""
@@ -37,6 +45,7 @@ func set_icon(icon_name: StringName) -> void:
 		push_error("%s icon: unknown icon '%s'" % [_skin.id if _skin != null else &"", icon_name])
 		return
 	_icon = icon_name
+	_pick_color()
 	_rebuild()
 
 
@@ -123,6 +132,8 @@ func _pick_color() -> void:
 	if _skin == null:
 		return
 	var base: Color = _override if _has_override else _look_color(_look)
+	if not _has_override and _look == LOOK_NORMAL and MUTED_ICONS.has(_icon):
+		base = _skin.color(&"ink_muted")
 	_color = Color(base, base.a * _look_alpha(_look))
 
 

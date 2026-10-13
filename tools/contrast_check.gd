@@ -9,6 +9,8 @@ extends SceneTree
 ##   1. every tile fill against its number color, for each value from 2 to
 ##      131072, plus the rule for values above 131072
 ##   2. every text pair the skin lists (text color on background)
+##   3. the new pairs of the 2026-10-13 additions (ADDED_PAIRS) that the
+##      skin does not list yet
 ## using the WCAG 2 contrast ratio and relative luminance formula. A color
 ## with alpha is first composited over what sits behind it. Every pair is
 ## printed with its ratio. Exits with code 0 when every pair reaches its
@@ -20,8 +22,27 @@ const MIN_RATIO: float = 4.5
 ## A value above the ramp, used to check the rule for values above 131072.
 const BEYOND_SAMPLE: int = 262144
 
+## The new color pairs of the 2026-10-13 additions (stars, free boosters, the
+## two tone wordmark, How to play, About), DESIGN_SYSTEM.md 4.3, 5.3 and 6.3.
+## Each must also be listed in the skin's text_pairs: until the tile-board-
+## artist adds it there, it is checked from this table and reported as
+## missing from the resource. Star icons are held to the text minimum too.
+## Pairs that reuse an existing pair's colors are not repeated here.
+const ADDED_PAIRS: Dictionary[StringName, Array] = {
+	&"gumdrop": [
+		{"name": "Free cost and its star on a booster face", "fg": "badge", "bg": "surface_raised", "min": MIN_RATIO},
+		{"name": "Star counter star on the star pill", "fg": "badge", "bg": "surface", "min": MIN_RATIO},
+		{"name": "Wordmark Up on the backdrop", "fg": "accent", "bg": "bg", "min": MIN_RATIO},
+	],
+	&"slate": [
+		{"name": "Free cost and its star, pressed column", "fg": "accent", "bg": "surface", "min": MIN_RATIO},
+	],
+	&"nova": [],
+}
+
 var _checked: int = 0
 var _failed: int = 0
+var _missing_added: int = 0
 
 
 func _initialize() -> void:
@@ -29,6 +50,8 @@ func _initialize() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		_check_skin(skin_id)
 	print("")
+	if _missing_added > 0:
+		print("Note: %d pair(s) of the 2026-10-13 additions are checked from this script's table and are not yet in the skin resources." % _missing_added)
 	var verdict: String = "PASS" if _failed == 0 else "FAIL"
 	print("%s: %d pairs checked in %d skins, %d failed." % [verdict, _checked, SkinCatalog.IDS.size(), _failed])
 	quit(0 if _failed == 0 else 1)
@@ -57,7 +80,24 @@ func _check_skin(skin_id: StringName) -> void:
 	# Text on backgrounds.
 	for entry: Dictionary in skin.text_pairs:
 		_check_text_pair(skin, entry)
+	# The 2026-10-13 additions not yet in the resource.
+	var added: Array = ADDED_PAIRS.get(skin_id, [])
+	for entry: Dictionary in added:
+		if _listed(skin, String(entry["fg"]), String(entry["bg"])):
+			continue
+		_missing_added += 1
+		var pending: Dictionary = entry.duplicate()
+		pending["name"] = "%s [2026-10-13, not yet in the resource]" % entry["name"]
+		_check_text_pair(skin, pending)
 	print("  %s: %d pairs, %d failed" % [skin_id, _checked - count_before, _failed - before])
+
+
+## True when the skin's text_pairs already hold a pair with these colors.
+func _listed(skin: SkinData, fg: String, bg: String) -> bool:
+	for entry: Dictionary in skin.text_pairs:
+		if String(entry.get("fg", "")) == fg and String(entry.get("bg", "")) == bg:
+			return true
+	return false
 
 
 func _check_text_pair(skin: SkinData, entry: Dictionary) -> void:

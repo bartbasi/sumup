@@ -139,10 +139,22 @@ type_roles = Dictionary[StringName, Dictionary]({
 "tracking": 0,
 "weight": 300
 },
+&"heading": {
+"case": "none",
+"size": 50,
+"tracking": 0,
+"weight": 300
+},
 &"label": {
 "case": "lower",
 "size": 32,
 "tracking": 3,
+"weight": 400
+},
+&"reading": {
+"case": "none",
+"size": 42,
+"tracking": 0,
 "weight": 400
 },
 &"tile": {
@@ -165,10 +177,10 @@ numbers = Dictionary[StringName, float]({
 &"bar_height": 254.0,
 &"beam_glow_alpha": 0.28,
 &"beam_glow_width": 44.0,
-&"board_gap": 24.0,
+&"board_gap": 22.0,
 &"board_margin": 44.0,
 &"board_padding": 0.0,
-&"button_height": 144.0,
+&"button_height": 160.0,
 &"chain_glow": 1.4,
 &"chain_ring": 8.0,
 &"chain_width": 12.0,
@@ -199,7 +211,7 @@ numbers = Dictionary[StringName, float]({
 &"notice_height": 80.0,
 &"notice_strike": 2.0,
 &"notice_tile_scale": 0.6,
-&"orb_scale": 0.88,
+&"orb_scale": 0.89,
 &"orbit_breath": 0.05,
 &"orbit_dash_fill": 0.55,
 &"orbit_dashes": 24.0,
@@ -215,6 +227,7 @@ numbers = Dictionary[StringName, float]({
 &"ray_lighten": 0.35,
 &"ray_outer": 1.24,
 &"ray_width": 3.0,
+&"reading_line_spacing": 12.0,
 &"rim_lighten": 0.35,
 &"rim_width": 4.0,
 &"ring_button": 136.0,
@@ -222,6 +235,7 @@ numbers = Dictionary[StringName, float]({
 &"ring_glow_spread": 1.45,
 &"ring_width": 3.0,
 &"row_height": 144.0,
+&"scroll_bar": 4.0,
 &"space_l": 72.0,
 &"space_m": 44.0,
 &"space_s": 28.0,
@@ -233,6 +247,7 @@ numbers = Dictionary[StringName, float]({
 &"star_alpha_min": 0.08,
 &"star_clearance": 24.0,
 &"star_count": 70.0,
+&"star_icon": 32.0,
 &"star_seed": 20261010.0,
 &"star_size_max": 3.5,
 &"star_size_min": 1.5,
@@ -244,7 +259,7 @@ numbers = Dictionary[StringName, float]({
 &"toggle_h": 64.0,
 &"toggle_knob": 40.0,
 &"toggle_w": 124.0,
-&"touch_min": 144.0
+&"touch_min": 160.0
 })
 motion = Dictionary[StringName, Dictionary]({
 &"button_press": {
@@ -345,6 +360,23 @@ motion = Dictionary[StringName, Dictionary]({
 "from_alpha": 0.0,
 "from_scale": 0.55,
 "stagger": 0.04,
+"trans": 1
+},
+&"star_convert": {
+"duration": 0.4,
+"ease": 1,
+"empty": 0.4,
+"from_offset": 8.0,
+"peak_glow": 2.0,
+"trans": 1
+},
+&"star_earn": {
+"delay": 0.1,
+"duration": 0.44,
+"ease": 2,
+"from_alpha": 0.0,
+"peak_glow": 1.8,
+"stagger": 0.08,
 "trans": 1
 },
 &"target_pulse": {

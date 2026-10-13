@@ -1,41 +1,67 @@
-extends SkinHud
-## Nova HUD (DESIGN_SYSTEM.md 6.7), hud_height tall, no containers:
+extends "res://src/design/shared/hud_base.gd"
+## Nova HUD (DESIGN_SYSTEM.md 6.7), hud_height tall, no containers, laid out
+## from its own rect only (the content column, QA6-08):
 ## - the score centered in the display role (light), auto fitting a slot
 ##   kept clear of the pause ring on both sides (2.6);
-## - under it, "best 96,520" in the label role, its letters starting space_xs
-##   below the score's comma tail (the comma reaches below the baseline, so
-##   space_xs under the baseline alone would let the two touch);
+## - under it, the best line: "best 96,520" in the label role, ink_muted,
+##   centered; its letters start space_xs below the score's comma tail (the
+##   comma reaches below the baseline, so space_xs under the baseline alone
+##   would let the two touch);
+## - on the best line, the star counter: the counter star (star_icon, outline
+##   and progress fill in accent, a soft accent glow behind it while it holds
+##   any fill, centered on the line's cap middle), space_xs, the count in the
+##   label role ink_muted, the pair ending space_m before the best text; and
+##   while a free booster is held, "1 free" in the label role, accent,
+##   starting space_m after it. The best text stays exactly centered;
 ## - the best line sits space_xs above where the clear notice reaches into
 ##   the HUD (the notice is centered on the board's top edge, space_s below
 ##   the HUD), so the notice never covers it; the score sits above it;
 ## - the pause icon in a hud_ring ring at the top right, its edge on
 ##   board_margin, its touch area touch_min.
-## Text pairs: ink and ink_muted on bg_glow.
+## Text pairs: ink, ink_muted and accent on bg_glow.
 ##
 ## The clear notice is a badge pill (a full pill, no lip), notice_height tall,
-## centered on the board's top edge, its copy in the label role. It fades in
-## from from_alpha while rising from_offset px (clear_notice), holds, and
-## fades out over out with the skin's screen_fade curve.
+## centered on the board's top edge, its copy in the label role, in play and
+## while the offer is open alike. It fades in from from_alpha while rising
+## from_offset px (clear_notice), holds, and fades out over out with the
+## skin's screen_fade curve.
+##
+## The star moment: a spark (the filled star in accent, star_icon, with its
+## glow) rises out of the notice's star delay after the notice, fading in
+## from from_alpha over the first quarter of star_earn, and glides on the
+## curve to the counter star, whose glow blooms to peak_glow and settles over
+## merge_pop as the count goes up. A landing on a multiple of 3 blooms the
+## star to star_convert's peak_glow, fades "1 free" in while it rises
+## from_offset px (or changes its number in place), and fades the star's fill
+## to empty over empty. While the offer hides the HUD the spark rises
+## space_l from the notice and fades out instead.
 
 const ThemeKit: GDScript = preload("res://src/design/shared/theme_kit.gd")
 const PauseButton: GDScript = preload("res://src/design/nova/nova_pause_button.gd")
-const ClearNotice: GDScript = preload("res://src/design/shared/clear_notice.gd")
-
-## Draw order above the board, so the notice shows over the board's top edge.
-const NOTICE_Z_INDEX: int = 10
+const NovaIcon: GDScript = preload("res://src/design/nova/nova_icon.gd")
+const StarFlyer: GDScript = preload("res://src/design/shared/star_flyer.gd")
 ## Cap height and comma depth (DESIGN_SYSTEM.md 3.4), defined once.
 const FontMetrics: GDScript = preload("res://src/design/shared/font_metrics.gd")
+## The counter star's glow radius, a share of star_icon (6.7).
+const STAR_GLOW_REACH: float = 0.85
 
-var _skin: SkinData = null
 var _pause: PauseButton = null
 var _score: Label = null
-var _notice: ClearNotice = null
-var _notice_tween: Tween = null
+var _star: CounterStar = null
 var _score_text: String = ""
 var _best_text: String = ""
+var _count_text: String = "0"
+var _free_text: String = ""
 var _label_font: Font = null
 var _label_size: int = 1
 var _best_origin: Vector2 = Vector2.ZERO
+var _count_origin: Vector2 = Vector2.ZERO
+var _free_origin: Vector2 = Vector2.ZERO
+## The free count's fade in and rise while it first appears.
+var _free_alpha: float = 1.0
+var _free_rise: float = 0.0
+var _shown_count: int = -1
+var _shown_free: int = -1
 
 
 func _init() -> void:
@@ -54,14 +80,20 @@ func setup(skin: SkinData) -> void:
 		_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		add_child(_score)
+		_star = CounterStar.new()
+		_star.name = "CounterStar"
+		add_child(_star)
 	_pause.setup(skin)
 	_score.add_theme_font_override(&"font", skin.font(&"display"))
 	_score.add_theme_color_override(&"font_color", skin.color(&"ink"))
 	_label_font = skin.font(&"label")
 	_label_size = skin.font_size(&"label")
+	_star.setup(NovaIcon.STAR, skin.color(&"accent"), skin.num(&"star_icon"))
+	_star.set_glow(Color(skin.color(&"accent"), skin.num(&"icon_glow_alpha")), STAR_GLOW_REACH)
 	if _score_text.is_empty():
 		set_scores(0, 0)
-	_layout()
+	_shown_count = -1
+	_show_stars(_count, _free)
 
 
 func set_scores(score: int, best_score: int) -> void:
@@ -90,27 +122,45 @@ func preferred_height() -> float:
 	return _skin.num(&"hud_height") if _skin != null else 0.0
 
 
-func show_clear_notice(cleared_values: PackedInt64Array, board_rect: Rect2) -> void:
-	if _skin == null or cleared_values.is_empty():
-		return
-	_drop_notice()
+## The best line as shown. For tests.
+func best_text() -> String:
+	return _best_text
+
+
+## The counter star. For tests.
+func counter_star() -> Control:
+	return _star
+
+
+## The texts the counter shows now: the count and the free count ("" while
+## none is held). For tests.
+func counter_texts() -> PackedStringArray:
+	return PackedStringArray([_count_text, _free_text])
+
+
+## Where the best line starts and ends, local x: from the counter star to the
+## end of the free count (or of the best text while none is held). For tests.
+func best_line_span() -> Vector2:
+	var right: float = (size.x + _text_width(_best_text)) * 0.5
+	if not _free_text.is_empty():
+		right = _free_origin.x + _text_width(_free_text)
+	return Vector2(_star.position.x, right)
+
+
+func _show_notice(values: PackedInt64Array, board: Rect2, stars: int) -> void:
 	var height: float = _skin.num(&"notice_height")
-	_notice = ClearNotice.new()
-	_notice.name = "ClearNotice"
-	_notice.top_level = true
-	_notice.z_index = NOTICE_Z_INDEX
-	add_child(_notice)
 	var pad: float = _skin.num(&"space_s")
 	var pill: StyleBoxFlat = ThemeKit.box(_skin.color(&"badge"), height * 0.5)
-	_notice.build(_skin, cleared_values, &"label", pill, height, 0.0, pad, pad, board_rect.size.x)
-	var rest: Vector2 = Vector2(board_rect.get_center().x - _notice.size.x * 0.5, board_rect.position.y - height * 0.5)
+	_notice.build(_skin, values, &"label", pill, height, 0.0, pad, pad, board.size.x, stars)
+	_place_global(_notice, Vector2(board.get_center().x - _notice.size.x * 0.5, board.position.y - height * 0.5))
+	var rest: Vector2 = _notice.position
 	var spec: Dictionary = _skin.motion_spec(&"clear_notice")
 	var seconds: float = _skin.duration(&"clear_notice")
-	_notice.global_position = rest + Vector2(0.0, float(spec.get("from_offset", 0.0)))
+	_notice.position = rest + Vector2(0.0, float(spec.get("from_offset", 0.0)))
 	_notice.modulate.a = float(spec.get("from_alpha", 1.0))
 	_notice_tween = Motion.tween_for(_notice, _skin, &"clear_notice")
 	_notice_tween.set_parallel(true)
-	_notice_tween.tween_property(_notice, "global_position", rest, seconds)
+	_notice_tween.tween_property(_notice, "position", rest, seconds)
 	_notice_tween.tween_property(_notice, "modulate:a", 1.0, seconds)
 	_notice_tween.chain().tween_interval(float(spec.get("hold", 0.0)))
 	var fade: Dictionary = _skin.motion_spec(&"screen_fade")
@@ -120,29 +170,112 @@ func show_clear_notice(cleared_values: PackedInt64Array, board_rect: Rect2) -> v
 	_notice_tween.chain().tween_callback(_on_notice_done)
 
 
-## The notice showing now, or null. For tests.
-func clear_notice() -> Control:
-	return _notice
+func _show_stars(count_now: int, free_now: int) -> void:
+	if _skin == null:
+		return
+	_star.show_progress(count_now % 3, 1.0, _skin.color(&"accent"))
+	_star.set_glow_scale(1.0)
+	_free_alpha = 1.0
+	_free_rise = 0.0
+	_set_counts(count_now, free_now)
+	queue_redraw()
 
 
-## The best line as shown. For tests.
-func best_text() -> String:
-	return _best_text
+func _plan_moment(moment: StarMoment, stars: int) -> void:
+	var delay: float = StarMoment.extra(_skin, &"star_earn", "delay", 0.0)
+	var flight: float = _skin.duration(&"star_earn")
+	var stagger: float = StarMoment.extra(_skin, &"star_earn", "stagger", 0.0)
+	if moment.offer:
+		moment.plan(_count, _free, stars, delay, flight, stagger, 0.0, 0.0, 0.0)
+		return
+	var conversion: float = maxf(_skin.duration(&"star_convert"), StarMoment.extra(_skin, &"star_convert", "empty", 0.0))
+	moment.plan(_count, _free, stars, delay, flight, stagger, 0.0, conversion, _skin.duration(&"merge_pop"))
 
 
-func _on_notice_done() -> void:
-	_notice_tween = null
-	_drop_notice()
+func _begin_moment() -> void:
+	var side: float = _skin.num(&"star_icon")
+	var accent: Color = _skin.color(&"accent")
+	var glow: Color = Color(accent, _skin.num(&"icon_glow_alpha"))
+	for i: int in _moment.stars:
+		var flyer: StarFlyer = StarFlyer.new()
+		flyer.setup(_skin, accent, side, glow, STAR_GLOW_REACH)
+		_add_flyer(flyer)
 
 
-func _drop_notice() -> void:
-	if _notice_tween != null and _notice_tween.is_valid():
-		_notice_tween.kill()
-	_notice_tween = null
-	if _notice != null:
-		remove_child(_notice)
-		_notice.queue_free()
-		_notice = null
+func _render_moment(t: float) -> void:
+	var start_point: Vector2 = _notice_star_global()
+	var from_alpha: float = StarMoment.extra(_skin, &"star_earn", "from_alpha", 1.0)
+	var rise: float = _skin.num(&"space_l")
+	for i: int in _flyers.size():
+		var flyer: StarFlyer = _flyers[i] as StarFlyer
+		var start: float = _moment.starts[i]
+		if t < start or t >= _moment.lands[i] or start_point.x < 0.0:
+			flyer.visible = false
+			continue
+		var p: float = (t - start) / _moment.flight
+		var e: float = StarMoment.eased(_skin, &"star_earn", p)
+		if _moment.offer:
+			# The counter is hidden with the HUD: rise and fade from full (7.5).
+			flyer.show_at(_to_local_of(flyer, start_point + Vector2(0.0, -rise * e)), 1.0, 1.0 - e)
+		else:
+			# Fades in over the first quarter of the glide.
+			var alpha: float = lerpf(from_alpha, 1.0, clampf(p * 4.0, 0.0, 1.0))
+			var point: Vector2 = _flight_point(start_point, _to_global(_star.position + _star.size * 0.5), e)
+			flyer.show_at(_to_local_of(flyer, point), 1.0, alpha)
+	if not _moment.offer:
+		_render_counter(t)
+
+
+func _render_counter(t: float) -> void:
+	var count_now: int = _moment.count_at(t)
+	_set_counts(count_now, _moment.free_at(t))
+	var accent: Color = _skin.color(&"accent")
+	var landed: int = _moment.last_landing(t)
+	var bloom: float = 1.0
+	_free_alpha = 1.0
+	_free_rise = 0.0
+	var converting: int = _moment.converting_at(t)
+	if converting >= 0:
+		# The star blooms to star_convert's peak_glow and its fill fades to
+		# empty; "1 free" fades in while it rises from_offset px.
+		var since: float = t - _moment.lands[converting]
+		var empty: float = StarMoment.extra(_skin, &"star_convert", "empty", 0.0)
+		var fill: float = 1.0
+		if empty > 0.0:
+			fill = 1.0 - StarMoment.eased(_skin, &"screen_fade", since / empty)
+		_star.show_progress(3, fill, accent)
+		var length: float = _skin.duration(&"star_convert")
+		var q: float = StarMoment.eased(_skin, &"star_convert", since / length) if length > 0.0 else 1.0
+		bloom = lerpf(StarMoment.extra(_skin, &"star_convert", "peak_glow", 1.0), 1.0, q)
+		if _moment.free_before + _converted_before(converting) == 0:
+			_free_alpha = q
+			_free_rise = StarMoment.extra(_skin, &"star_convert", "from_offset", 0.0) * (1.0 - q)
+	else:
+		_star.show_progress(count_now % 3, 1.0, accent)
+		var pop: float = _skin.duration(&"merge_pop")
+		if landed >= 0 and pop > 0.0 and t - _moment.lands[landed] < pop:
+			var q: float = StarMoment.eased(_skin, &"merge_pop", (t - _moment.lands[landed]) / pop)
+			bloom = lerpf(StarMoment.extra(_skin, &"star_earn", "peak_glow", 1.0), 1.0, q)
+	_star.set_glow_scale(bloom)
+	queue_redraw()
+
+
+## Conversions that land before star index.
+func _converted_before(index: int) -> int:
+	var made: int = 0
+	for i: int in index:
+		made += _moment.converts[i]
+	return made
+
+
+func _set_counts(count_now: int, free_now: int) -> void:
+	if count_now == _shown_count and free_now == _shown_free:
+		return
+	_shown_count = count_now
+	_shown_free = free_now
+	_count_text = str(count_now)
+	_free_text = UiCopy.free_held(_skin, &"label", free_now) if free_now > 0 else ""
+	_layout()
 
 
 func _on_pause_tapped() -> void:
@@ -154,6 +287,10 @@ func _notification(what: int) -> void:
 	# no resize notification.
 	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_POST_ENTER_TREE:
 		_layout()
+
+
+func _text_width(text: String) -> float:
+	return _label_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _label_size).x
 
 
 func _layout() -> void:
@@ -172,6 +309,16 @@ func _layout() -> void:
 	var notice_top: float = _skin.num(&"hud_height") + _skin.num(&"space_s") - _skin.num(&"notice_height") * 0.5
 	var best_baseline: float = minf(notice_top, _skin.num(&"hud_height")) - gap
 	_best_origin = Vector2(0.0, best_baseline)
+	# The counter on the best line: star and count end space_m before the
+	# centered best text, the free count starts space_m after it.
+	var best_width: float = _text_width(_best_text)
+	var space_m: float = _skin.num(&"space_m")
+	var star_side: float = _skin.num(&"star_icon")
+	var cap_middle: float = best_baseline - FontMetrics.CAP_HEIGHT * float(_label_size) * 0.5
+	_count_origin = Vector2((size.x - best_width) * 0.5 - space_m - _text_width(_count_text), best_baseline)
+	_star.size = Vector2(star_side, star_side)
+	_star.position = Vector2(_count_origin.x - gap - star_side, cap_middle - star_side * 0.5)
+	_free_origin = Vector2((size.x + best_width) * 0.5 + space_m, best_baseline)
 	# The score's comma tail ends space_xs above the best line's letters.
 	var display_size: int = _skin.font_size(&"display")
 	var letters_top: float = best_baseline - FontMetrics.CAP_HEIGHT * float(_label_size)
@@ -193,4 +340,9 @@ func _layout() -> void:
 func _draw() -> void:
 	if _skin == null:
 		return
-	draw_string(_label_font, _best_origin, _best_text, HORIZONTAL_ALIGNMENT_CENTER, size.x, _label_size, _skin.color(&"ink_muted"))
+	var muted: Color = _skin.color(&"ink_muted")
+	draw_string(_label_font, _best_origin, _best_text, HORIZONTAL_ALIGNMENT_CENTER, size.x, _label_size, muted)
+	draw_string(_label_font, _count_origin, _count_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _label_size, muted)
+	if not _free_text.is_empty() and _free_alpha > 0.0:
+		var accent: Color = _skin.color(&"accent")
+		draw_string(_label_font, _free_origin + Vector2(0.0, _free_rise), _free_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _label_size, Color(accent, accent.a * _free_alpha))

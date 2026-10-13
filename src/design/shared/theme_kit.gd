@@ -3,10 +3,12 @@ extends RefCounted
 ## color, size and font comes from the skin passed in.
 
 ## Every type variation each skin's Theme defines, with its base type:
-## docs/ARCHITECTURE.md section 7, then the ones DESIGN_SYSTEM.md adds
-## (IconButton for the settings and close icon buttons of 7.2 and 7.7,
-## BadgePanel and BadgeLabel for the badges of 7.8, SignalLabel for Slate's
-## accent signal label of 7.5 and 7.6, HintLabel for text in a HintPanel).
+## docs/ARCHITECTURE.md section 7 (with the reading screens' HeadingLabel,
+## ReadingLabel, SectionPanel, RowButton and RowDetailLabel of
+## DESIGN_SYSTEM.md 7.11), then the ones DESIGN_SYSTEM.md adds (IconButton
+## for the settings and close icon buttons of 7.2 and 7.7, BadgePanel and
+## BadgeLabel for the badges of 7.8, SignalLabel for Slate's accent signal
+## label of 7.5 and 7.6, HintLabel for text in a HintPanel).
 const VARIATIONS: Dictionary[StringName, StringName] = {
 	&"DisplayLabel": &"Label",
 	&"TitleLabel": &"Label",
@@ -25,7 +27,15 @@ const VARIATIONS: Dictionary[StringName, StringName] = {
 	&"BadgeLabel": &"Label",
 	&"SignalLabel": &"Label",
 	&"HintLabel": &"Label",
+	&"HeadingLabel": &"Label",
+	&"ReadingLabel": &"Label",
+	&"SectionPanel": &"PanelContainer",
+	&"RowButton": &"Button",
+	&"RowDetailLabel": &"Label",
 }
+
+## The scroll indicator's shortest length in px (DESIGN_SYSTEM.md 7.9).
+const SCROLL_BAR_MIN: float = 96.0
 
 ## The style names every button type defines. Hover matches normal and
 ## hover_pressed matches pressed: this is a touch game.
@@ -134,3 +144,57 @@ static func divider(theme: Theme, type_name: StringName, color: Color, thick: fl
 ## Height in px of one line of text in a type role.
 static func line_height(skin: SkinData, role: StringName) -> float:
 	return skin.font(role).get_height(skin.font_size(role))
+
+
+## The reading screens' pieces (DESIGN_SYSTEM.md 7.11) in one skin's look:
+## - HeadingLabel: the heading role in ink;
+## - ReadingLabel: the reading role in ink_muted, its lines
+##   reading_line_spacing apart;
+## - SectionPanel: section, the skin's section box;
+## - RowButton: a row that opens a screen, flat, text in the body role ink;
+##   pressed, row_pressed fills behind its content, reaching space_s past it
+##   on both sides; focus is the skin's focus look, focus;
+## - RowDetailLabel: the row's detail line, the label role in ink_muted;
+## - ScrollContainer: no panel and no gap before the bar;
+## - VScrollBar: board_margin wide with no track and no arrows; the grabber
+##   draws scroll_bar wide in its middle, in line (ink_muted while dragged),
+##   with grabber_radius corners, and is never shorter than SCROLL_BAR_MIN.
+## Text pairs: ink and ink_muted on the page and on the section box, ink on
+## row_pressed's fill.
+static func reading_types(theme: Theme, skin: SkinData, section: StyleBox, row_pressed: StyleBoxFlat, focus: StyleBox, grabber_radius: float) -> void:
+	var ink: Color = skin.color(&"ink")
+	var muted: Color = skin.color(&"ink_muted")
+	label_type(theme, &"HeadingLabel", skin, &"heading", ink)
+	label_type(theme, &"ReadingLabel", skin, &"reading", muted)
+	theme.set_constant(&"line_spacing", &"ReadingLabel", roundi(skin.num(&"reading_line_spacing")))
+	label_type(theme, &"RowDetailLabel", skin, &"label", muted)
+	theme.set_stylebox(&"panel", &"SectionPanel", section)
+
+	var reach: float = skin.num(&"space_s")
+	row_pressed.expand_margin_left = reach
+	row_pressed.expand_margin_right = reach
+	var flat: StyleBoxEmpty = StyleBoxEmpty.new()
+	for style: StyleBox in [flat, row_pressed]:
+		pad(style, 0.0, 0.0, 0.0, 0.0)
+	button_type(theme, &"RowButton", styles(flat, row_pressed, flat, focus), skin, ink, ink, skin.color(&"disabled_ink"))
+
+	theme.set_stylebox(&"panel", &"ScrollContainer", StyleBoxEmpty.new())
+	theme.set_stylebox(&"focus", &"ScrollContainer", StyleBoxEmpty.new())
+	theme.set_constant(&"scrollbar_v_separation", &"ScrollContainer", 0)
+	var margin: float = skin.num(&"board_margin")
+	var bar: float = skin.num(&"scroll_bar")
+	var track: StyleBoxEmpty = StyleBoxEmpty.new()
+	pad(track, margin * 0.5, 0.0, margin * 0.5, 0.0)
+	theme.set_stylebox(&"scroll", &"VScrollBar", track)
+	theme.set_stylebox(&"scroll_focus", &"VScrollBar", track)
+	var grabbers: Dictionary[StringName, Color] = {&"grabber": skin.color(&"line"), &"grabber_highlight": skin.color(&"line"), &"grabber_pressed": muted}
+	for item: StringName in grabbers:
+		var grab: StyleBoxFlat = box(grabbers[item], grabber_radius)
+		# Drawn scroll_bar wide in the middle of the board_margin wide bar.
+		grab.expand_margin_left = -(margin - bar) * 0.5
+		grab.expand_margin_right = -(margin - bar) * 0.5
+		pad(grab, 0.0, SCROLL_BAR_MIN * 0.5, 0.0, SCROLL_BAR_MIN * 0.5)
+		theme.set_stylebox(item, &"VScrollBar", grab)
+	# No arrows: empty textures made in code.
+	for icon: StringName in [&"increment", &"increment_highlight", &"increment_pressed", &"decrement", &"decrement_highlight", &"decrement_pressed"]:
+		theme.set_icon(icon, &"VScrollBar", ImageTexture.new())

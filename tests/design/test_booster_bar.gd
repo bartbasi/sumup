@@ -144,10 +144,38 @@ func test_gumdrop_buttons_fill_the_dock() -> void:
 	var buttons: Array[Control] = _buttons(bar)
 	var pad: float = skin.num(&"space_xs")
 	var expected_height: float = skin.num(&"dock_height") - skin.num(&"button_lip") - pad * 2.0
-	assert_near(buttons[0].size.y, expected_height, 0.01, "face and lip fill the dock face less space_xs each side")
-	assert_near(buttons[0].position.x, skin.num(&"board_margin") + pad, 0.01, "first button inset")
-	assert_near(buttons[1].position.x - buttons[0].position.x - buttons[0].size.x, pad, 0.01, "buttons space_xs apart")
-	assert_near(buttons[4].position.x + buttons[4].size.x, 1080.0 - skin.num(&"board_margin") - pad, 0.01, "last button inset")
+	var rests: Array[Rect2] = []
+	for button: Control in buttons:
+		var rest: Rect2 = button.call(&"rest_rect") as Rect2
+		rests.append(Rect2(button.position + rest.position, rest.size))
+	assert_near(rests[0].size.y, expected_height, 0.01, "face and lip fill the dock face less space_xs each side")
+	assert_near(rests[0].position.x, skin.num(&"board_margin") + pad, 0.01, "first button inset")
+	assert_near(rests[1].position.x - rests[0].end.x, pad, 0.01, "buttons space_xs apart")
+	assert_near(rests[4].end.x, 1080.0 - skin.num(&"board_margin") - pad, 0.01, "last button inset")
+	assert_near(rests[0].position.y, bar.size.y - skin.num(&"dock_height") + pad, 0.01, "space_xs under the dock's top")
+
+
+func test_qa6_05_gumdrop_buttons_take_touch_on_the_whole_dock_face() -> void:
+	var skin: SkinData = SkinCatalog.get_skin(&"gumdrop")
+	var bar: SkinBoosterBar = _bar(&"gumdrop")
+	bar.show_boosters(Fixtures.plain_statuses(128))
+	var buttons: Array[Control] = _buttons(bar)
+	var margin: float = skin.num(&"board_margin")
+	var face: float = skin.num(&"dock_height") - skin.num(&"button_lip")
+	assert_near(face, 174.0, 0.01, "the dock face is 174 px")
+	for i: int in buttons.size():
+		var button: Control = buttons[i]
+		assert_near(button.position.y, bar.size.y - skin.num(&"dock_height"), 0.01, "button %d touch starts at the dock's top" % i)
+		assert_near(button.size.y, face, 0.01, "button %d takes the whole face height" % i)
+		if i > 0:
+			assert_near(button.position.x, buttons[i - 1].position.x + buttons[i - 1].size.x, 0.01, "button %d meets its neighbor mid gap" % i)
+	assert_near(buttons[0].position.x, margin, 0.01, "the first reaches the dock's left edge")
+	assert_near(buttons[4].position.x + buttons[4].size.x, 1080.0 - margin, 0.01, "the last reaches the dock's right edge")
+	# The drawing does not change: the face and lip stay 187.2 by 150.
+	var rest: Rect2 = buttons[2].call(&"rest_rect") as Rect2
+	assert_near(rest.size.x, (1080.0 - margin * 2.0 - skin.num(&"space_xs") * 6.0) / 5.0, 0.01, "face width unchanged")
+	assert_near(rest.size.y, 150.0, 0.01, "face and lip height unchanged")
+	assert_near(rest.position.x, skin.num(&"space_xs") * 0.5, 0.01, "the face sits half a gap inside the touch area")
 
 
 func test_hints_take_the_skin_case() -> void:

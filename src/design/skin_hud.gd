@@ -42,12 +42,36 @@ func score_label() -> Label:
 	return null
 
 
-## D-38 clear notice (AT-104). Builds its own copy (DESIGN_SYSTEM.md 7.10)
-## from the cleared values, ascending, and places itself: Gumdrop and Nova on
-## the board's top edge (board_rect is global), Slate in its context row. It
-## never blocks input, and a later call replaces a notice still showing.
-func show_clear_notice(_cleared_values: PackedInt64Array, _board_rect: Rect2) -> void:
+## D-38 and D-45 clear notice (AT-104). values are the values the notice
+## names, ascending: the move's MoveResult.notice_values, not cleared_values.
+## Builds its own copy (DESIGN_SYSTEM.md 7.10) and places itself: Gumdrop and
+## Nova on the board's top edge (board_rect is global), Slate in its context
+## row. stars_earned > 0 adds "+n" and a filled star after the copy and plays
+## the star earned effect into the counter (3.6).
+##
+## While a notice layer is set and the HUD is hidden (the offer has its place,
+## QA6-04), the notice and the star take their offer placement in that layer
+## (DESIGN_SYSTEM.md 7.1, 7.5). It never blocks input, and a later call
+## replaces a notice still showing.
+func show_clear_notice(_values: PackedInt64Array, _board_rect: Rect2, _stars_earned: int = 0) -> void:
 	_missing(&"show_clear_notice")
+
+
+## D-45, D-46: this run's star count, with the counter's progress fill, and
+## the free boosters held (the free count hides at 0). Shown at once, with no
+## effect, unless a running star effect will deliver exactly these values:
+## then the effect ends on them. Any other values (a new run, a load, a free
+## booster used) end the effect and show at once.
+func set_stars(_count: int, _free_held: int) -> void:
+	pass
+
+
+## QA6-04: the play screen's notice layer, a full screen Control above the
+## board and the offer panel and below every dialog. The notice and the
+## flying stars are its children, never the HUD's, so they show while the HUD
+## is hidden. null (the default) makes the HUD draw them on itself.
+func set_notice_layer(_layer: Control) -> void:
+	pass
 
 
 ## The HUD's height in px: the skin's hud_height.

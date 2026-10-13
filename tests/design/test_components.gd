@@ -99,11 +99,12 @@ func test_toggle_tap_flips_and_emits() -> void:
 		var toggle: SkinToggle = _keep(UiKit.make_toggle(skin)) as SkinToggle
 		var heard: Array[bool] = []
 		toggle.toggled.connect(func(on: bool) -> void: heard.append(on))
-		var release: InputEventMouseButton = InputEventMouseButton.new()
-		release.button_index = MOUSE_BUTTON_LEFT
-		release.pressed = false
-		release.position = toggle.size * 0.5
-		toggle._gui_input(release)
+		for down: bool in [true, false]:
+			var event: InputEventMouseButton = InputEventMouseButton.new()
+			event.button_index = MOUSE_BUTTON_LEFT
+			event.pressed = down
+			event.position = toggle.size * 0.5
+			toggle._gui_input(event)
 		assert_eq(heard, [true] as Array[bool], "%s tap turns it on" % skin_id)
 
 

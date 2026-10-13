@@ -81,8 +81,10 @@ static func make_icon(skin: SkinData) -> SkinIcon:
 ## A touch_min square button with the skin's icon on its face (the IconButton
 ## look: Gumdrop's raised squircle, Slate's bare icon, Nova's ring), for the
 ## settings and close buttons of DESIGN_SYSTEM.md 7.2 and 7.7. The icon
-## follows Gumdrop's pressed face. A tap emits the built-in pressed signal;
-## set disabled to grey it out. icon_name is one of SkinIcon.ICON_NAMES.
+## follows Gumdrop's pressed face. A tap emits the built-in pressed signal
+## exactly once, by finger, mouse or ui_accept, never again for the copies
+## Godot's mouse and touch emulation make (QA6-01); set disabled to grey it
+## out. icon_name is one of SkinIcon.ICON_NAMES.
 static func make_icon_button(skin: SkinData, icon_name: StringName) -> BaseButton:
 	var button: BaseButton = _pick(_ICON_BUTTONS, skin).new() as BaseButton
 	button.call(&"setup", skin, icon_name)

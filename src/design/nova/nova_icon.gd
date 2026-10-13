@@ -5,8 +5,18 @@ extends "res://src/design/shared/pen_icon.gd"
 ## Ink normally. Active: ink_dark (it sits on the accent ring) with a soft
 ## accent glow at icon_glow_alpha behind it. Disabled: disabled_ink at
 ## disabled_icon_alpha.
+##
+## The star is slender: center (12, 12.9), outer radius 11, inner radius 0.40
+## of it, points rounded 0.5 units and valleys 0.3. The icon is the filled
+## star, and unlike the others it is not fitted to icon_fit: it fills its box
+## like a glyph. The HUD counter draws its icon_stroke wide outline band.
 
 const Glow: GDScript = preload("res://src/design/shared/glow.gd")
+
+const STAR: Dictionary = {
+	"center": Vector2(12.0, 12.9), "outer": 11.0, "inner_share": 0.40,
+	"round_point": 0.5, "round_valley": 0.3, "outline": 1.5,
+}
 
 var _stroke: float = 1.0
 var _spark: float = 1.0
@@ -38,6 +48,8 @@ func _look_alpha(for_look: int) -> float:
 
 
 func _grid_area() -> Rect2:
+	if _icon == &"star":
+		return Rect2(Vector2.ZERO, size)
 	return Rect2(size * (1.0 - _fit) * 0.5, size * _fit)
 
 
@@ -102,6 +114,15 @@ func _record(icon_name: StringName) -> void:
 			_pen.line(Vector2(17.0, 7.0), Vector2(7.0, 17.0), w)
 		&"check":
 			_pen.polyline(PackedVector2Array([Vector2(5.5, 12.5), Vector2(10.0, 17.0), Vector2(18.5, 7.5)]), w)
+		&"star":
+			_pen.fill(StarShape.outline(STAR))
+		&"chevron":
+			_pen.polyline(PackedVector2Array([Vector2(10.0, 6.5), Vector2(15.5, 12.0), Vector2(10.0, 17.5)]), w)
+		&"arrow":
+			# A thin arrow with a spark at its tail, like a trail of light.
+			_pen.line(Vector2(5.0, 12.0), Vector2(19.5, 12.0), w)
+			_pen.chevron(Vector2(19.5, 12.0), 0.0, 4.0, 4.0, w)
+			_pen.disc(Vector2(2.5, 12.0), _spark)
 
 
 ## A point on the circle of radius round the grid center.

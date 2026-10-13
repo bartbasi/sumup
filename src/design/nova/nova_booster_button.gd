@@ -12,14 +12,14 @@ extends "res://src/design/shared/booster_button_base.gd"
 ##     struck through with a hairline line. Never a glow.
 ##   Suggested: the ring breathes in accent on target_pulse (the bar draws
 ##     the badge).
+##   Free: the star and "free" centered under the ring, in accent (normal,
+##     pressed and active) or disabled_ink (disabled, the hairline strike
+##     across the whole group). No glow on the small star.
 ## Text pairs: ink, accent and disabled_ink on bg_glow.
 
 const NovaIcon: GDScript = preload("res://src/design/nova/nova_icon.gd")
 const NovaRing: GDScript = preload("res://src/design/nova/nova_ring.gd")
 const NovaRingGlow: GDScript = preload("res://src/design/nova/nova_ring_glow.gd")
-
-## Cap height and comma depth (DESIGN_SYSTEM.md 3.4), defined once.
-const FontMetrics: GDScript = preload("res://src/design/shared/font_metrics.gd")
 
 var _glow: NovaRingGlow = null
 var _ring: NovaRing = null
@@ -115,12 +115,22 @@ func _layout() -> void:
 	var line_top: float = ring_side + _skin.num(&"space_xs")
 	_text_origin = Vector2(0.0, line_top + _font.get_ascent(_font_size))
 	var cost_width: float = _font.get_string_size(cost_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size).x
+	if free:
+		cost_width = _free_width()
 	var hairline: float = _skin.num(&"hairline")
 	var middle: float = roundf(_text_origin.y - float(_font_size) * FontMetrics.CAP_HEIGHT * 0.5)
 	var left: float = (size.x - cost_width) * 0.5
 	_strike_from = Vector2(left - hairline, middle)
 	_strike_to = Vector2(left + cost_width + hairline, middle)
+	_place_free(left, _text_origin.y, _free_ink())
 	queue_redraw()
+
+
+## The Free group's color for the look.
+func _free_ink() -> Color:
+	if look == SkinIcon.LOOK_DISABLED:
+		return _skin.color(&"disabled_ink")
+	return _skin.color(&"accent")
 
 
 func _ink() -> Color:
@@ -135,6 +145,9 @@ func _draw() -> void:
 	if _skin == null:
 		return
 	var ink: Color = _ink()
-	draw_string(_font, _text_origin, cost_text, HORIZONTAL_ALIGNMENT_CENTER, size.x, _font_size, ink)
+	if free:
+		draw_string(_font, _free_origin, free_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size, _free_ink())
+	else:
+		draw_string(_font, _text_origin, cost_text, HORIZONTAL_ALIGNMENT_CENTER, size.x, _font_size, ink)
 	if look == SkinIcon.LOOK_DISABLED:
 		draw_line(_strike_from, _strike_to, ink, _skin.num(&"hairline"), true)

@@ -83,6 +83,16 @@ static func build(skin: SkinData) -> Theme:
 
 	ThemeKit.divider(theme, &"Hairline", skin.color(&"line"), hairline, false)
 	ThemeKit.divider(theme, &"HSeparator", skin.color(&"line"), hairline, false)
+
+	# Reading screens (7.11): no section box, only space_m above and below
+	# its content (screens split sections with a Hairline); a pressed row
+	# fills surface with square corners; the scroll indicator is a square
+	# ended bar.
+	var section: StyleBoxEmpty = StyleBoxEmpty.new()
+	ThemeKit.pad(section, 0.0, pad, 0.0, pad)
+	var row_pressed: StyleBoxFlat = ThemeKit.box(skin.color(&"surface"), 0.0)
+	var row_focus: StyleBoxFlat = ThemeKit.focus_ring(skin.color(&"accent"), skin.num(&"focus_width"), 0.0, skin.num(&"focus_gap") + skin.num(&"space_s"))
+	ThemeKit.reading_types(theme, skin, section, row_pressed, row_focus, 0.0)
 	return theme
 
 

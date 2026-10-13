@@ -96,7 +96,7 @@ const SKIN_NAMES: PackedStringArray = ["Gumdrop", "Slate", "Nova"]
 const SKIN_IDS: PackedStringArray = ["gumdrop", "slate", "nova"]
 ## Tile values shown as a preview inside each skin choice.
 const SKIN_PREVIEW_VALUES: PackedInt32Array = [2, 4, 8]
-const VERSION_TEXT: String = "numbersgame 0.1"
+const VERSION_TEXT: String = "SumUp 0.1"
 
 # HUD text
 

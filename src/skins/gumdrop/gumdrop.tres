@@ -110,6 +110,24 @@ text_pairs = Array[Dictionary]([{
 "min": 4.5,
 "name": "Text straight on the scrim, worst case over a pearl tile",
 "over": "tile:65536"
+}, {
+"bg": "surface_raised",
+"fg": "badge",
+"min": 4.5,
+"name": "Free cost and its star on a booster face",
+"over": ""
+}, {
+"bg": "surface",
+"fg": "badge",
+"min": 4.5,
+"name": "Star counter star on the star pill",
+"over": ""
+}, {
+"bg": "bg",
+"fg": "accent",
+"min": 4.5,
+"name": "Wordmark Up on the backdrop",
+"over": ""
 }])
 font_path = "res://src/design/fonts/Outfit[wght].ttf"
 system_font_names = PackedStringArray("Roboto", "Segoe UI", "sans-serif")
@@ -126,11 +144,23 @@ type_roles = Dictionary[StringName, Dictionary]({
 "tracking": -1,
 "weight": 900
 },
+&"heading": {
+"case": "none",
+"size": 54,
+"tracking": 0,
+"weight": 900
+},
 &"label": {
 "case": "none",
 "size": 34,
 "tracking": 1,
 "weight": 700
+},
+&"reading": {
+"case": "none",
+"size": 42,
+"tracking": 0,
+"weight": 500
 },
 &"tile": {
 "case": "none",
@@ -151,7 +181,7 @@ numbers = Dictionary[StringName, float]({
 &"board_gap": 16.0,
 &"board_margin": 36.0,
 &"board_padding": 18.0,
-&"button_height": 144.0,
+&"button_height": 160.0,
 &"button_lip": 10.0,
 &"button_lip_pressed": 3.0,
 &"chain_ring": 7.0,
@@ -188,7 +218,9 @@ numbers = Dictionary[StringName, float]({
 &"radius_button": 44.0,
 &"radius_card": 60.0,
 &"radius_chip": 40.0,
+&"reading_line_spacing": 10.0,
 &"row_height": 144.0,
+&"scroll_bar": 8.0,
 &"shine_alpha": 0.35,
 &"shine_from_tier": 3.0,
 &"shine_inset": 0.05,
@@ -201,6 +233,7 @@ numbers = Dictionary[StringName, float]({
 &"special_from": 65536.0,
 &"special_rim_segments": 16.0,
 &"special_rim_width": 8.0,
+&"star_icon": 56.0,
 &"target_edge_width": 4.0,
 &"target_lift": 0.04,
 &"target_ring": 9.0,
@@ -209,7 +242,7 @@ numbers = Dictionary[StringName, float]({
 &"toggle_knob": 54.0,
 &"toggle_knob_lip": 5.0,
 &"toggle_w": 140.0,
-&"touch_min": 144.0,
+&"touch_min": 160.0,
 &"tray_radius": 60.0
 })
 motion = Dictionary[StringName, Dictionary]({
@@ -311,6 +344,21 @@ motion = Dictionary[StringName, Dictionary]({
 "from_scale": 0.2,
 "stagger": 0.03,
 "trans": 10
+},
+&"star_convert": {
+"duration": 0.18,
+"ease": 0,
+"empty": 0.12,
+"from_scale": 0.2,
+"trans": 10
+},
+&"star_earn": {
+"delay": 0.1,
+"duration": 0.4,
+"ease": 2,
+"from_scale": 0.4,
+"stagger": 0.1,
+"trans": 1
 },
 &"target_pulse": {
 "duration": 0.9,

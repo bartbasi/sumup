@@ -7,6 +7,11 @@ const NOTICE_ONE: String = "No more {a}s"
 const NOTICE_TWO: String = "No more {a}s or {b}s"
 const NOTICE_RANGE: String = "No more {a}s to {b}s"
 const SUGGESTED: String = "Suggested"
+## The 2026-10-13 additions (7.10).
+const STARS_EARNED: String = "+{a}"
+const FREE: String = "Free"
+const FREE_HELD: String = "{a} free"
+const STARS: String = "Stars"
 
 const BOOSTER_NAMES: Dictionary[StringName, String] = {
 	&"hammer": "Hammer",
@@ -32,6 +37,28 @@ static func clear_notice(skin: SkinData, role: StringName, values: PackedInt64Ar
 	elif values.size() == 2:
 		template = NOTICE_TWO
 	return _fill(skin, role, template, low, high)
+
+
+## "+n" after the clear notice copy for the stars a move earned, cased like
+## the copy (digits keep their form).
+static func stars_earned(skin: SkinData, role: StringName, stars: int) -> String:
+	return _fill(skin, role, STARS_EARNED, str(stars), "")
+
+
+## "Free", the booster cost while a free booster is held (D-46), cased with
+## role: Slate "FREE", Nova "free".
+static func free_cost(skin: SkinData, role: StringName) -> String:
+	return skin.cased(role, FREE)
+
+
+## "{n} free", the free boosters held (D-46), cased with role.
+static func free_held(skin: SkinData, role: StringName, count: int) -> String:
+	return _fill(skin, role, FREE_HELD, str(count), "")
+
+
+## "Stars", Slate's star counter caption, cased with role.
+static func stars_caption(skin: SkinData, role: StringName) -> String:
+	return skin.cased(role, STARS)
 
 
 ## A booster's name, cased with role.

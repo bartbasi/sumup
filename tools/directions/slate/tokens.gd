@@ -85,6 +85,8 @@ func _init() -> void:
 		pair("Labels on surface", "ink_muted", "surface"),
 		pair("Text on raised surface: pressed chips and buttons", "ink", "surface_raised"),
 		pair("Labels on raised surface", "ink_muted", "surface_raised"),
+		# 2026-10-13: the Free cost on a pressed column.
+		pair("Free cost and its star, pressed column", "accent", "surface"),
 	]
 
 	# Type: system font (Roboto on Android), grotesk, left aligned.
@@ -94,6 +96,8 @@ func _init() -> void:
 		"body": {"size": 44, "weight": 500, "tracking": 0, "case": CASE_NONE},
 		"label": {"size": 30, "weight": 600, "tracking": 4, "case": CASE_UPPER},
 		"tile": {"weight": 700, "tracking": -1, "case": CASE_NONE},
+		"heading": {"size": 30, "weight": 700, "tracking": 4, "case": CASE_UPPER},
+		"reading": {"size": 42, "weight": 400, "tracking": 0, "case": CASE_NONE},
 	}
 	tile_number_scale = PackedFloat32Array([0.40, 0.40, 0.33, 0.31])
 
@@ -116,7 +120,7 @@ func _init() -> void:
 		"space_m": 40.0,
 		"space_l": 64.0,
 		"space_xl": 104.0,
-		"touch_min": 144.0,         # 48 dp on a 360 dp wide phone
+		"touch_min": 160.0,         # 48 dp on 18:9 phones, 51 dp on the Fold5 cover (DESIGN_SYSTEM.md 2.7)
 		"radius_button": 4.0,
 		"radius_card": 0.0,
 		"radius_chip": 4.0,
@@ -124,7 +128,7 @@ func _init() -> void:
 		"hud_height": 350.0,         # header plus the context row
 		"bar_height": 192.0,         # strip; the hint lives in the HUD context row
 		"hint_height": 112.0,
-		"button_height": 144.0,
+		"button_height": 160.0,       # at least touch_min (2.7)
 		"row_height": 148.0,
 		"icon_booster": 66.0,
 		"icon_hud": 72.0,
@@ -135,6 +139,9 @@ func _init() -> void:
 		"notice_height": 112.0,      # the notice takes the HUD context row
 		"notice_tile_scale": 0.5,
 		"notice_strike": 2.0,
+		"star_icon": 36.0,          # the HUD counter's star box, on the caption line
+		"reading_line_spacing": 14.0,  # px added between reading role lines
+		"scroll_bar": 4.0,          # drawn width of the reading screens' scroll indicator
 		# Extras
 		"number_inset": 0.11,        # number sits top left, this far in
 		"number_plate": 6.0,         # px: on chained tiles, a plate of the tile fill round the whole label
@@ -172,6 +179,9 @@ func _init() -> void:
 		"target_pulse": {"duration": 0.0, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT},
 		"score_count": {"duration": 0.24, "trans": Tween.TRANS_QUART, "ease": Tween.EASE_OUT},
 		"skin_switch": {"duration": 0.16, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT},
+		# The counter's paper flash; Slate has no flight.
+		"star_earn": {"duration": 0.16, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT},
+		"star_convert": {"duration": 0.16, "trans": Tween.TRANS_LINEAR, "ease": Tween.EASE_IN_OUT},
 	}
 
 	_add_phase1_aliases()

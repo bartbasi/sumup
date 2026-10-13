@@ -9,6 +9,7 @@ extends "res://tests/base_test.gd"
 
 const CommonBoardView: GDScript = preload("res://src/skins/common/common_board_view.gd")
 const MotionMath: GDScript = preload("res://src/skins/common/motion_math.gd")
+const GUMDROP_PAINTER: GDScript = preload("res://src/skins/gumdrop/gumdrop_tile_painter.gd")
 const SLATE_PAINTER: GDScript = preload("res://src/skins/slate/slate_tile_painter.gd")
 const NOVA_PAINTER: GDScript = preload("res://src/skins/nova/nova_tile_painter.gd")
 const BOARD_VIEWS: Dictionary = {
@@ -532,6 +533,68 @@ func test_slate_label_plate_clears_the_inset_chained_frame() -> void:
 			var plate: Rect2 = box.grow(skin.num(&"number_plate") * unit)
 			if not inner.encloses(plate):
 				fail("slate label %s at a %.0f px tile: plate %s crosses the frame %s" % [labels.call("label", index), side, plate, inner])
+
+
+## QA6-02: the candy rim and the shine are each one triangle array, so each
+## costs one draw call, built when a tile first needs them at a side. Every
+## index points at a point, every point has a color, and the rim still
+## cycles the tier 1 and 2 fills in its segments.
+func test_gumdrop_rim_and_shine_are_one_valid_triangle_array_each() -> void:
+	var skin: SkinData = SkinCatalog.get_skin(&"gumdrop")
+	var painter: RefCounted = GUMDROP_PAINTER.new()
+	painter.call("setup", skin)
+	var reference: float = float(painter.call("reference_side"))
+	var expected_colors: Dictionary = {}
+	for index: int in SkinData.RAMP_SIZE:
+		var tier: int = skin.tier_for(2 << index)
+		if tier == 1 or tier == 2:
+			expected_colors[skin.fill_for(2 << index)] = true
+	var shine_index: int = int(painter.call("index_of", 2048))
+	for side: float in [reference, 112.0, 72.0]:
+		painter.call("set_side", side, side / reference)
+		var item: RID = RenderingServer.canvas_item_create()
+		painter.call("draw_tile", item, Transform2D.IDENTITY, 512, 0.0, 0.0, 0.0, 0.0)
+		assert_eq(painter.get("_rim_face"), -Vector2.ONE, "gumdrop builds no rim while only plain tiles draw at %.0f px" % side)
+		painter.call("draw_tile", item, Transform2D.IDENTITY, 131072, 1.0, 1.0, 0.0, 0.0)
+		painter.call("draw_tile", item, Transform2D.IDENTITY, 2048, 0.0, 0.0, 0.0, 0.0)
+		RenderingServer.free_rid(item)
+		for part: String in ["_rim", "_shine"]:
+			var strokes: RefCounted = painter.get(part)
+			var points: PackedVector2Array = strokes.get("points")
+			var colors: PackedColorArray = strokes.get("colors")
+			var indices: PackedInt32Array = strokes.get("indices")
+			assert_false(indices.is_empty(), "gumdrop %s has triangles at a %.0f px tile" % [part, side])
+			assert_eq(colors.size(), points.size(), "gumdrop %s: a color per point at %.0f px" % [part, side])
+			assert_eq(indices.size() % 3, 0, "gumdrop %s: whole triangles at %.0f px" % [part, side])
+			var bad: int = 0
+			for i: int in indices:
+				if i < 0 or i >= points.size():
+					bad += 1
+			assert_eq(bad, 0, "gumdrop %s: every index points at a point at %.0f px" % [part, side])
+		var rim_colors: Dictionary = {}
+		for color: Color in (painter.get("_rim") as RefCounted).get("colors") as PackedColorArray:
+			if color.a > 0.0:
+				rim_colors[color] = true
+		assert_eq(rim_colors.size(), expected_colors.size(), "gumdrop rim cycles every tier 1 and 2 fill at %.0f px" % side)
+		for color: Color in rim_colors:
+			assert_true(expected_colors.has(color), "gumdrop rim color %s is a tier 1 or 2 fill" % color.to_html())
+		var shine_arrays: Array = painter.get("_shine_arrays")
+		var shine_points: int = ((painter.get("_shine") as RefCounted).get("points") as PackedVector2Array).size()
+		assert_eq((shine_arrays[shine_index] as PackedColorArray).size(), shine_points, "gumdrop shine colors made for 2048 at %.0f px" % side)
+
+
+## The feather of Gumdrop's strokes, measured from Godot's polyline, joins
+## up where its three ranges meet.
+func test_gumdrop_stroke_feather_is_continuous() -> void:
+	var strokes: GDScript = GUMDROP_PAINTER.Strokes
+	for width: float in [2.0, 5.0]:
+		var below: Vector2 = strokes.call("stroke_edges", width - 0.0001)
+		var above: Vector2 = strokes.call("stroke_edges", width + 0.0001)
+		assert_near(below.x, above.x, 0.01, "solid edge meets at %.0f px" % width)
+		assert_near(below.y, above.y, 0.01, "clear edge meets at %.0f px" % width)
+	var wide: Vector2 = strokes.call("stroke_edges", 8.0)
+	assert_near(wide.x, 4.0 - 0.3125, EPSILON, "an 8 px stroke is solid to a quarter feather inside its edge")
+	assert_near(wide.y, 4.0 + 0.9375, EPSILON, "and clear three quarters of a feather outside")
 
 
 func test_nova_chained_rim_is_dark_on_the_white_hole() -> void:

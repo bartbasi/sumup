@@ -71,6 +71,15 @@ static func build(skin: SkinData) -> Theme:
 	# Divider: a hairline rounded line in line, visible on bg and on cards.
 	ThemeKit.divider(theme, &"Hairline", skin.color(&"line"), skin.num(&"hairline"), true)
 	ThemeKit.divider(theme, &"HSeparator", skin.color(&"line"), skin.num(&"hairline"), true)
+
+	# Reading screens (7.11): each section is a lipped card like CardPanel;
+	# a pressed row fills surface_raised with radius_chip corners; the scroll
+	# indicator is a pill.
+	var section: StyleBoxFlat = Candy.raised(skin.color(&"surface"), skin.color(&"surface_lip"), skin.num(&"radius_card"), lip)
+	ThemeKit.pad(section, pad, pad, pad, pad + lip)
+	var row_pressed: StyleBoxFlat = ThemeKit.box(skin.color(&"surface_raised"), skin.num(&"radius_chip"))
+	var row_focus: StyleBoxFlat = ThemeKit.focus_ring(skin.color(&"accent"), skin.num(&"focus_width"), skin.num(&"radius_chip"), skin.num(&"focus_gap") + skin.num(&"space_s"))
+	ThemeKit.reading_types(theme, skin, section, row_pressed, row_focus, skin.num(&"scroll_bar") * 0.5)
 	return theme
 
 

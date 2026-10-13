@@ -6,15 +6,21 @@ extends BaseButton
 ## with its flat disabled face. The button presses with Motion.press while
 ## held and springs back with Motion.release.
 ##
-## Touches reach it as mouse events (Godot emulates the mouse from touch) and
-## are handled here, one path for every design button, so tests can drive it
-## too. A tap (press, then release inside) emits the built-in pressed signal;
-## with toggle_mode it also flips button_pressed. A disabled button does
-## nothing. It takes no keyboard focus: this is a touch game.
-## Each skin's button extends this and names its icon and styles.
+## Taps are read here by TapInput, one rule for every design control (QA6-01):
+## a finger, a real mouse click, or ui_accept while focused, and never the
+## copies Godot's mouse and touch emulation make. Every tap event is accepted
+## here, so BaseButton's own input handling never sees it and pressed fires
+## exactly once per tap. A tap (press, then release inside) emits the
+## built-in pressed signal; with toggle_mode it also flips button_pressed. A
+## disabled button does nothing. It takes no keyboard focus by default: this
+## is a touch game. Each skin's button extends this and names its icon and
+## styles.
+
+const TapInput: GDScript = preload("res://src/design/shared/tap_input.gd")
 
 var _skin: SkinData = null
 var _icon: SkinIcon = null
+var _tap: TapInput = TapInput.new()
 var _styles: Dictionary[StringName, StyleBox] = {}
 var _held: bool = false
 ## The state the icon was last placed for, so _draw only moves it on change.
@@ -72,24 +78,37 @@ func _make_styles(_for_skin: SkinData) -> Dictionary[StringName, StyleBox]:
 
 
 func _gui_input(event: InputEvent) -> void:
-	var button: InputEventMouseButton = event as InputEventMouseButton
-	if button == null or button.button_index != MOUSE_BUTTON_LEFT or _skin == null:
+	if _skin == null:
+		return
+	var read: int = _tap.read(event, size)
+	if read == TapInput.IGNORED:
 		return
 	accept_event()
 	if disabled:
+		_drop_hold()
 		return
-	if button.pressed:
-		_held = true
-		Motion.press(self, _skin)
-		queue_redraw()
-	elif _held:
+	match read:
+		TapInput.PRESSED:
+			_held = true
+			Motion.press(self, _skin)
+			queue_redraw()
+		TapInput.TAPPED, TapInput.LIFTED:
+			_held = false
+			Motion.release(self, _skin)
+			queue_redraw()
+			if read == TapInput.TAPPED:
+				if toggle_mode:
+					button_pressed = not button_pressed
+				pressed.emit()
+
+
+## Ends a press with no tap and no motion.
+func _drop_hold() -> void:
+	_tap.reset()
+	if _held:
 		_held = false
-		Motion.release(self, _skin)
+		scale = Vector2.ONE
 		queue_redraw()
-		if Rect2(Vector2.ZERO, size).has_point(button.position):
-			if toggle_mode:
-				button_pressed = not button_pressed
-			pressed.emit()
 
 
 func _notification(what: int) -> void:
@@ -97,8 +116,7 @@ func _notification(what: int) -> void:
 		_place_icon()
 	elif what == NOTIFICATION_VISIBILITY_CHANGED and _held and not is_visible_in_tree():
 		# A button hidden while held would otherwise stay pressed.
-		_held = false
-		scale = Vector2.ONE
+		_drop_hold()
 
 
 func _draw() -> void:

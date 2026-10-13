@@ -15,8 +15,9 @@ func setup(_skin: SkinData) -> void:
 
 ## One button per status, in the order given (bar order). Each shows its
 ## look (normal, active while targeting, disabled when not usable), its cost
-## as a tile label, and the Suggested badge (D-42). Call again whenever the
-## statuses change; buttons are reused.
+## as a tile label, and the Suggested badge (D-42). A status with free set
+## (D-46) shows the star and Free in place of its cost, disabled included.
+## Call again whenever the statuses change; buttons are reused.
 func show_boosters(_statuses: Array[BoosterStatus]) -> void:
 	_missing(&"show_boosters")
 

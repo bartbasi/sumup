@@ -26,7 +26,7 @@ const CASE_LOWER: String = "lower"
 
 ## The shared schema (DESIGN_SYSTEM.md section 3). Every skin defines every
 ## name below; anything else in a dictionary is that skin's extra.
-const TYPE_ROLES: Array[StringName] = [&"display", &"title", &"body", &"label", &"tile"]
+const TYPE_ROLES: Array[StringName] = [&"display", &"title", &"body", &"label", &"tile", &"heading", &"reading"]
 const SHARED_PALETTE: Array[StringName] = [
 	&"bg", &"surface", &"surface_raised", &"line", &"ink", &"ink_muted", &"ink_dark",
 	&"accent", &"accent_pressed", &"disabled_ink", &"chain", &"target", &"joinable",
@@ -40,13 +40,15 @@ const SHARED_NUMBERS: Array[StringName] = [
 	&"radius_card", &"radius_chip", &"hairline", &"hud_height", &"bar_height",
 	&"hint_height", &"button_height", &"row_height", &"icon_booster", &"icon_hud",
 	&"icon_stroke", &"toggle_w", &"toggle_h", &"toggle_knob", &"notice_height",
-	&"notice_tile_scale", &"notice_strike",
+	&"notice_tile_scale", &"notice_strike", &"star_icon", &"reading_line_spacing",
+	&"scroll_bar",
 ]
 const MOTION_NAMES: Array[StringName] = [
 	&"spawn", &"fall", &"chain_add", &"chain_remove", &"joinable_in",
 	&"merge_travel", &"merge_pop", &"clear", &"clear_notice", &"press",
 	&"button_press", &"button_release", &"dialog_in", &"dialog_out",
-	&"screen_fade", &"target_pulse", &"score_count", &"skin_switch",
+	&"screen_fade", &"target_pulse", &"score_count", &"skin_switch", &"star_earn",
+	&"star_convert",
 ]
 
 ## Shown where a token is missing, so the bug is visible on screen.
@@ -79,8 +81,8 @@ const FALLBACK_TILE_SIZE: int = 1
 @export var font_path: String = ""
 ## SystemFont preference list, used when font_path is "".
 @export var system_font_names: PackedStringArray = PackedStringArray()
-## display, title, body, label, tile. Each holds size (px, not for tile),
-## weight (100 to 900), tracking (px between glyphs) and case.
+## display, title, body, label, tile, heading, reading. Each holds size (px,
+## not for tile), weight (100 to 900), tracking (px between glyphs) and case.
 @export var type_roles: Dictionary[StringName, Dictionary] = {}
 ## Tile label size by label length (1 to 4 characters), share of the tile side.
 @export var tile_number_scale: PackedFloat32Array = PackedFloat32Array()

@@ -84,6 +84,10 @@ func _init() -> void:
 		pair("Primary button and selected chip", "ink_dark", "accent"),
 		pair("Primary button, pressed", "ink_dark", "accent_pressed"),
 		pair("Text straight on the scrim, worst case over a pearl tile", "ink", "scrim", "tile:65536"),
+		# 2026-10-13: stars, free boosters and the wordmark.
+		pair("Free cost and its star on a booster face", "badge", "surface_raised"),
+		pair("Star counter star on the star pill", "badge", "surface"),
+		pair("Wordmark Up on the backdrop", "accent", "bg"),
 	]
 
 	# Type: Outfit, heavy, sentence case.
@@ -93,6 +97,8 @@ func _init() -> void:
 		"body": {"size": 46, "weight": 700, "tracking": 0, "case": CASE_NONE},
 		"label": {"size": 34, "weight": 700, "tracking": 1, "case": CASE_NONE},
 		"tile": {"weight": 900, "tracking": 0, "case": CASE_NONE},
+		"heading": {"size": 54, "weight": 900, "tracking": 0, "case": CASE_NONE},
+		"reading": {"size": 42, "weight": 500, "tracking": 0, "case": CASE_NONE},
 	}
 	tile_number_scale = PackedFloat32Array([0.48, 0.44, 0.36, 0.31])
 
@@ -115,7 +121,7 @@ func _init() -> void:
 		"space_m": 36.0,
 		"space_l": 56.0,
 		"space_xl": 88.0,
-		"touch_min": 144.0,         # 48 dp on a 360 dp wide phone
+		"touch_min": 160.0,         # 48 dp on 18:9 phones, 51 dp on the Fold5 cover (DESIGN_SYSTEM.md 2.7)
 		"radius_button": 44.0,
 		"radius_card": 60.0,
 		"radius_chip": 40.0,
@@ -123,7 +129,7 @@ func _init() -> void:
 		"hud_height": 255.0,
 		"bar_height": 272.0,         # dock plus the hint row above it
 		"hint_height": 88.0,
-		"button_height": 144.0,
+		"button_height": 160.0,       # at least touch_min (2.7)
 		"row_height": 144.0,
 		"icon_booster": 84.0,
 		"icon_hud": 64.0,           # in the 96 px HUD button face
@@ -134,6 +140,9 @@ func _init() -> void:
 		"notice_height": 88.0,
 		"notice_tile_scale": 0.6,   # mini tiles in the clear notice, share of notice_height
 		"notice_strike": 4.0,       # strike line across them
+		"star_icon": 56.0,          # the HUD counter's star box
+		"reading_line_spacing": 10.0,  # px added between reading role lines
+		"scroll_bar": 8.0,          # drawn width of the reading screens' scroll indicator
 		# Extras
 		"tray_radius": 60.0,
 		"lip_darken": 0.34,          # lip color = fill.darkened(lip_darken)
@@ -185,6 +194,8 @@ func _init() -> void:
 		"target_pulse": {"duration": 0.90, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT, "wobble_degrees": 4.0},
 		"score_count": {"duration": 0.50, "trans": Tween.TRANS_CUBIC, "ease": Tween.EASE_OUT},
 		"skin_switch": {"duration": 0.30, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT},
+		"star_earn": {"duration": 0.40, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT, "delay": 0.10, "from_scale": 0.4, "stagger": 0.10},
+		"star_convert": {"duration": 0.18, "trans": Tween.TRANS_BACK, "ease": Tween.EASE_IN, "from_scale": 0.2, "empty": 0.12},
 	}
 
 	_add_phase1_aliases()

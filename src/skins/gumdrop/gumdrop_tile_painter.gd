@@ -8,12 +8,167 @@ extends "res://src/skins/common/tile_painter.gd"
 ## the bottom. Pressing sinks the face (lip_pressed), lifting raises it.
 ## The chained press_scale and the selected wobble are the tile item's own
 ## transform, set by the board.
+##
+## The candy rim and the shine are each one triangle array, built once per
+## tile side the first time one draws, so each costs one draw call. They are
+## built the way Godot builds an antialiased polyline and circle (strips with
+## a feather that fades to clear), so they look the same as drawing each rim
+## segment and the shine's arc and round caps one by one, which cost 48 and 7
+## draw calls and made a special tile about six times slower to draw (QA6-02).
 
 ## Corner smoothness of every squircle (DESIGN_SYSTEM.md 1.5: 12 or more).
 const CORNER_DETAIL: int = 16
 ## Points sampled round the candy rim, and along the shine arc.
 const RIM_POINTS: int = 192
 const SHINE_POINTS: int = 24
+## Points round each of the shine's round caps.
+const CAP_POINTS: int = 32
+## Godot's antialiasing feather for lines and circles, in px: it fades from a
+## quarter of it inside the edge to three quarters outside.
+const FEATHER: float = 1.25
+
+
+## Triangles with a color per point, for one canvas_item_add_triangle_array
+## call. Strokes and discs are added in draw order, so where they overlap the
+## later one lies on top, as with separate draw calls.
+class Strokes extends RefCounted:
+	var points: PackedVector2Array = PackedVector2Array()
+	var colors: PackedColorArray = PackedColorArray()
+	var indices: PackedInt32Array = PackedInt32Array()
+
+	## An open path width px wide with flat ends, antialiased like Godot's
+	## polyline: the feather runs along both sides and past both ends.
+	func add_stroke(path: PackedVector2Array, width: float, color: Color) -> void:
+		var count: int = path.size()
+		if count < 2 or width <= 0.0:
+			return
+		var dirs: PackedVector2Array = PackedVector2Array()
+		dirs.resize(count - 1)
+		var last_dir: Vector2 = Vector2.ZERO
+		for i: int in count - 1:
+			var dir: Vector2 = (path[i + 1] - path[i]).normalized()
+			dirs[i] = dir if dir != Vector2.ZERO else last_dir
+			last_dir = dirs[i]
+		if last_dir == Vector2.ZERO:
+			return
+		# Points repeated at the start take the first real direction.
+		for i: int in range(count - 3, -1, -1):
+			if dirs[i] == Vector2.ZERO:
+				dirs[i] = dirs[i + 1]
+		var edges: Vector2 = Strokes.stroke_edges(width)
+		var half: float = edges.x
+		var feather: float = edges.y - edges.x
+		var clear: Color = Color(color, 0.0)
+		# Each station is four points across the stroke: outer clear, outer
+		# edge, inner edge, inner clear. One station past each end, all clear.
+		var base: int = points.size()
+		points.resize(base + (count + 2) * 4)
+		colors.resize(points.size())
+		_station(base, path[0] - dirs[0] * feather, dirs[0].orthogonal(), half, feather, clear, clear)
+		for i: int in count:
+			var normal: Vector2 = Vector2.ZERO
+			if i == 0:
+				normal = dirs[0].orthogonal()
+			elif i == count - 1:
+				normal = dirs[count - 2].orthogonal()
+			else:
+				# A mitered join, as Godot joins polyline segments.
+				var before: Vector2 = dirs[i - 1].orthogonal()
+				var mid: Vector2 = (before + dirs[i].orthogonal()).normalized()
+				normal = mid / maxf(mid.dot(before), 0.1) if mid != Vector2.ZERO else before
+			_station(base + (i + 1) * 4, path[i], normal, half, feather, color, clear)
+		_station(base + (count + 1) * 4, path[count - 1] + dirs[count - 2] * feather, dirs[count - 2].orthogonal(), half, feather, clear, clear)
+		# Three quads between each two stations. The corner quads at the ends
+		# are split through their one solid point, so they fade evenly.
+		var at: int = indices.size()
+		indices.resize(at + (count + 1) * 18)
+		for gap: int in count + 1:
+			var a: int = base + gap * 4
+			var b: int = a + 4
+			at = _quad(at, a + 1, a + 2, b + 2, b + 1)
+			if gap == 0:
+				at = _quad(at, b + 1, b, a, a + 1)
+				at = _quad(at, b + 2, a + 2, a + 3, b + 3)
+			else:
+				at = _quad(at, a + 1, b + 1, b, a)
+				at = _quad(at, a + 2, a + 3, b + 3, b + 2)
+
+	## Where Godot 4.7's antialiased polyline of this width stops being solid
+	## (x) and is clear (y), measured from its center line in px. Measured
+	## from its pixels: from 5 px up the feather runs from a quarter of
+	## FEATHER inside the edge to three quarters outside; under 2 px it
+	## shrinks with the width; in between the solid part follows this curve.
+	## The same feather runs on past each end of the stroke.
+	static func stroke_edges(width: float) -> Vector2:
+		if width <= 2.0:
+			return Vector2(width * 0.25, width * 0.875)
+		if width >= 5.0:
+			return Vector2(width * 0.5 - FEATHER * 0.25, width * 0.5 + FEATHER * 0.75)
+		var x: float = width - 2.0
+		var solid: float = 0.5 + 0.2257 * x + 0.1123 * x * x
+		return Vector2(solid, solid + FEATHER)
+
+	## A filled circle antialiased like Godot's circle.
+	func add_disc(center: Vector2, radius: float, color: Color) -> void:
+		if radius <= 0.0:
+			return
+		var feather: float = FEATHER * minf(1.0, radius)
+		var inner: float = maxf(0.0, radius - feather * 0.25)
+		var outer: float = radius + feather * 0.75
+		var clear: Color = Color(color, 0.0)
+		# The center, then a solid and a clear point at each angle.
+		var middle: int = points.size()
+		points.resize(middle + 1 + CAP_POINTS * 2)
+		colors.resize(points.size())
+		points[middle] = center
+		colors[middle] = color
+		for i: int in CAP_POINTS:
+			var dir: Vector2 = Vector2.from_angle(TAU * float(i) / float(CAP_POINTS))
+			var point: int = middle + 1 + i * 2
+			points[point] = center + dir * inner
+			colors[point] = color
+			points[point + 1] = center + dir * outer
+			colors[point + 1] = clear
+		var at: int = indices.size()
+		indices.resize(at + CAP_POINTS * 9)
+		for i: int in CAP_POINTS:
+			var a: int = middle + 1 + i * 2
+			var b: int = middle + 1 + ((i + 1) % CAP_POINTS) * 2
+			indices[at] = middle
+			indices[at + 1] = a
+			indices[at + 2] = b
+			at = _quad(at + 3, a, b, b + 1, a + 1)
+
+	## The same triangles in color, each point keeping its clear or solid.
+	func recolored(color: Color) -> PackedColorArray:
+		var out: PackedColorArray = PackedColorArray()
+		out.resize(colors.size())
+		for i: int in colors.size():
+			out[i] = Color(color, color.a * colors[i].a)
+		return out
+
+	## Writes the four points of a station from point index first.
+	func _station(first: int, at: Vector2, normal: Vector2, half: float, feather: float, edge: Color, clear: Color) -> void:
+		points[first] = at + normal * (half + feather)
+		points[first + 1] = at + normal * half
+		points[first + 2] = at - normal * half
+		points[first + 3] = at - normal * (half + feather)
+		colors[first] = clear
+		colors[first + 1] = edge
+		colors[first + 2] = edge
+		colors[first + 3] = clear
+
+	## Writes two triangles, split along the diagonal from a to c, from
+	## index position at. Returns the position after them.
+	func _quad(at: int, a: int, b: int, c: int, d: int) -> int:
+		indices[at] = a
+		indices[at + 1] = b
+		indices[at + 2] = c
+		indices[at + 3] = a
+		indices[at + 4] = c
+		indices[at + 5] = d
+		return at + 6
+
 
 var _lip_box: StyleBoxFlat = null
 var _face_box: StyleBoxFlat = null
@@ -28,14 +183,19 @@ var _shine_colors: PackedColorArray = PackedColorArray()
 var _has_shine: PackedByteArray = PackedByteArray()
 ## The tier 1 and 2 fills the candy rim cycles through.
 var _rim_colors: PackedColorArray = PackedColorArray()
-var _rim_segments: Array[PackedVector2Array] = []
-var _rim_face: Vector2 = Vector2.ZERO
-var _special_index: int = 0
-var _shine_points: PackedVector2Array = PackedVector2Array()
-## One color array per shine color and per rim color, made once, so drawing
-## never writes to an array the renderer still holds.
+## The candy rim round a face of _rim_face, centered on the face. Built the
+## first time a special tile draws at a side, so painters that never draw
+## one (the clear notice's mini tiles) never pay for it.
+var _rim: Strokes = Strokes.new()
+var _rim_face: Vector2 = -Vector2.ONE
+## The shine, centered on the radius center of the face's top left corner,
+## built the first time a shine draws at a side (_shine_side), and its colors
+## per label index, made the first time a tile of that index draws. Arrays
+## are never written once made, so drawing never writes to an array the
+## renderer still holds.
+var _shine: Strokes = Strokes.new()
+var _shine_side: float = -1.0
 var _shine_arrays: Array[PackedColorArray] = []
-var _rim_arrays: Array[PackedColorArray] = []
 
 var _radius_share: float = 0.0
 var _lip_pressed: float = 0.0
@@ -102,12 +262,7 @@ func _setup() -> void:
 	if _rim_colors.is_empty():
 		_rim_colors.append(fills[0])
 	_shine_arrays.clear()
-	for index: int in count:
-		_shine_arrays.append(PackedColorArray([_shine_colors[index]]))
-	_rim_arrays.clear()
-	for rim_color: Color in _rim_colors:
-		_rim_arrays.append(PackedColorArray([rim_color]))
-	_special_index = maxi(0, index_of(special_from))
+	_shine_arrays.resize(count)
 
 
 func _on_side() -> void:
@@ -115,9 +270,9 @@ func _on_side() -> void:
 	_lip_box.set_corner_radius_all(radius)
 	_face_box.set_corner_radius_all(radius)
 	_slot_box.set_corner_radius_all(radius)
-	_build_rim(Vector2(side, side * (1.0 - _lips[_special_index])))
-	var arc_radius: float = maxf(0.0, _radius_share * side - _shine_inset * side)
-	_shine_points = arc_points(arc_radius, PI, PI * 1.5, SHINE_POINTS)
+	# The rim and the shine are built again when next drawn.
+	_rim_face = -Vector2.ONE
+	_shine_side = -1.0
 
 
 ## The chained tile's scale (press_scale), for the tile item's transform.
@@ -203,32 +358,33 @@ func _double_ring(canvas: RID, rect: Rect2, radius: float, outside: float, width
 
 
 ## The shine: a quarter circle arc with round caps following the face's top
-## left corner, centered on the corner's radius center.
+## left corner, centered on the corner's radius center. One draw call.
 func _draw_shine(canvas: RID, base: Transform2D, corner_center: Vector2, index: int) -> void:
-	var width: float = _shine_width * side
-	if _shine_points.size() < 2 or width <= 0.0:
+	if _shine_side != side:
+		_build_shine()
+	if _shine.indices.is_empty():
 		return
-	var shine: Color = _shine_colors[index]
+	if _shine_arrays[index].is_empty():
+		_shine_arrays[index] = _shine.recolored(_shine_colors[index])
 	begin(canvas, base * at(corner_center))
-	RenderingServer.canvas_item_add_polyline(canvas, _shine_points, _shine_arrays[index], width, true)
-	RenderingServer.canvas_item_add_circle(canvas, _shine_points[0], width * 0.5, shine, true)
-	RenderingServer.canvas_item_add_circle(canvas, _shine_points[_shine_points.size() - 1], width * 0.5, shine, true)
+	RenderingServer.canvas_item_add_triangle_array(canvas, _shine.indices, _shine.points, _shine_arrays[index])
 	begin(canvas, base)
 
 
 ## The candy rim round the face, just outside its edge, in segments cycling
-## the tier 1 and 2 fills.
+## the tier 1 and 2 fills. One draw call.
 func _draw_rim(canvas: RID, base: Transform2D, face: Rect2) -> void:
 	if not _rim_face.is_equal_approx(face.size):
 		_build_rim(face.size)
+	if _rim.indices.is_empty():
+		return
 	begin(canvas, base * at(face.get_center()))
-	var width: float = _rim_width * unit
-	for segment: int in _rim_segments.size():
-		RenderingServer.canvas_item_add_polyline(canvas, _rim_segments[segment], _rim_arrays[segment % _rim_arrays.size()], width, true)
+	RenderingServer.canvas_item_add_triangle_array(canvas, _rim.indices, _rim.points, _rim.colors)
 	begin(canvas, base)
 
 
-## Splits the rim path round a face of face_size into its colored segments.
+## The rim path round a face of face_size, split into its colored segments,
+## each a stroke with flat ends, all in one triangle array.
 @warning_ignore("integer_division")
 func _build_rim(face_size: Vector2) -> void:
 	_rim_face = face_size
@@ -236,11 +392,27 @@ func _build_rim(face_size: Vector2) -> void:
 	var path_size: Vector2 = face_size + Vector2(rim, rim)
 	var path_radius: float = minf(_radius_share * side + rim * 0.5, minf(path_size.x, path_size.y) * 0.5)
 	var path: PackedVector2Array = _rounded_rect_path(path_size, path_radius, RIM_POINTS)
-	_rim_segments.clear()
+	_rim = Strokes.new()
 	for segment: int in _rim_count:
 		var first: int = segment * RIM_POINTS / _rim_count
 		var last: int = (segment + 1) * RIM_POINTS / _rim_count
-		_rim_segments.append(path.slice(first, last + 1))
+		_rim.add_stroke(path.slice(first, last + 1), rim, _rim_colors[segment % _rim_colors.size()])
+
+
+## The shine's arc, shine_width of the side wide, with a round cap on each
+## end, in one triangle array. Its colors are made again at the new side.
+func _build_shine() -> void:
+	_shine_side = side
+	var width: float = _shine_width * side
+	var arc_radius: float = maxf(0.0, _radius_share * side - _shine_inset * side)
+	var arc: PackedVector2Array = arc_points(arc_radius, PI, PI * 1.5, SHINE_POINTS)
+	_shine = Strokes.new()
+	if width > 0.0:
+		_shine.add_stroke(arc, width, Color.WHITE)
+		_shine.add_disc(arc[0], width * 0.5, Color.WHITE)
+		_shine.add_disc(arc[arc.size() - 1], width * 0.5, Color.WHITE)
+	for index: int in _shine_arrays.size():
+		_shine_arrays[index] = PackedColorArray()
 
 
 ## Closed path round a rounded rect centered on (0, 0), clockwise from the

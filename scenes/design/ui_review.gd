@@ -1,7 +1,7 @@
 extends Control
 ## Review sheet for one skin's production interface layer, 1080 by 2400 at
 ## true scale, built only through UiKit and the base classes, like a screen.
-## Two pages per skin:
+## Four pages per skin:
 ##   play: the HUD with the clear notice over the board's top edge (Slate: in
 ##     its context row, plus the context row while dragging and in
 ##     targeting), then the booster bar normal, targeting, in the out of
@@ -10,6 +10,15 @@ extends Control
 ##   parts: every icon in every look on the fill it sits on, the buttons and
 ##     icon buttons in every state, the chips, the sound toggle on and off,
 ##     and a card with every label type, a badge and a divider.
+##   stars: the 2026-10-13 samples: the star counter at count 0; count 4
+##     with 1 free and the bar all Free with Undo disabled (normal, then
+##     targeting); the notice "No more 2s" with "+1" as it shows; and the
+##     star, chevron and arrow icons in every look.
+##   flight: frames of the star moment half way and three quarters of the
+##     way (Slate: the counter's paper flash), then the same moment three
+##     quarters of the way while the offer hides the HUD (QA6-04): the notice
+##     on the board's top edge and the star rising (Slate: only the notice).
+##     They draw on a notice layer, as the play screen does.
 ## Small captions in the skin's CaptionLabel name each sample. Every text,
 ## icon and button rect is kept clear of Nova's star dust.
 ##
@@ -47,10 +56,15 @@ func _ready() -> void:
 	_gap = _skin.num(&"space_s")
 	_backdrop = UiKit.make_backdrop(_skin)
 	_place(_backdrop, Vector2.ZERO, CANVAS)
-	if page == "parts":
-		_parts_page()
-	else:
-		_play_page()
+	match page:
+		"parts":
+			_parts_page()
+		"stars":
+			_stars_page()
+		"flight":
+			_flight_page()
+		_:
+			_play_page()
 	# Containers lay out on the next frames; then the text rects are final.
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -105,7 +119,7 @@ func _hud() -> SkinHud:
 
 ## The top rows of a real board view for this skin, clipped, at _y. Returns
 ## the board's full global rect, as a screen would pass it.
-func _board_strip(top: float) -> Rect2:
+func _board_strip(top: float, rows: float = BOARD_ROWS_SHOWN) -> Rect2:
 	var width: float = CANVAS.x - _margin * 2.0
 	var clip: Control = Control.new()
 	clip.clip_contents = true
@@ -113,7 +127,7 @@ func _board_strip(top: float) -> Rect2:
 	var view: SkinBoardView = SkinCatalog.make_board_view(_skin)
 	view.setup(_skin, 5, 8)
 	var full: float = view.preferred_height(width)
-	var shown: float = full * BOARD_ROWS_SHOWN / 8.0
+	var shown: float = full * rows / 8.0
 	_place(clip, Vector2(_margin, top), Vector2(width, shown))
 	clip.add_child(view)
 	view.position = Vector2.ZERO
@@ -159,11 +173,118 @@ func _bar(statuses: Array[BoosterStatus], hint: String) -> void:
 	_y += bar.preferred_height() + _gap
 
 
+# Stars page
+
+func _stars_page() -> void:
+	_caption("star counter: count 0")
+	var start: SkinHud = _hud()
+	start.set_scores(41286, 96520)
+	start.set_stars(0, 0)
+	_y += _gap
+	_caption("count 4 with 1 free; the bar all Free, undo disabled")
+	var held: SkinHud = _hud()
+	held.set_scores(312480, 412900)
+	held.set_stars(4, 1)
+	_y += _gap
+	if skin_id == &"slate":
+		_y += _gap
+	_bar(_free_statuses(-1), "")
+	_caption("Free while targeting: hammer active")
+	if skin_id == &"slate":
+		_y += _gap
+	_bar(_free_statuses(0), "Tap a tile to smash it")
+	_caption("the notice with +1 as it shows, from count 0")
+	var layer: Control = _notice_layer()
+	var hud: SkinHud = _hud()
+	hud.set_scores(41286, 96520)
+	hud.set_stars(0, 0)
+	hud.set_notice_layer(layer)
+	var board: Rect2 = _board_strip(_y + _gap, 1.4)
+	move_child(layer, get_child_count() - 1)
+	hud.show_clear_notice(PackedInt64Array([2]), board, 1)
+	hud.set_stars(1, 0)
+	_hold_moment(hud, 0.0)
+	_y += _gap * 2.0
+	_caption("star, chevron, arrow: normal, active, disabled")
+	_new_icons()
+
+
+# Flight page
+
+func _flight_page() -> void:
+	var layer: Control = _notice_layer()
+	# The star leaves at delay and lands delay + star_earn later.
+	var delay: float = float(_skin.motion_spec(&"star_earn").get("delay", 0.0))
+	var flight: float = _skin.duration(&"star_earn")
+	var shares: Array[float] = [0.5, 0.75]
+	if skin_id == &"slate":
+		shares = [0.5]
+	for share: float in shares:
+		if skin_id == &"slate":
+			_caption("star moment: the counter's paper flash")
+		else:
+			_caption("star moment, %d%% of the flight" % roundi(share * 100.0))
+		var hud: SkinHud = _hud()
+		hud.set_scores(41286, 96520)
+		hud.set_stars(2, 0)
+		hud.set_notice_layer(layer)
+		var board: Rect2 = _board_strip(_y + _gap, 1.4)
+		move_child(layer, get_child_count() - 1)
+		hud.show_clear_notice(PackedInt64Array([2]), board, 1)
+		hud.set_stars(3, 1)
+		_hold_moment(hud, delay + flight * share)
+		_y += _gap * 2.0
+	var mid: float = delay + flight * 0.75
+	_caption("while the offer hides the HUD (QA6-04), 75%")
+	var hidden: SkinHud = UiKit.make_hud(_skin)
+	_place(hidden, Vector2(0.0, _y), Vector2(CANVAS.x, hidden.preferred_height()))
+	hidden.set_notice_layer(layer)
+	hidden.visible = false
+	var offer_board: Rect2 = _board_strip(_y + _skin.num(&"notice_height"), 1.4)
+	move_child(layer, get_child_count() - 1)
+	hidden.show_clear_notice(PackedInt64Array([2]), offer_board, 1)
+	_hold_moment(hidden, mid)
+
+
+## A full canvas notice layer above everything placed so far.
+func _notice_layer() -> Control:
+	var layer: Control = Control.new()
+	layer.name = "NoticeLayer"
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(layer, Vector2.ZERO, CANVAS)
+	return layer
+
+
+## Holds a HUD's notice at rest and its star moment at t seconds, so the
+## capture shows that one frame.
+func _hold_moment(hud: SkinHud, t: float) -> void:
+	var notice_tween: Tween = hud.get(&"_notice_tween") as Tween
+	if notice_tween != null and notice_tween.is_valid():
+		notice_tween.custom_step(_skin.duration(&"clear_notice"))
+		notice_tween.pause()
+	var clock: Tween = hud.call(&"star_moment") as Tween
+	if clock != null and clock.is_valid():
+		clock.pause()
+	hud.call(&"seek_star_moment", t)
+	var notice: Control = hud.call(&"clear_notice") as Control
+	if notice != null:
+		_texts.append(notice)
+
+
+## Every booster free (D-46), undo disabled with no snapshot, active the
+## index targeting (-1 none).
+func _free_statuses(active: int) -> Array[BoosterStatus]:
+	var statuses: Array[BoosterStatus] = _statuses(active, [4], -1)
+	for status: BoosterStatus in statuses:
+		status.free = true
+	return statuses
+
+
 # Parts page
 
 func _parts_page() -> void:
 	_caption("icons: normal, active (on the active fill), disabled")
-	_icons()
+	_icons(SkinIcon.ICON_NAMES.slice(0, SkinIcon.ICON_NAMES.find(&"star")))
 	_caption("buttons: normal, pressed, disabled, focus")
 	_buttons(&"PrimaryButton", "Shuffle for 4K")
 	_buttons(&"SecondaryButton", "End run")
@@ -175,11 +296,11 @@ func _parts_page() -> void:
 	_card()
 
 
-func _icons() -> void:
-	var count: int = SkinIcon.ICON_NAMES.size()
-	var cell: float = floorf((CANVAS.x - _margin * 2.0) / float(count))
+func _icons(names: Array[StringName]) -> void:
+	var count: int = names.size()
 	var side: float = _skin.num(&"icon_hud")
 	var pad: float = _skin.num(&"space_xs") * 0.5
+	var cell: float = floorf((CANVAS.x - _margin * 2.0) / float(count))
 	for look: int in [SkinIcon.LOOK_NORMAL, SkinIcon.LOOK_ACTIVE, SkinIcon.LOOK_DISABLED]:
 		for i: int in count:
 			var box: Rect2 = Rect2(_margin + cell * float(i) + (cell - side) * 0.5 - pad, _y, side + pad * 2.0, side + pad * 2.0)
@@ -190,12 +311,38 @@ func _icons() -> void:
 				swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				_place(swatch, box.position, box.size)
 			var icon: SkinIcon = UiKit.make_icon(_skin)
-			icon.set_icon(SkinIcon.ICON_NAMES[i])
+			icon.set_icon(names[i])
 			icon.set_look(look)
 			_place(icon, box.position + Vector2(pad, pad), Vector2(side, side))
 			_texts.append(icon)
 		_y += side + pad * 2.0 + _skin.num(&"space_xs")
 	_y += _gap - _skin.num(&"space_xs")
+
+
+## The 2026-10-13 icons in one row: each of star, chevron and arrow in the
+## normal, active and disabled looks, on the fill each look sits on.
+func _new_icons() -> void:
+	var names: Array[StringName] = [&"star", &"chevron", &"arrow"]
+	var side: float = _skin.num(&"icon_hud")
+	var pad: float = _skin.num(&"space_xs") * 0.5
+	var cell: float = floorf((CANVAS.x - _margin * 2.0) / 9.0)
+	var looks: Array[int] = [SkinIcon.LOOK_NORMAL, SkinIcon.LOOK_ACTIVE, SkinIcon.LOOK_DISABLED]
+	for n: int in names.size():
+		for l: int in looks.size():
+			var i: int = n * looks.size() + l
+			var box: Rect2 = Rect2(_margin + cell * float(i) + (cell - side) * 0.5 - pad, _y, side + pad * 2.0, side + pad * 2.0)
+			var fill: Color = _look_fill(looks[l])
+			if fill.a > 0.0:
+				var swatch: ColorRect = ColorRect.new()
+				swatch.color = fill
+				swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_place(swatch, box.position, box.size)
+			var icon: SkinIcon = UiKit.make_icon(_skin)
+			icon.set_icon(names[n])
+			icon.set_look(looks[l])
+			_place(icon, box.position + Vector2(pad, pad), Vector2(side, side))
+			_texts.append(icon)
+	_y += side + pad * 2.0 + _gap
 
 
 ## The fill an icon in a look sits on: the active fill of each skin's
@@ -255,7 +402,8 @@ func _icon_buttons_and_toggles() -> void:
 		_texts.append(button)
 		if state == 3:
 			_focus_over(button, &"IconButton")
-		x += touch + _skin.num(&"space_xs")
+		# Touch areas side by side: the drawn faces are smaller, so they stand apart.
+		x += touch
 	x += _gap
 	for on: bool in [true, false]:
 		var toggle: SkinToggle = UiKit.make_toggle(_skin)

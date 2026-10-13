@@ -1,17 +1,27 @@
 extends Control
-## The clear notice's content (D-38, AT-104): a mini tile of each cleared
-## value with a strike line across it, then the copy, on a badge box. The
-## skin's HUD builds it, places it and animates it; this only lays out and
-## draws. It never takes input.
+## The clear notice's content (D-38, D-45, AT-104): a mini tile of each value
+## the notice names with a strike line across it, then the copy, and when the
+## move earned stars, "+n" and a filled star, on a badge box. The skin's HUD
+## builds it, places it and animates it; this only lays out and draws. It
+## never takes input.
 ##
 ## Layout, left to right: pad_left, the tiles space_xs apart, space_xs, the
-## text, pad_right. The box fills the whole control, so a HUD can stretch it
-## (Slate's full width bar); the content keeps its place on the left.
+## text; with stars, space_s, "+n" in the same role and badge_ink, a gap of
+## 0.25 of the role's font size, the star (its box the font size, centered on
+## the copy's cap middle, DESIGN_SYSTEM.md 4.7 and 7.9); then pad_right. The
+## box fills the whole control, so a HUD can stretch it (Slate's full width
+## bar); the content keeps its place on the left.
 
 const UiCopy: GDScript = preload("res://src/design/shared/ui_copy.gd")
+## Cap height (DESIGN_SYSTEM.md 3.4), defined once.
+const FontMetrics: GDScript = preload("res://src/design/shared/font_metrics.gd")
+## The gap between "+n" and the star, as a share of the font size (7.9).
+const STAR_GAP: float = 0.25
 
 ## The copy shown, cased. For tests and for screens' accessibility.
 var text: String = ""
+## "+n" when the move earned stars, else "".
+var stars_text: String = ""
 
 var _skin: SkinData = null
 var _box: StyleBox = null
@@ -27,6 +37,9 @@ var _strike_points: PackedVector2Array = PackedVector2Array()
 ## Height of the box's face: the part above any lip.
 var _face_height: float = 0.0
 var _content_width: float = 0.0
+var _stars_origin: Vector2 = Vector2.ZERO
+## The filled star after "+n", or null.
+var _star: SkinIcon = null
 
 
 func _init() -> void:
@@ -40,7 +53,8 @@ func _init() -> void:
 ##   pad_left, pad_right: space before the first tile and after the text
 ##   max_width: widest the content may be; with too many values to fit, only
 ##     the lowest and the highest get a tile
-func build(skin: SkinData, values: PackedInt64Array, role: StringName, box: StyleBox, height: float, lip: float, pad_left: float, pad_right: float, max_width: float) -> void:
+##   stars: stars the move earned; above 0 adds "+n" and the star
+func build(skin: SkinData, values: PackedInt64Array, role: StringName, box: StyleBox, height: float, lip: float, pad_left: float, pad_right: float, max_width: float, stars: int = 0) -> void:
 	_skin = skin
 	_box = box
 	_font = skin.font(role)
@@ -49,6 +63,7 @@ func build(skin: SkinData, values: PackedInt64Array, role: StringName, box: Styl
 	_strike_width = skin.num(&"notice_strike")
 	_face_height = height - lip
 	text = UiCopy.clear_notice(skin, role, values)
+	stars_text = UiCopy.stars_earned(skin, role, stars) if stars > 0 else ""
 	for tile: Control in _tiles:
 		remove_child(tile)
 		tile.queue_free()
@@ -63,8 +78,11 @@ func build(skin: SkinData, values: PackedInt64Array, role: StringName, box: Styl
 	var gap: float = skin.num(&"space_xs")
 	var side: float = skin.num(&"notice_tile_scale") * height
 	var text_width: float = _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size).x
+	var stars_width: float = 0.0
+	if not stars_text.is_empty():
+		stars_width = skin.num(&"space_s") + _font.get_string_size(stars_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size).x 			+ float(_font_size) * (STAR_GAP + 1.0)
 	var shown: PackedInt64Array = values
-	var fixed: float = pad_left + text_width + pad_right
+	var fixed: float = pad_left + text_width + stars_width + pad_right
 	if values.size() > 2 and fixed + (side + gap) * float(values.size()) > max_width:
 		shown = PackedInt64Array([values[0], values[values.size() - 1]])
 	var x: float = pad_left
@@ -83,9 +101,39 @@ func build(skin: SkinData, values: PackedInt64Array, role: StringName, box: Styl
 	move_child(_strikes, get_child_count() - 1)
 	var line_height: float = _font.get_height(_font_size)
 	_text_origin = Vector2(x, (_face_height - line_height) * 0.5 + _font.get_ascent(_font_size))
-	_content_width = x + text_width + pad_right
+	_place_star(skin, x + text_width)
+	_content_width = x + text_width + stars_width + pad_right
 	size = Vector2(_content_width, height)
 	queue_redraw()
+
+
+## The star's center in this control's space, or (-1, -1) with no stars.
+## The star earned effect leaves from here.
+func star_center() -> Vector2:
+	if _star == null or not _star.visible:
+		return Vector2(-1.0, -1.0)
+	return _star.position + _star.size * 0.5
+
+
+## "+n" and the star after the copy, which ends at text_end.
+func _place_star(skin: SkinData, text_end: float) -> void:
+	if stars_text.is_empty():
+		if _star != null:
+			_star.visible = false
+		return
+	_stars_origin = Vector2(text_end + skin.num(&"space_s"), _text_origin.y)
+	if _star == null:
+		_star = UiKit.make_icon(skin)
+		_star.name = "Star"
+		add_child(_star)
+		_star.set_icon(&"star")
+	_star.visible = true
+	_star.set_color(_ink)
+	var star_side: float = float(_font_size)
+	var plus_width: float = _font.get_string_size(stars_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size).x
+	var cap_middle: float = _text_origin.y - FontMetrics.CAP_HEIGHT * float(_font_size) * 0.5
+	_star.size = Vector2(star_side, star_side)
+	_star.position = Vector2(_stars_origin.x + plus_width + STAR_GAP * float(_font_size), cap_middle - star_side * 0.5)
 
 
 ## Width the content needs.
@@ -117,6 +165,8 @@ func _draw() -> void:
 	draw_style_box(_box, Rect2(Vector2.ZERO, size))
 	# Text pair: badge_ink on badge.
 	draw_string(_font, _text_origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size, _ink)
+	if not stars_text.is_empty():
+		draw_string(_font, _stars_origin, stars_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size, _ink)
 
 
 func _draw_strikes() -> void:

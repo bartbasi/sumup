@@ -3,6 +3,15 @@ extends "res://src/design/shared/pen_icon.gd"
 ## segments and true circles, square caps, icon_stroke strokes on the 24 unit
 ## grid, no fills. Settings is three sliders; pause is two upright bars.
 ## Ink normally, ink_dark on the paper fill (active), disabled_ink disabled.
+##
+## The star is sharp: center (12, 12.9), outer radius 11, inner radius 0.42
+## of it, no rounding. The icon is the filled star, a data mark that may fill
+## like the chain nodes; the HUD counter draws its 2 unit mitered outline.
+
+const STAR: Dictionary = {
+	"center": Vector2(12.0, 12.9), "outer": 11.0, "inner_share": 0.42,
+	"round_point": 0.0, "round_valley": 0.0, "outline": 2.0,
+}
 
 var _stroke: float = 1.0
 
@@ -72,6 +81,13 @@ func _record(icon_name: StringName) -> void:
 			_pen.line(Vector2(18.0, 6.0), Vector2(6.0, 18.0), _stroke)
 		&"check":
 			_pen.polyline(PackedVector2Array([Vector2(4.5, 12.5), Vector2(9.5, 17.5), Vector2(19.5, 7.5)]), _stroke)
+		&"star":
+			_pen.fill(StarShape.outline(STAR))
+		&"chevron":
+			_pen.polyline(PackedVector2Array([Vector2(9.0, 5.0), Vector2(16.0, 12.0), Vector2(9.0, 19.0)]), _stroke)
+		&"arrow":
+			_pen.line(Vector2(3.0, 12.0), Vector2(20.0, 12.0), _stroke)
+			_pen.polyline(PackedVector2Array([Vector2(15.0, 7.0), Vector2(20.0, 12.0), Vector2(15.0, 17.0)]), _stroke)
 
 
 ## One slider track at row y with a square knob centered at knob_x.

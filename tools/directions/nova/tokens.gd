@@ -94,13 +94,15 @@ func _init() -> void:
 		"body": {"size": 44, "weight": 400, "tracking": 0, "case": CASE_NONE},
 		"label": {"size": 32, "weight": 400, "tracking": 3, "case": CASE_LOWER},
 		"tile": {"weight": 600, "tracking": 0, "case": CASE_NONE},
+		"heading": {"size": 50, "weight": 300, "tracking": 0, "case": CASE_NONE},
+		"reading": {"size": 42, "weight": 400, "tracking": 0, "case": CASE_NONE},
 	}
 	tile_number_scale = PackedFloat32Array([0.46, 0.42, 0.37, 0.315])
 
 	shape = {
 		# Shared names. Lengths in px on the 1080 px base canvas unless noted.
 		"board_margin": 44.0,
-		"board_gap": 24.0,           # between orbs at the base width (orb_scale 0.88 of the pitch)
+		"board_gap": 22.0,           # between orbs at the base width (orb_scale 0.89 of the pitch; was 24 at 0.88, DESIGN_SYSTEM.md 2.4)
 		"board_padding": 0.0,
 		"tile_radius": 0.5,          # circle
 		"label_fit": 0.82,           # widest label, fraction of the orb diameter
@@ -116,7 +118,7 @@ func _init() -> void:
 		"space_m": 44.0,
 		"space_l": 72.0,
 		"space_xl": 112.0,
-		"touch_min": 144.0,         # 48 dp on a 360 dp wide phone
+		"touch_min": 160.0,         # 48 dp on 18:9 phones, 51 dp on the Fold5 cover (DESIGN_SYSTEM.md 2.7)
 		"radius_button": 72.0,       # pill
 		"radius_card": 64.0,         # sheet top corners
 		"radius_chip": 72.0,
@@ -124,7 +126,7 @@ func _init() -> void:
 		"hud_height": 200.0,
 		"bar_height": 254.0,
 		"hint_height": 64.0,
-		"button_height": 144.0,
+		"button_height": 160.0,       # at least touch_min (2.7)
 		"row_height": 144.0,
 		"icon_booster": 80.0,
 		"icon_hud": 72.0,
@@ -135,8 +137,11 @@ func _init() -> void:
 		"notice_height": 80.0,
 		"notice_tile_scale": 0.6,
 		"notice_strike": 2.0,
+		"star_icon": 32.0,          # the HUD counter's star box, on the best line
+		"reading_line_spacing": 12.0,  # px added between reading role lines
+		"scroll_bar": 4.0,          # drawn width of the reading screens' scroll indicator
 		# Extras
-		"orb_scale": 0.88,
+		"orb_scale": 0.89,            # 56.3 dp on the Fold5 cover screen (QA6-05, DESIGN_SYSTEM.md 2.4)
 		"rim_width": 4.0,
 		"rim_lighten": 0.35,
 		"glow_alpha_low": 0.10,
@@ -207,6 +212,8 @@ func _init() -> void:
 		"target_pulse": {"duration": 1.60, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT, "alpha_low": 0.45},
 		"score_count": {"duration": 0.60, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT},
 		"skin_switch": {"duration": 0.40, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT},
+		"star_earn": {"duration": 0.44, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_IN_OUT, "delay": 0.10, "from_alpha": 0.0, "stagger": 0.08, "peak_glow": 1.8},
+		"star_convert": {"duration": 0.40, "trans": Tween.TRANS_SINE, "ease": Tween.EASE_OUT, "peak_glow": 2.0, "from_offset": 8.0, "empty": 0.40},
 	}
 
 	_add_phase1_aliases()

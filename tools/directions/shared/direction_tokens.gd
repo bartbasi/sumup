@@ -25,15 +25,18 @@ const CASE_NONE: String = "none"
 const CASE_UPPER: String = "upper"
 const CASE_LOWER: String = "lower"
 
-## The type roles every direction defines.
-const TYPE_ROLES: PackedStringArray = ["display", "title", "body", "label", "tile"]
+## The type roles every direction defines. heading and reading came with the
+## 2026-10-13 reading screens (DESIGN_SYSTEM.md 3.4, 7.11).
+const TYPE_ROLES: PackedStringArray = ["display", "title", "body", "label", "tile", "heading", "reading"]
 
-## The motion names every skin defines.
+## The motion names every skin defines. star_earn and star_convert came with
+## the 2026-10-13 stars (DESIGN_SYSTEM.md 3.6).
 const MOTION_NAMES: PackedStringArray = [
 	"spawn", "fall", "chain_add", "chain_remove", "joinable_in",
 	"merge_travel", "merge_pop", "clear", "clear_notice", "press",
 	"button_press", "button_release", "dialog_in", "dialog_out",
 	"screen_fade", "target_pulse", "score_count", "skin_switch",
+	"star_earn", "star_convert",
 ]
 
 ## The palette roles every skin defines.
@@ -52,7 +55,8 @@ const SHARED_SHAPE: PackedStringArray = [
 	"radius_card", "radius_chip", "hairline", "hud_height", "bar_height",
 	"hint_height", "button_height", "row_height", "icon_booster", "icon_hud",
 	"icon_stroke", "toggle_w", "toggle_h", "toggle_knob", "notice_height",
-	"notice_tile_scale", "notice_strike",
+	"notice_tile_scale", "notice_strike", "star_icon", "reading_line_spacing",
+	"scroll_bar",
 ]
 
 ## Font families a skin can use.

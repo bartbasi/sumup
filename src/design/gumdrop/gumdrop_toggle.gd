@@ -7,7 +7,10 @@ extends SkinToggle
 
 const Candy: GDScript = preload("res://src/design/gumdrop/gumdrop_candy.gd")
 
+const TapInput: GDScript = preload("res://src/design/shared/tap_input.gd")
+
 var _skin: SkinData = null
+var _tap: TapInput = TapInput.new()
 var _on: bool = false
 ## Knob travel, 0 off to 1 on. button_release springs past the ends.
 var _t: float = 0.0
@@ -81,10 +84,14 @@ func _draw() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	var button: InputEventMouseButton = event as InputEventMouseButton
-	if button == null or button.button_index != MOUSE_BUTTON_LEFT or _skin == null:
+	if _skin == null:
+		return
+	# One tap rule for every design control (QA6-01): never the copies of
+	# Godot's mouse and touch emulation.
+	var read: int = _tap.read(event, size)
+	if read == TapInput.IGNORED:
 		return
 	accept_event()
-	if not button.pressed and Rect2(Vector2.ZERO, size).has_point(button.position):
+	if read == TapInput.TAPPED:
 		set_on(not _on, true)
 		toggled.emit(_on)

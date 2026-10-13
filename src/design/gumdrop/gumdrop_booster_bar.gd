@@ -6,7 +6,12 @@ extends "res://src/design/shared/booster_bar_base.gd"
 ##
 ## The dock's lip is part of dock_height, and the buttons sit space_xs inside
 ## the dock's face on every side and space_xs apart, so each button (face and
-## lip) is dock_height less the dock lip less 2 x space_xs tall.
+## lip) is dock_height less the dock lip less 2 x space_xs tall. The dock
+## sits board_margin inside the bar's own rect (the content column, QA6-08).
+##
+## Touch (QA6-05): each button takes touch on the dock face's whole height
+## and across to the middle of the gaps beside it (the outer ones to the
+## dock's edge), while it draws as before.
 ##
 ## The hint is a lemon badge pill centered in the hint row. The Suggested
 ## badge (D-42) sits on top of its button's top edge, in the hint row; it
@@ -66,12 +71,18 @@ func _place() -> void:
 		var width: float = (dock.size.x - pad * 2.0 - pad * float(count - 1)) / float(count)
 		var height: float = dock.size.y - lip - pad * 2.0
 		for i: int in count:
-			var button: BoosterButtonBase = _buttons[i]
-			button.position = Vector2(dock.position.x + pad + (width + pad) * float(i), dock.position.y + pad)
-			button.size = Vector2(width, height)
+			var button: GumdropBoosterButton = _buttons[i] as GumdropBoosterButton
+			var rest: Rect2 = Rect2(dock.position.x + pad + (width + pad) * float(i), dock.position.y + pad, width, height)
+			# The touch area: the dock face's height, to the middle of the gaps
+			# beside the button, or to the dock's edge.
+			var left: float = dock.position.x if i == 0 else rest.position.x - pad * 0.5
+			var right: float = dock.end.x if i == count - 1 else rest.end.x + pad * 0.5
+			button.position = Vector2(left, dock.position.y)
+			button.size = Vector2(right - left, dock.size.y - lip)
+			button.set_rest_rect(Rect2(rest.position - button.position, rest.size))
 			if button.suggested and badges_shown():
-				var x: float = clampf(button.position.x + (width - _suggested_width) * 0.5, 0.0, size.x - _suggested_width)
-				var rect: Rect2 = Rect2(x, button.position.y - badge_height, _suggested_width, badge_height)
+				var x: float = clampf(rest.position.x + (width - _suggested_width) * 0.5, 0.0, size.x - _suggested_width)
+				var rect: Rect2 = Rect2(x, rest.position.y - badge_height, _suggested_width, badge_height)
 				_badge_rects.append(rect)
 				_badge_origins.append(_text_origin(rect))
 	if not _hint.is_empty():

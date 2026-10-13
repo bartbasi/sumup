@@ -17,6 +17,11 @@ const CONTRACT_VARIATIONS: Dictionary[StringName, StringName] = {
 	&"PillPanel": &"PanelContainer",
 	&"HintPanel": &"PanelContainer",
 	&"Hairline": &"HSeparator",
+	&"HeadingLabel": &"Label",
+	&"ReadingLabel": &"Label",
+	&"SectionPanel": &"PanelContainer",
+	&"RowButton": &"Button",
+	&"RowDetailLabel": &"Label",
 }
 const ADDED_VARIATIONS: Dictionary[StringName, StringName] = {
 	&"IconButton": &"Button",
@@ -25,7 +30,7 @@ const ADDED_VARIATIONS: Dictionary[StringName, StringName] = {
 	&"SignalLabel": &"Label",
 	&"HintLabel": &"Label",
 }
-const BUTTON_TYPES: Array[StringName] = [&"Button", &"PrimaryButton", &"SecondaryButton", &"ChipButton", &"IconButton"]
+const BUTTON_TYPES: Array[StringName] = [&"Button", &"PrimaryButton", &"SecondaryButton", &"ChipButton", &"IconButton", &"RowButton"]
 const BUTTON_STATES: Array[StringName] = [&"normal", &"hover", &"pressed", &"hover_pressed", &"disabled", &"focus"]
 const BUTTON_COLORS: Array[StringName] = [
 	&"font_color", &"font_hover_color", &"font_focus_color",
@@ -55,6 +60,29 @@ static func plain_statuses(cost: int) -> Array[BoosterStatus]:
 	for id: StringName in BOOSTERS:
 		statuses.append(status(id, cost, true, BoosterStatus.Usability.USABLE, false, false))
 	return statuses
+
+
+## A free booster held (D-46): every status free, hammer active (targeting)
+## and undo disabled with no snapshot, the rest usable.
+static func free_statuses() -> Array[BoosterStatus]:
+	var statuses: Array[BoosterStatus] = []
+	for i: int in BOOSTERS.size():
+		var usable: bool = i != 4
+		var reason: BoosterStatus.Usability = BoosterStatus.Usability.USABLE if usable else BoosterStatus.Usability.NO_SNAPSHOT
+		var made: BoosterStatus = status(BOOSTERS[i], 4096, usable, reason, i == 0, false)
+		made.free = true
+		statuses.append(made)
+	return statuses
+
+
+## Every control under root, root included.
+static func controls_under(root: Node) -> Array[Control]:
+	var found: Array[Control] = []
+	if root is Control:
+		found.append(root as Control)
+	for child: Node in root.get_children():
+		found.append_array(controls_under(child))
+	return found
 
 
 static func status(id: StringName, cost: int, usable: bool, reason: BoosterStatus.Usability, active: bool, suggested: bool) -> BoosterStatus:

@@ -85,6 +85,13 @@ static func build(skin: SkinData) -> Theme:
 
 	ThemeKit.divider(theme, &"Hairline", skin.color(&"line"), skin.num(&"hairline"), false)
 	ThemeKit.divider(theme, &"HSeparator", skin.color(&"line"), skin.num(&"hairline"), false)
+
+	# Reading screens (7.11): no box and no lines (sections stand space_l
+	# apart, set by the screen); a pressed row fills surface_raised with
+	# radius_chip corners; the scroll indicator is a pill.
+	var row_pressed: StyleBoxFlat = ThemeKit.box(skin.color(&"surface_raised"), skin.num(&"radius_chip"))
+	var row_focus: StyleBoxFlat = ThemeKit.focus_ring(skin.color(&"accent"), ring, skin.num(&"radius_chip"), skin.num(&"focus_gap") + skin.num(&"space_s"))
+	ThemeKit.reading_types(theme, skin, StyleBoxEmpty.new(), row_pressed, row_focus, skin.num(&"scroll_bar") * 0.5)
 	return theme
 
 

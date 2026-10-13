@@ -3,6 +3,15 @@ extends "res://src/design/shared/pen_icon.gd"
 ## icon_stroke round strokes on the 24 unit grid, round caps and joins,
 ## filled where it helps. Ink normally, ink_dark on an accent fill (active),
 ## disabled_ink when disabled.
+##
+## The star is a plump candy star: center (12, 12.9), outer radius 11, inner
+## radius half of it, points rounded by 1.8 units and valleys by 1.0. The
+## icon is the filled star; the HUD counter draws its 2.5 unit outline band.
+
+const STAR: Dictionary = {
+	"center": Vector2(12.0, 12.9), "outer": 11.0, "inner_share": 0.50,
+	"round_point": 1.8, "round_valley": 1.0, "outline": 2.5,
+}
 
 var _stroke: float = 1.0
 
@@ -79,6 +88,15 @@ func _record(icon_name: StringName) -> void:
 			_pen.line(Vector2(17.5, 6.5), Vector2(6.5, 17.5), _stroke)
 		&"check":
 			_pen.polyline(PackedVector2Array([Vector2(5.0, 12.5), Vector2(10.0, 17.0), Vector2(19.0, 7.5)]), _stroke)
+		&"star":
+			_pen.fill(StarShape.outline(STAR))
+		&"chevron":
+			_pen.polyline(PackedVector2Array([Vector2(9.5, 6.0), Vector2(15.5, 12.0), Vector2(9.5, 18.0)]), _stroke)
+		&"arrow":
+			# A round capped shaft and a filled head, its corners rounded by 1.
+			_pen.line(Vector2(4.0, 12.0), Vector2(15.0, 12.0), _stroke)
+			var head: PackedVector2Array = PackedVector2Array([Vector2(21.0, 12.0), Vector2(14.5, 17.5), Vector2(14.5, 6.5)])
+			_pen.fill(StarShape.fillet(head, 1.0, 1.0))
 
 
 ## A filled speaker with softened corners.
