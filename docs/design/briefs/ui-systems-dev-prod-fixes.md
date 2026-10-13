@@ -28,7 +28,7 @@ Write paths: yours as in your task brief (src/ui/, scenes/ui/, tests/ui/, and do
 | 4 | Slate and Nova offer with no box | Accepted. Their dialog panel is a bottom sheet, which does not suit a panel at the top. Written into 7.5. |
 | 5 | Slate left aligns the menu's tile row and records too | Accepted. Written into 7.2. |
 | 6 | Panel titles centered except in Slate | Accepted, with the rule you already follow made explicit: a title that shares its row with something on the right (Settings' close button, the offer's score) is left aligned. Section 7, Alignment. |
-| 7 | Version line "numbersgame" plus `application/config/version` when set; Slate in capitals | Accepted. Written into 7.7. |
+| 7 | Version line "SumUp" (numbersgame before the 2026-10-13 rename) plus `application/config/version` when set; Slate in capitals | Accepted. Written into 7.7. |
 | 8 | The settings button's face width from `hud_button_face` (Gumdrop), `hud_ring` (Nova), else `icon_hud` | Accepted as built for v1. A shared `icon_button_face` token would repeat values that already exist and touch three areas for no visible change. If a fourth skin is ever added, fold the two into one shared token then. |
 
 ## Proof

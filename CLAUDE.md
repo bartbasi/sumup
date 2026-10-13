@@ -60,6 +60,7 @@ Autoload and input map entries in project.godot are added by the DM during integ
 - 2026-10-13: The game is renamed from numbersgame to SumUp, everywhere in the repo and on GitHub (bartbasi/sumup). The Android package is com.bartbasi.sumup. Dated review reports in docs/reviews/ keep the old name, as records of what was tested. The local folder on this machine stays `C:\bart\numbergame`.
 - 2026-10-13, Phase 6: of the three Low security findings, Bart chose to fix SEC-01 (a board whose only pairs overflow 64 bits counts as a move) now. SEC-02 (no flush before the save rename, no profile backup) and SEC-03 (the Windows account name in local paths) stay open for later.
 - 2026-10-13, Phase 6: Bart chose to fix all eight QA findings in docs/reviews/qa-2026-10-13.md now (QA6-01 to QA6-08), including QA6-06 (the kill window after a commit) and QA6-07 (Windows only save after a failed rename).
+- 2026-10-13: Bart approved the About and license wording in DESIGN_SYSTEM.md 7.10 as written. On his Fold5 cover screen the camera hole does not cover the score (QA's Q2), so nothing changes for it.
 
 ## Rules for every session and agent
 

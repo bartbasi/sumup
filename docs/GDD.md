@@ -1714,16 +1714,28 @@ Play setups that need stars or free boosters can use a run file written by hand 
 
 **About screen (no D number)**
 
-**AT-140. About opens from Settings and back closes it.** Type: Play. Setup: Settings open, once from the main menu and once from Pause. Action: tap About, press Android back; tap About again, use its own close control. Expected: About opens from Settings. Back and the close control each return to Settings, which is still open. A second back closes Settings as before. It works in every skin.
+**AT-140. About opens from Settings and back closes it.** Type: Play. Setup: Settings open, once from the main menu and once from Pause. Action: tap About, press Android back; tap About again, use its own close control. Then open About, open a license row, press back; open the row again and use the license view's close control. Expected: About opens from Settings. Back and the close control each return to Settings, which is still open. A second back closes Settings as before. From a license view, back and its close control each return to About. It works in every skin.
 
-**AT-141. About shows what it is and who made it.** Type: Both. Setup: none. Action: open About in each skin. Expected:
-- It shows the game name SumUp, the version (the same as on the Settings version line), that it is made by Bart Basi, and that the game is fully offline and collects no data.
-- It shows the attribution exactly as "Copyright 2026 Bart Basi".
-- Unit: the About text (TH22) contains the exact text "Copyright 2026 Bart Basi".
+**AT-141. About shows what it is and who made it.** Type: Both. Setup: none. Action: open About in each skin, and compare it with the Settings version line. Expected (copy from DESIGN_SYSTEM.md 7.10 and 7.13):
+- The brand block shows the wordmark "SumUp", "Version {version}", "Made by Bart Basi" and "Copyright 2026 Bart Basi".
+- The version is the same as on the Settings version line. When no version is set, both leave it out.
+- "Copyright 2026 Bart Basi" reads exactly so in every skin, never cased (Slate included), and is visible in the first screenful without scrolling.
+- The sections "What it is", "Offline, no data" and "Licenses" follow, with their copy. The second says the game works fully offline and collects no data. The Licenses section ends in three rows: SumUp, Godot Engine and Outfit font.
+- Unit (TH22): the About text contains "Copyright 2026 Bart Basi" exactly, and its version equals the project's version setting.
 
-**AT-142. Every license can be read in full.** Type: Both. Setup: none. Action: from About, open in turn the game's license (the GNU GPL version 3 text), the Godot engine's license notice (its MIT notice and the notices for its parts) and the Outfit font's license (SIL Open Font License 1.1). Scroll each from its first line to its last. Expected:
-- Unit: each text shown equals its source exactly, character for character: the GPL text file and OFL.txt that ship with the game, and Godot's own license and copyright data.
-- Play: on a 360 x 640 dp screen each text scrolls to its last line, which is visible. No line is clipped or cut short.
+**AT-142. Every license can be read in full.** Type: Both. Setup: none. Action: from About, open each license row in turn: "SumUp license", "Godot Engine" and "Outfit font". Scroll each from its first line to its last. Expected:
+- Unit: each view's text equals its sources with whitespace normalized, in both the view and the source:
+  - every run of spaces and line breaks inside a paragraph counts as one space;
+  - blank lines mark the paragraph breaks;
+  - spaces at the start and end of a paragraph do not count;
+  - the headings and the "Copyright" and "License:" labels the view adds (DESIGN_SYSTEM.md 7.10) are left out of the comparison.
+  Nothing else may differ, not one character.
+- The sources, in order:
+  - SumUp license: the NOTICE file, then the unchanged COPYING file (GNU GPL version 3), both as shipped in the package.
+  - Godot Engine: the engine's license text; every entry of its copyright info, with each part's copyright lines and license name; and every entry of its license info, with its full text.
+  - Outfit font: the shipped OFL.txt.
+- Unit, completeness: each view has the same number of paragraphs as its sources, and its first and last paragraphs equal theirs.
+- Play: on a 360 x 640 dp screen each view scrolls from its first line to its last, which is visible. No line is clipped or cut short.
 
 **The 64 bit edge (SEC-01, D-37)**
 

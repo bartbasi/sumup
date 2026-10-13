@@ -403,7 +403,7 @@ class_name SkinData extends Resource
 @export var text_pairs: Array[Dictionary]                   # every text color on background pair the screens may use
 @export var font_path: String                               # "" for the system font, else a res:// font file
 @export var system_font_names: PackedStringArray            # used when font_path is ""
-@export var type_roles: Dictionary[StringName, Dictionary]  # display, title, body, label, tile: size, weight, tracking, case
+@export var type_roles: Dictionary[StringName, Dictionary]  # display, title, heading, body, reading, label, tile: size, weight, tracking, case
 @export var tile_number_scale: PackedFloat32Array           # tile label size by label length, share of the tile side
 @export var numbers: Dictionary[StringName, float]          # spacing, radii, sizes, shares
 @export var motion: Dictionary[StringName, Dictionary]      # name to {duration, trans, ease, plus extras}
@@ -423,6 +423,13 @@ func validate() -> PackedStringArray                        # every schema token
 ```
 
 A missing token is a bug: the getter calls `push_error` once and returns a visible fallback (magenta for colors, 0 for numbers). `validate()` lets tests catch it first.
+
+The 2026-10-13 additions (DESIGN_SYSTEM.md 10.2) add to the schema in `src/skins/skin.gd`:
+- `TYPE_ROLES` gains `heading` and `reading`;
+- the shared numbers gain `star_icon`, `reading_line_spacing` and `scroll_bar`;
+- `MOTION_NAMES` gains `star_earn` and `star_convert`.
+
+`touch_min` and `button_height` become 160 in every skin (QA6-05).
 
 Fonts: Gumdrop and Nova point `font_path` at `res://src/design/fonts/Outfit[wght].ttf`. Slate leaves it empty and uses `system_font_names` (Roboto first). The variable weight axis is set by its integer tag (`TextServerManager.get_primary_interface().name_to_tag("wght")`), because the string key is ignored in Godot 4.7 (found in Phase 1).
 
@@ -489,10 +496,12 @@ static func make_booster_bar(skin: SkinData) -> SkinBoosterBar
 static func make_icon(skin: SkinData) -> SkinIcon
 static func make_toggle(skin: SkinData) -> SkinToggle
 static func make_backdrop(skin: SkinData) -> SkinBackdrop
-static func make_icon_button(skin: SkinData, icon_name: StringName) -> BaseButton   # a touch_min square button with the skin icon drawn on its face; emits pressed
+static func make_icon_button(skin: SkinData, icon_name: StringName) -> BaseButton   # a touch_min square button with the skin icon drawn on its face; emits pressed exactly once per tap, touch or mouse (QA6-01)
 ```
 
-**Theme.** `build_theme` sets the default font to the body role and defines these type variations in every skin: DisplayLabel, TitleLabel, BodyLabel, MutedLabel, CaptionLabel, PrimaryButton, SecondaryButton, ChipButton, CardPanel, PillPanel, HintPanel, Hairline, IconButton, BadgePanel, BadgeLabel, SignalLabel, HintLabel. SignalLabel takes the title role case, except Slate, where it takes the label role. A Theme cannot set text case or alignment, so screens apply `skin.cased()` themselves and left align Slate's primary buttons. UiKit factories return components already set up. Buttons have normal, hover, pressed, disabled and focus styles. The App sets the theme on its root Control, so every screen and panel inherits it.
+The HUD, the booster bar and every panel lay out from their own rect only. On wide screens that rect is the content column (QA6-08, section 11), which can be narrower than the screen.
+
+**Theme.** `build_theme` sets the default font to the body role and defines these type variations in every skin: DisplayLabel, TitleLabel, BodyLabel, MutedLabel, CaptionLabel, PrimaryButton, SecondaryButton, ChipButton, CardPanel, PillPanel, HintPanel, Hairline, IconButton, BadgePanel, BadgeLabel, SignalLabel, HintLabel, and for the reading screens (DESIGN_SYSTEM.md 7.11) HeadingLabel, ReadingLabel, SectionPanel, RowButton, RowDetailLabel, plus the skin's ScrollContainer and VScrollBar looks. SignalLabel takes the title role case, except Slate, where it takes the label role. A Theme cannot set text case or alignment, so screens apply `skin.cased()` themselves and left align Slate's primary buttons. UiKit factories return components already set up. Buttons have normal, hover, pressed, disabled and focus styles. The App sets the theme on its root Control, so every screen and panel inherits it.
 
 ```gdscript
 class_name SkinHud extends Control
@@ -502,16 +511,19 @@ func set_scores(score: int, best_score: int) -> void
 func set_context(text: String, highlight: bool) -> void   # a skin that has no context row ignores it
 func preview_slot() -> Control                            # where the screen puts a SkinTileView preview; null when the skin previews on the board
 func score_label() -> Label                               # for Motion.count_up
-## D-38 clear notice (AT-104). Builds its own copy from DESIGN_SYSTEM.md 7.10 and places itself:
-## Gumdrop and Nova on the board's top edge (board_rect is global), Slate in its context row.
+## D-38 and D-45 clear notice (AT-104). values are the move's notice_values. Builds its own copy from
+## DESIGN_SYSTEM.md 7.10, with "+n" and a star when stars_earned > 0, and places itself per skin (4.7, 5.7, 6.7).
+## While a notice layer is set and the HUD is hidden (the offer, QA6-04), it shows in that layer instead (7.1, 7.5).
 ## Never blocks input; a later call replaces a notice still showing.
-func show_clear_notice(cleared_values: PackedInt64Array, board_rect: Rect2) -> void
+func show_clear_notice(values: PackedInt64Array, board_rect: Rect2, stars_earned: int = 0) -> void
+func set_stars(count: int, free_held: int) -> void        # D-45, D-46: the counter (with its progress fill) and the free boosters held
+func set_notice_layer(layer: Control) -> void             # QA6-04: GameScreen's notice layer over the play screen
 func preferred_height() -> float
 
 class_name SkinBoosterBar extends Control
 signal booster_pressed(booster_id: StringName)
 func setup(skin: SkinData) -> void
-func show_boosters(statuses: Array[BoosterStatus]) -> void
+func show_boosters(statuses: Array[BoosterStatus]) -> void   # a status with free set reads "Free" in place of its cost (D-46)
 func set_hint(text: String) -> void                       # targeting hint; "" hides it; a skin that shows the hint in the HUD ignores it
 func content_top() -> float
 func preferred_height() -> float
@@ -521,7 +533,7 @@ const LOOK_NORMAL: int = 0
 const LOOK_ACTIVE: int = 1
 const LOOK_DISABLED: int = 2
 func setup(skin: SkinData) -> void
-func set_icon(icon_name: StringName) -> void              # names listed in DESIGN_SYSTEM.md
+func set_icon(icon_name: StringName) -> void              # names listed in DESIGN_SYSTEM.md; ICON_NAMES gains star, chevron and arrow
 func set_look(look: int) -> void
 func set_color(color: Color) -> void
 
@@ -784,6 +796,10 @@ func setup(skin: SkinData, title: String, body: String, confirm_text: String, ca
 
 class_name SafeArea extends RefCounted
 static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area mapped into viewport coordinates
+## QA6-08, DESIGN_SYSTEM.md 2.8. The content column inside the safe area: as wide as the smaller of the safe width
+## and the play screen board's width plus 2 x board_margin, centered. GameScreen (HUD, bar, offer, board), the dialog
+## base (every panel), MainMenu and the reading screens lay out inside it. It follows live resizes (fold and unfold).
+static func content_column(viewport: Viewport, skin: SkinData) -> Rect2
 ```
 
 ### Flow
@@ -791,7 +807,12 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 1. **Start (Bart's decision).** App loads the profile and sets the theme for `settings.skin_id`. If a valid run is saved, it goes straight to GameScreen and calls `session.resume(saved)`. Otherwise it shows MainMenu. MainMenu also follows a finished run (EndPanel's Main menu), so it never sees a saved run.
 2. **New game** calls `session.start_new_run()`. From Pause, while a run is in progress, it asks through ConfirmDialog first (D-34).
 3. **Play.** GameScreen shows Backdrop, HUD, BoardController and BoosterBar for the current skin, laid out inside the safe area as DESIGN_SYSTEM.md arranges it. It re-reads `session.booster_statuses()` on `status_changed`, mirrors scores into the HUD, and passes `chain_changed` to the HUD context row and preview slot for skins that use them.
-4. **Clear notice and stars.** When a `move_resolved` result has `stars_earned > 0` or a non empty `cleared_small` (section 4, D-45), GameScreen calls the HUD's clear notice with `result.notice_values` and `result.stars_earned` (AT-104). On `status_changed` it passes `session.stars()` and `session.free_held()` to the HUD. The HUD calls are in section 7.
+4. **Clear notice and stars.**
+   - When a `move_resolved` result has `stars_earned > 0` or a non empty `cleared_small` (section 4, D-45), GameScreen calls `hud.show_clear_notice(result.notice_values, board_rect, result.stars_earned)` (AT-104).
+   - In the same move it then calls `hud.set_stars(session.stars(), session.free_held())`.
+   - Both wait for the board's `move_started` (section 8).
+   - GameScreen owns the notice layer and hands it to the HUD with `set_notice_layer`, so the notice and the star moment show while the offer hides the HUD (QA6-04).
+   - The HUD calls are in section 7.
 5. **Offer.** While `session.is_offer_open()`, OfferPanel takes the HUD's place (DESIGN_SYSTEM.md 7.5); the board and booster bar stay visible and usable. Its buy button and the booster bar both call `session.press_booster`. End run calls `session.end_run()`. GameScreen shows the panel on `offer_changed(true, ...)`, refreshes it on every `status_changed`, and restores the HUD on `offer_changed(false, ...)`.
 6. **End.** On `run_ended` the App deletes the saved run, saves the profile and shows EndPanel. It never saves a run unless `session.is_run_in_progress()` is true.
 7. **Settings.** Reached from MainMenu and PausePanel. Sound calls `settings.set_sound_on`; a skin chip calls `settings.set_skin_id`. The App listens: sound goes to `audio.set_enabled`; a skin change rebuilds the theme and calls `apply_skin` on every live screen and panel. Both save the profile.
@@ -868,4 +889,4 @@ Built on the `additions` branch, in `C:\bart\sumup-work`.
    - ui-motion-artist: the HUD stars, the Free price, the star icon, icon buttons firing twice on touch (QA6-01), and the touch size and width cap (QA6-05, QA6-08);
    - tile-board-artist: Gumdrop's draw calls for 64K and up (QA6-02), plus any new SkinData tokens;
    - board-input-dev: `set_show_gate` (QA6-06).
-3. **Wave C:** ui-systems-dev wires the HUD, the clear notice change (and its place while the offer is open, QA6-04), the gate and the end of run stars. Then the design review, then QA and security re-review.
+3. **Wave C:** ui-systems-dev wires the HUD, the clear notice change (and its place while the offer is open, QA6-04), the gate, the content column and the new panels (the end of run screen gets no stars row, DESIGN_SYSTEM.md 7.6). Then the design review, then QA and security re-review.
