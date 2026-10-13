@@ -1,6 +1,6 @@
-# numbersgame: Architecture
+# SumUp: Architecture
 
-Owner: Development Manager. Status: Phase 2 contract, 2026-10-11.
+Owner: Development Manager. Status: Phase 2 contract, 2026-10-11. Extended 2026-10-13 for stars and free boosters (GDD D-45, D-46), the save format 2 run file, How to play (D-44), About, and the SEC-01 move check.
 
 This is the contract every agent builds against in Phase 3. It names every class each area exposes, every public method and signal with its arguments, the data model, the save format, and how skins and the theme are read. If you need something here changed, stop and ask the Development Manager. Do not change another area's code, and do not invent a public method another area must call.
 
@@ -41,6 +41,12 @@ A line down means "may use". core uses nothing else. boosters uses core. save us
 - **Signals** are listed with typed arguments. Emit only the signals listed. Connect with typed callables.
 - **Errors.** Rules refuse bad input by returning a refused result and changing nothing. They never clamp, never crash, never `assert` on player input. `push_error` is for programming errors only.
 - **Overflow.** Real play never comes near 2^63, but a hand edited save can hold tiles up to 2^62. Any move whose tile value, score or points would pass 2^63 minus 1 is refused and changes nothing (core uses `&"invalid_chain"`, boosters `&"bad_target"`). A booster whose cost would pass that limit counts as not affordable. `merge_result` returns 0 for such a sum.
+- **One fit test (SEC-01, GDD D-37).** The joining rule and the move check use the same test as `commit_chain`:
+  - `can_join`, `step_chain`, `joinable_cells` and `is_valid_chain` refuse a tile that would take the chain's sum past 2^63 minus 1.
+  - `has_valid_move` counts a touching pair only when its sum fits (a value of 2^61 or less).
+  - A booster is usable only when it can act on the board. Swap and Shuffle need two tiles of different value. Double needs a tile of 2^61 or less, and a 2^62 tile is a bad target that spends nothing. Hammer can always act.
+  - The Shuffle fallback considers only values of 2^61 or less.
+  - So a board whose only pairs would overflow opens the offer or ends the run as normal.
 - **Packed arrays are shared.** In Godot 4.7, `var b: PackedInt64Array = a` makes b share a's data, so writing `b[0]` changes `a`. Call `duplicate()` before changing an array you did not create, and assign the result back.
 
 ## 4. Data model (src/core/, core-logic-dev)
@@ -67,6 +73,7 @@ var cost_shift: Dictionary[StringName, int] = {&"hammer": 0, &"swap": 0, &"shuff
 var label_full_max: int = 1024          # LABEL_FULL_MAX
 var label_step: int = 1024              # LABEL_STEP
 var label_suffixes: PackedStringArray = PackedStringArray(["K", "M", "B", "T"])   # LABEL_SUFFIXES
+var stars_per_free_booster: int = 3     # STARS_PER_FREE_BOOSTER (D-46)
 func cell_count() -> int                # columns * rows
 ```
 
@@ -84,8 +91,10 @@ var score: int = 0
 var snapshot_cells: PackedInt64Array    # Undo snapshot board; empty when there is no snapshot
 var snapshot_points: int = 0            # the snapshot chain's points
 var run_highest: int = 0                # D-41
+var free_used: int = 0                  # D-46: free boosters used this run. Only ever goes up. Not part of the Undo snapshot.
+var best_at_start: int = -1             # QA6-03: Best Score when this run began, saved with the run. -1 means unknown (a format 1 run file).
 ## TH1. Builds a state directly. run_highest 0 means "the highest value on cells".
-static func create(cells: PackedInt64Array, score: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0, run_highest: int = 0, columns: int = 5) -> RunState
+static func create(cells: PackedInt64Array, score: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0, run_highest: int = 0, columns: int = 5, free_used: int = 0, best_at_start: int = -1) -> RunState
 func has_snapshot() -> bool
 func value_at(cell: Vector2i) -> int
 func highest() -> int                   # H
@@ -129,7 +138,11 @@ var emptied: Array[Vector2i] = []       # chain cells other than the result, or 
 var floor_before: int = 0
 var floor_after: int = 0
 var cleared_small: Array[Vector2i] = [] # D-38: cells cleared, in index order
-var cleared_values: PackedInt64Array    # D-38: distinct values cleared, ascending (for the clear notice, AT-104)
+var cleared_values: PackedInt64Array    # D-38: distinct values cleared, ascending
+var notice_values: PackedInt64Array     # D-45: every value that left the spawn window in this move, ascending: floor_before up to floor_after / 2. Empty when the floor did not rise. The clear notice names these (AT-104).
+var stars_earned: int = 0               # D-45: stars this move earned (0, 1, or more when the floor jumps)
+var free_earned: int = 0                # D-46: free boosters this move earned
+var free_used: bool = false             # D-46: this booster used a free booster, so cost is 0
 var fall_from: Array[Vector2i] = []     # gravity: tile at fall_from[i] moved to fall_to[i]
 var fall_to: Array[Vector2i] = []
 var spawn_cells: Array[Vector2i] = []   # in fill order (D-12)
@@ -143,25 +156,29 @@ var run_ends: bool = false              # set by GameSession: the run ends after
 
 For Swap, `targets` holds both cells. For Shuffle and Undo, the view animates from `cells_before` to `cells_after`.
 
+The clear notice (D-45) shows when `stars_earned > 0` or `cleared_small` is not empty, and names `notice_values`. A move that raised the floor but cleared nothing and earned no star shows no notice. That only happens after a Hammer or an Undo lowered the floor.
+
 ### BoosterStatus and RunSummary
 
 Value objects GameSession hands to the interface. They live in core so the design and ui areas depend on core only, not on boosters.
 
 ```gdscript
 class_name BoosterStatus extends RefCounted                 # src/core/booster_status.gd
-enum Usability { USABLE, CANNOT_AFFORD, NO_SNAPSHOT }
+enum Usability { USABLE, CANNOT_AFFORD, NO_SNAPSHOT, NO_TARGET }   # NO_TARGET: SEC-01, nothing on the board it can act on
 var id: StringName
 var cost: int
 var usable: bool
 var reason: Usability
 var active: bool          # this booster is in targeting mode
 var suggested: bool       # marked as the suggested rescue in the no moves offer (D-42)
+var free: bool            # D-46: a free booster is held, so using this booster would charge 0. cost still holds the price (AT-56); the bar shows "Free".
 
 class_name RunSummary extends RefCounted                    # src/core/run_summary.gd
 var final_score: int
 var best_score: int
 var best_tile: int
 var run_highest: int
+var stars: int            # D-45: this run's stars
 var new_best_score: bool  # this run set the Best Score (the New best badge)
 var no_moves_left: bool   # the run ended because nothing was usable (12.2 step 3)
 ```
@@ -181,6 +198,10 @@ static func highest(cells: PackedInt64Array) -> int                          # H
 static func merge_result(values: PackedInt64Array) -> int                    # TH15, D-02. 0 for fewer than 2 values
 static func spawn_window(h: int, config: GameConfig) -> PackedInt64Array     # D-10, smallest first
 static func window_floor(h: int, config: GameConfig) -> int                 # smallest window value
+static func pair_fits(value: int) -> bool                                   # SEC-01: value + value fits in 64 bits (2^61 or less). The one fit test boosters use too.
+static func stars(run_highest: int, config: GameConfig) -> int              # TH3, D-45: doublings of window_floor(run_highest) above window_floor(0)
+static func free_earned(run_highest: int, config: GameConfig) -> int        # TH3, D-46: stars / stars_per_free_booster, rounded down
+static func free_held(state: RunState, config: GameConfig) -> int           # TH3, D-46: free_earned(state.run_highest) minus state.free_used
 static func draw_value(draw: int, window: PackedInt64Array, config: GameConfig) -> int   # TH9, draw 0 to 99
 static func has_valid_move(cells: PackedInt64Array, config: GameConfig) -> bool          # TH13, D-15
 static func can_join(cells: PackedInt64Array, chain: Array[Vector2i], next: Vector2i, config: GameConfig) -> bool  # D-04
@@ -237,9 +258,12 @@ static func commit_chain(state: RunState, records: Records, chain: Array[Vector2
 static func clear_small(state: RunState, floor_before: int, result: MoveResult, config: GameConfig) -> void
 ## Gravity, then spawns into every empty cell (D-11, D-12), recorded in result. Used by chains, Hammer and Double.
 static func settle(state: RunState, result: MoveResult, rng: RunRandom, config: GameConfig) -> void
-## Step 7 plus D-41: records and run_highest. Sets result.new_best_score and result.new_best_tile.
-static func update_records(state: RunState, records: Records, result: MoveResult) -> void
+## Step 7 plus D-41, D-45 and D-46: records and run_highest. Sets result.new_best_score, new_best_tile,
+## stars_earned and free_earned (the counts after the move minus before). A null config means the defaults.
+static func update_records(state: RunState, records: Records, result: MoveResult, config: GameConfig = null) -> void
 ```
+
+`commit_chain` and Double (through `clear_small`) fill `notice_values` from `floor_before` and `floor_after`.
 
 `new_run` returns the state; GameSession wraps it in a MoveResult of kind NEW_RUN for the view's spawn animation.
 
@@ -259,8 +283,10 @@ const UNDO: StringName = &"undo"
 const ALL: Array[StringName] = [HAMMER, SWAP, SHUFFLE, DOUBLE, UNDO]
 enum Outcome { PLAY, OFFER, END }
 static func cost_basis(cells: PackedInt64Array, config: GameConfig) -> int          # B (D-20), TH3
-static func cost(id: StringName, state: RunState, config: GameConfig) -> int        # TH3
-static func usability(id: StringName, state: RunState, config: GameConfig) -> BoosterStatus.Usability   # TH3, D-28 for Undo
+static func cost(id: StringName, state: RunState, config: GameConfig) -> int        # TH3: the price, free or not (AT-56)
+static func is_free(state: RunState, config: GameConfig) -> bool                     # TH3, D-46: a free booster is held
+static func charge(id: StringName, state: RunState, config: GameConfig) -> int      # D-46: 0 while a free booster is held, else cost
+static func usability(id: StringName, state: RunState, config: GameConfig) -> BoosterStatus.Usability   # TH3, D-28 for Undo, measured against charge()
 static func target_count(id: StringName) -> int                                     # 0, 1 or 2
 static func can_pick_second(state: RunState, first: Vector2i, second: Vector2i) -> bool   # D-24 Swap
 static func suggested_rescue(state: RunState, config: GameConfig) -> StringName      # TH16, D-42. &"" for none
@@ -270,6 +296,14 @@ static func apply(id: StringName, state: RunState, records: Records, targets: Ar
 ```
 
 Hammer, Swap, Shuffle and Double never touch the snapshot. Undo restores it and clears it (13.7). Shuffle uses `rng.shuffle_attempt` and sets `rng.shuffle_attempts`.
+
+Free boosters (D-46):
+- `apply` charges `charge()`, read before the effect like the cost. When a free booster is held, it charges 0, adds 1 to `state.free_used`, and sets `result.free_used` with `result.cost` 0.
+- A refused call uses nothing.
+- Undo's restore never touches `free_used`.
+- `usability` treats every booster as affordable while one is held, but Undo still needs a snapshot and score minus the snapshot's points of at least the charge (FB4).
+- `outcome` is unchanged in shape: it follows `usability`, so with a free booster held the offer opens instead of the run ending.
+- A booster that earns a free booster is charged as normal. `apply` calls `RunRules.update_records` with the config so `stars_earned` and `free_earned` are set.
 
 BoosterStatus and RunSummary, the value objects GameSession hands to the interface, live in core (section 4).
 
@@ -316,7 +350,17 @@ func move_shown() -> void                               # the view finished show
 func booster_statuses() -> Array[BoosterStatus]         # in bar order, fresh every call
 func targeting_booster() -> StringName
 func swap_first() -> Vector2i
+func stars() -> int                                     # D-45, this run; 0 with no run
+func free_held() -> int                                 # D-46, this run; 0 with no run
 ```
+
+New best after a restart (QA6-03):
+- `start_new_run()` sets `state.best_at_start` to the Best Score before the run.
+- `resume(saved)` keeps the saved value. When it is -1, it uses the loaded Best Score, as before.
+- `RunSummary.new_best_score` is true when the final Best Score is above `state.best_at_start`.
+- The Undo snapshot never touches it.
+
+`booster_statuses()` sets each status's `free` from `BoosterRules.is_free`, which is true when `CoreRules.free_held` is above 0. The RunSummary from `run_ended` carries `stars`. `status_changed` also covers the stars and free boosters held, so the HUD re-reads them there.
 
 Flow rules GameSession must follow:
 
@@ -525,7 +569,20 @@ func set_skin(skin: SkinData) -> void                           # live switch: r
 func cancel_drag() -> void                                  # drop a chain in progress with no penalty; calls session.end_drag()
 func preferred_height(width: float) -> float
 func is_animating() -> bool
+## QA6-06. A move's effects start only once gate.call() returns true. The board first checks
+## deferred (after the session's save_requested handlers have run in the same frame), then once
+## a frame. Until then the board looks as it did at the lift. An empty Callable shows at once.
+func set_show_gate(gate: Callable) -> void
+func is_waiting_for_save() -> bool                          # TH23: a move is held at the gate
+signal move_started()                                       # the gate opened and the move's effects began
 ```
+
+The App calls `game_screen.board().set_show_gate(save.is_idle)`, so the player never sees a move, a spawn included, before it is on disk (GDD D-33, 15.1, AT-146).
+- The wait is the save's 1 to 4 frames. It covers run_started and move_resolved alike.
+- A save that fails is idle too, so the move still shows and the game never freezes.
+- `is_animating()` is true while a move waits at the gate, so input stays closed (D-35).
+- The chain line and the commit click may stay during the wait, because neither shows the result.
+- GameScreen holds the HUD score, the booster bar, the stars and the clear notice from a move's `status_changed` until `move_started`, so they stay as they were at the lift.
 
 What BoardController does:
 
@@ -578,17 +635,25 @@ Two JSON files in `user://`. JSON only, written and read with Godot's JSON class
 
 ```json
 {
-  "format": 1,
+  "format": 2,
   "columns": 5,
   "rows": 8,
   "cells": [1, 4, 2, "... 40 exponents ..."],
   "score": "41286",
   "run_highest": 11,
+  "free_used": 0,
+  "best_at_start": "38500",
   "snapshot": null
 }
 ```
 
 `snapshot` is null or `{"cells": [40 exponents], "points": "96"}`.
+
+- `free_used` (D-46) is the free boosters used this run: a whole number from 0 up to `CoreRules.free_earned(run_highest)`.
+- `best_at_start` (QA6-03) is the Best Score when the run began, a digit string like the score.
+- The run file is written as format 2.
+- A format 1 run file (from builds before D-46) has exactly the format 1 keys, without the two new ones. It loads with `free_used` 0, so its stars and free boosters appear on load (GDD 15.1), and with `best_at_start` -1.
+- The profile stays format 1.
 
 `user://profile.json`, kept forever:
 
@@ -606,13 +671,18 @@ Two JSON files in `user://`. JSON only, written and read with Godot's JSON class
 
 - Never use str_to_var, bytes_to_var, bytes_to_var_with_objects, FileAccess.get_var, ConfigFile, ResourceLoader, load() or anything else that can create objects from file data.
 - Read at most 64 KB; a larger file is invalid. Parse with `JSON.new().parse(text)`; any parse error is invalid.
-- Check every field: type, exact keys, ranges. `format` is 1. `columns` and `rows` equal the GameConfig (5 and 8). Exponents are whole numbers from 1 to 62 (best_tile 0 to 62); a float like 1.5 is invalid. Digit strings are 1 to 19 characters of 0 to 9, with no leading zero unless the string is "0", and fit in a signed 64 bit int. The run follows GDD 15.1 exactly: 40 cells, score of 0 or more, run_highest at least the highest value on the board and on the snapshot board, snapshot points of 4 or more. The skin id must be 1 to 32 characters of a to z and underscore; the App turns an unknown id into the default through `SkinCatalog.get_skin`, so save code never depends on skins.
+- Check every field: type, exact keys, ranges. The run's `format` is 2 (with `free_used`) or 1 (without it); the profile's is 1. `columns` and `rows` equal the GameConfig (5 and 8). Exponents are whole numbers from 1 to 62 (best_tile 0 to 62); a float like 1.5 is invalid. Digit strings are 1 to 19 characters of 0 to 9, with no leading zero unless the string is "0", and fit in a signed 64 bit int. The run follows GDD 15.1 exactly: 40 cells, score of 0 or more, run_highest at least the highest value on the board and on the snapshot board, snapshot points of 4 or more. The skin id must be 1 to 32 characters of a to z and underscore; the App turns an unknown id into the default through `SkinCatalog.get_skin`, so save code never depends on skins.
 - An invalid run file: discard the run, start a new one, keep valid settings and records. An invalid profile: use defaults for the invalid part, keep the valid part. Never crash, never show a raw error.
 - Atomic writes: write the whole file to `<name>.tmp` in user://, close it, then rename it over the real file. Check what rename does on Windows and Android when the target exists, and handle it so a kill at any moment leaves either the old file or the new one.
+- **The newest complete save wins (QA6-07).**
+  - Every write rewrites `<name>.tmp` before its rename, so a temp file that parses and passes validation is always newer than `<name>`. On load, such a temp wins: it is renamed into place and used, and the old file is replaced.
+  - A temp that fails to parse or validate is deleted, and `<name>` is used.
+  - A rename that fails (Windows, while another program holds the file) is retried on the next write and on `flush()`.
 
 ```gdscript
 class_name SaveCodec extends RefCounted
-const FORMAT: int = 1
+const RUN_FORMAT: int = 2                    # D-46 added free_used; format 1 run files still load
+const PROFILE_FORMAT: int = 1
 static func run_to_data(state: RunState) -> Dictionary
 static func data_to_run(data: Variant, config: GameConfig) -> RunState           # TH18; null when invalid
 static func profile_to_data(settings: Settings, records: Records) -> Dictionary
@@ -631,6 +701,8 @@ func load_profile(settings: Settings, records: Records) -> void
 func queue_run(state: RunState) -> bool
 func queue_profile(settings: Settings, records: Records) -> bool
 func flush() -> void                                        # waits until every queued write is done
+func is_idle() -> bool                                      # QA6-06: no queued write still to land. Never blocks.
+func set_hold(on: bool) -> void                             # TH23, tests only: queued writes wait until released; is_idle() stays false
 ```
 
 Every other SaveService method waits for queued writes first, so nothing interleaves and a deleted run never comes back. Use one SaveService per folder, called from one thread. The App queues the save for each move, and saves synchronously (after a flush) on app pause, focus loss and close.
@@ -641,7 +713,7 @@ Every other SaveService method waits for queued writes first, so nothing interle
 
 - `scenes/main.tscn` (DM): the project's main scene. It only instances `scenes/ui/app.tscn`.
 - `scenes/ui/app.tscn`: App, the root. Everything else is created under it.
-- `scenes/ui/game_screen.tscn`, `main_menu.tscn`, `pause_panel.tscn`, `settings_panel.tscn`, `offer_panel.tscn`, `end_panel.tscn`, `confirm_dialog.tscn`.
+- `scenes/ui/game_screen.tscn`, `main_menu.tscn`, `pause_panel.tscn`, `settings_panel.tscn`, `offer_panel.tscn`, `end_panel.tscn`, `confirm_dialog.tscn`, `how_to_play_panel.tscn`, `about_panel.tscn`.
 - `scenes/board/board.tscn`: BoardController.
 
 ### Classes
@@ -661,17 +733,37 @@ signal pause_requested()                                     # HUD pause button
 class_name MainMenu extends Control
 signal new_game_chosen()
 signal settings_chosen()
+signal how_to_play_chosen()                                  # D-44
 func setup(skin: SkinData, records: Records) -> void
 
 class_name PausePanel extends Control
 signal resume_chosen()
 signal new_game_chosen()
 signal settings_chosen()
+signal how_to_play_chosen()                                  # D-44
 func setup(skin: SkinData) -> void
 
 class_name SettingsPanel extends Control
 signal closed()
-func setup(skin: SkinData, settings: Settings) -> void           # sound toggle and skin picker with live preview chips
+signal about_chosen()
+func setup(skin: SkinData, settings: Settings) -> void           # sound toggle, skin picker with live preview chips, About row
+
+class_name HowToPlayPanel extends Control                    # D-44, GDD section 21
+signal closed()
+func setup(skin: SkinData) -> void
+func apply_skin(skin: SkinData) -> void
+## TH21. One Dictionary per section, in order: {"title": String, "text": String,
+## "example": PackedInt64Array (the joined tiles, empty for none), "result": int (0 for none)}.
+func content() -> Array[Dictionary]
+
+class_name AboutPanel extends Control
+signal closed()
+func setup(skin: SkinData) -> void
+func apply_skin(skin: SkinData) -> void
+func info_text() -> String                                   # TH22: everything the About screen shows above the license rows
+## TH22. The full text a license row opens: &"game" (NOTICE, then COPYING),
+## &"godot" (Engine.get_license_text() and every Engine.get_copyright_info() part with its Engine.get_license_info() text), &"outfit" (OFL.txt).
+func license_text(id: StringName) -> String
 
 class_name OfferPanel extends Control
 signal booster_chosen(booster_id: StringName)
@@ -699,13 +791,15 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 1. **Start (Bart's decision).** App loads the profile and sets the theme for `settings.skin_id`. If a valid run is saved, it goes straight to GameScreen and calls `session.resume(saved)`. Otherwise it shows MainMenu. MainMenu also follows a finished run (EndPanel's Main menu), so it never sees a saved run.
 2. **New game** calls `session.start_new_run()`. From Pause, while a run is in progress, it asks through ConfirmDialog first (D-34).
 3. **Play.** GameScreen shows Backdrop, HUD, BoardController and BoosterBar for the current skin, laid out inside the safe area as DESIGN_SYSTEM.md arranges it. It re-reads `session.booster_statuses()` on `status_changed`, mirrors scores into the HUD, and passes `chain_changed` to the HUD context row and preview slot for skins that use them.
-4. **Clear notice.** When a `move_resolved` result has `cleared_values`, GameScreen calls `hud.show_clear_notice(result.cleared_values, board_global_rect)` (AT-104).
+4. **Clear notice and stars.** When a `move_resolved` result has `stars_earned > 0` or a non empty `cleared_small` (section 4, D-45), GameScreen calls the HUD's clear notice with `result.notice_values` and `result.stars_earned` (AT-104). On `status_changed` it passes `session.stars()` and `session.free_held()` to the HUD. The HUD calls are in section 7.
 5. **Offer.** While `session.is_offer_open()`, OfferPanel takes the HUD's place (DESIGN_SYSTEM.md 7.5); the board and booster bar stay visible and usable. Its buy button and the booster bar both call `session.press_booster`. End run calls `session.end_run()`. GameScreen shows the panel on `offer_changed(true, ...)`, refreshes it on every `status_changed`, and restores the HUD on `offer_changed(false, ...)`.
 6. **End.** On `run_ended` the App deletes the saved run, saves the profile and shows EndPanel. It never saves a run unless `session.is_run_in_progress()` is true.
 7. **Settings.** Reached from MainMenu and PausePanel. Sound calls `settings.set_sound_on`; a skin chip calls `settings.set_skin_id`. The App listens: sound goes to `audio.set_enabled`; a skin change rebuilds the theme and calls `apply_skin` on every live screen and panel. Both save the profile.
 8. **Saving.** On `save_requested` the App saves the run (only while `session.is_run_in_progress()`) and the profile at once. It also saves on NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT and NOTIFICATION_WM_CLOSE_REQUEST, after calling `board.cancel_drag()` and `session.cancel_targeting()` (13.1).
 9. **Pause.** Opening PausePanel by any route (the HUD pause button or the back button) first calls `board.cancel_drag()` and `session.cancel_targeting()` (13.1). Pause offers Resume, New game and Settings (DESIGN_SYSTEM.md 7.3). The main menu is reached at launch and from the end of run screen.
-10. **Back button.** The App sets `get_tree().quit_on_go_back = false` and handles NOTIFICATION_WM_GO_BACK_REQUEST in this order: cancel targeting; else close the top panel (ConfirmDialog, SettingsPanel, PausePanel, where closing Pause resumes); else on GameScreen (offer included) open PausePanel; else on MainMenu or EndPanel quit after saving.
+10. **Back button.** The App sets `get_tree().quit_on_go_back = false` and handles NOTIFICATION_WM_GO_BACK_REQUEST in this order: cancel targeting; else close the top panel (ConfirmDialog, an open license text inside AboutPanel, AboutPanel, HowToPlayPanel, SettingsPanel, PausePanel, where closing Pause resumes); else on GameScreen (offer included) open PausePanel; else on MainMenu or EndPanel quit after saving.
+11. **How to play (D-44).** Reached from MainMenu and PausePanel. It opens over the screen it came from, like Settings, and closing it (its close control or back) returns there. Opened from Pause, the run stays paused under it. It never opens by itself.
+12. **About.** Reached from SettingsPanel's About row. It opens over Settings, and closing it returns to Settings. A license row opens that license's full text inside AboutPanel; back closes the text first, then About. The texts are read at runtime: `res://NOTICE` and `res://COPYING` (the export preset includes both), `res://src/design/fonts/OFL.txt`, and the Engine license calls. If a file cannot be read, the row says so in plain words instead of crashing; that is a build error the tests catch.
 
 ## 12. How skins and the theme are read
 
@@ -723,7 +817,7 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 |---|---|
 | TH1 build a state | `RunState.create`, `Records` fields |
 | TH2 read it back | RunState and Records fields, `RunState.equals` |
-| TH3 derived values | `CoreRules.highest`, `BoosterRules.cost_basis`, `CoreRules.spawn_window`, `CoreRules.window_floor`, `BoosterRules.cost`, `BoosterRules.usability` |
+| TH3 derived values | `CoreRules.highest`, `BoosterRules.cost_basis`, `CoreRules.spawn_window`, `CoreRules.window_floor`, `BoosterRules.cost`, `BoosterRules.is_free`, `BoosterRules.usability`, `CoreRules.stars`, `CoreRules.free_earned`, `CoreRules.free_held` |
 | TH4 override constants | a GameConfig instance passed to every call |
 | TH5 seed and state | `RunRandom.set_seed`, `get_state`, `set_state` |
 | TH6 scripted spawns | `RunRandom.script_spawns` |
@@ -741,6 +835,9 @@ static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area
 | TH18 save and load | `SaveCodec`, `SaveService` with a temp directory |
 | TH19 hit test | `BoardGeometry.cell_at` |
 | TH20 click count | `AudioService.click_requests` |
+| TH21 How to play content | `HowToPlayPanel.content()` (section 11) |
+| TH22 About and license texts | `AboutPanel.info_text()`, `AboutPanel.license_text(id)` (section 11) |
+| TH23 hold the save, see the gate | `SaveService.set_hold`, `SaveService.is_idle`, `BoardController.is_waiting_for_save` |
 
 Each area's tests live in `tests/<area>/` and extend `res://tests/base_test.gd`. Name a test after the acceptance test it covers where one exists, for example `test_at_36_twelve_twos_clear_and_refill`.
 
@@ -759,3 +856,16 @@ Everyone builds against this contract, in three waves, so each agent can run its
 3. **Wave 3, once boosters is committed:** board-input-dev (BoardController, BoardGeometry) and ui-systems-dev (App, screens and panels).
 
 Core logic and boosters must reach full unit test coverage of the GDD rules before they are integrated. Integration in Phase 4 follows the same order, and the DM wires scenes/main.tscn last.
+
+## 16. The 2026-10-13 additions: order
+
+Built on the `additions` branch, in `C:\bart\sumup-work`.
+
+1. **Wave A:** core-logic-dev (stars, free boosters in RunState and MoveResult, notice values, the SEC-01 move check) and platform-dev (COPYING and NOTICE in the export, README license section).
+2. **Wave B, once core is committed:**
+   - boosters-dev: charge, free use, statuses, session reads, `best_at_start` (QA6-03);
+   - ui-systems-dev: the save format 2, `is_idle`, the newest temp rule (QA6-07), and the new panels;
+   - ui-motion-artist: the HUD stars, the Free price, the star icon, icon buttons firing twice on touch (QA6-01), and the touch size and width cap (QA6-05, QA6-08);
+   - tile-board-artist: Gumdrop's draw calls for 64K and up (QA6-02), plus any new SkinData tokens;
+   - board-input-dev: `set_show_gate` (QA6-06).
+3. **Wave C:** ui-systems-dev wires the HUD, the clear notice change (and its place while the offer is open, QA6-04), the gate and the end of run stars. Then the design review, then QA and security re-review.

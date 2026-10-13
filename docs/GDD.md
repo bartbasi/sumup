@@ -1,14 +1,14 @@
-# numbersgame: Game Design Document
+# SumUp: Game Design Document
 
-Owner: lead-game-designer. Status: approved by Bart at Hard Stop 1 on 2026-10-10. Decisions D-38 to D-43 were added after Hard Stop 1: they write out the three additions Bart made to v1 scope and close two gaps found in the design review.
+Owner: lead-game-designer. Status: approved by Bart at Hard Stop 1 on 2026-10-10. Decisions D-38 to D-43 were added after Hard Stop 1: they write out the three additions Bart made to v1 scope and close two gaps found in the design review. Decisions D-44 to D-46 were added on 2026-10-13 at Bart's request: How to play, stars and free boosters.
 
-This document turns section 3 of docs/BRIEF.md into exact rules. The rules Bart confirmed are copied unchanged in section 4. Every gap the brief leaves open is settled here as a numbered designer decision (D-01, D-02, ...) with its reasoning and worked examples. Every tunable number lives in one table in section 18. Section 19 is the acceptance test list (AT-01, AT-02, ...) that QA walks and developers turn into unit tests. Section 20 lists the test hooks those tests need from the code.
+This document turns section 3 of docs/BRIEF.md into exact rules. The rules Bart confirmed are copied unchanged in section 4. Every gap the brief leaves open is settled here as a numbered designer decision (D-01, D-02, ...) with its reasoning and worked examples. Every tunable number lives in one table in section 18. Section 19 is the acceptance test list (AT-01, AT-02, ...) that QA walks and developers turn into unit tests. Section 20 lists the test hooks those tests need from the code. Section 21 holds the exact How to play text.
 
 All rules here describe the rules model only. They do not depend on any screen, so level goals could be added later. Nothing here is designed for level goals.
 
 ## 1. Decision summary
 
-One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. D-38 to D-43 were added afterwards (section 1.1).
+One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. D-38 to D-46 were added afterwards (section 1.1).
 
 | ID | Decision | Section |
 |---|---|---|
@@ -26,7 +26,7 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 | D-12 | Empty cells fill column by column from the left, and from the top row down inside each column. | 9 |
 | D-13 | Replaced by D-38 at Hard Stop 1. (It said tiles smaller than the spawn window stay on the board.) | 9.4 |
 | D-14 | Starting board: 40 tiles drawn from the starting spawn window, redrawn until it has a valid chain, with a fixed fallback after 100 tries. | 10 |
-| D-15 | A board has a valid move if and only if two touching tiles (eight directions) have the same value. | 12 |
+| D-15 | A board has a valid move if and only if two touching tiles (eight directions) have the same value and their sum fits in a 64 bit integer. Only a hand edited save can fail the second part (SEC-01). | 12 |
 | D-16 | Best Score updates live whenever the current score goes above it. Confirmed by Bart at Hard Stop 1. | 11 |
 | D-17 | Best Tile is the highest value ever on the board, from any source (merge, Double, spawn). It never goes down. | 11 |
 | D-18 | Only committed chains add points. Boosters never add points. | 11 |
@@ -36,7 +36,7 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 | D-22 | Targeting: tap the booster to enter, tap it again to cancel, tap another booster to switch. Nothing is charged until the effect applies. | 13.1 |
 | D-23 | Hammer removes the tile, the tiles above fall one cell, and one new tile spawns at the top of that column. | 13.3 |
 | D-24 | Swap works on any two tiles anywhere. Tapping the selected tile again deselects it. A tile with the same value as the selected one cannot be picked. | 13.4 |
-| D-25 | Shuffle always leaves at least one valid chain when the board holds any two tiles of equal value, which is always true while the highest tile is below 2^40. | 13.5 |
+| D-25 | Shuffle always leaves at least one valid chain when the board holds two tiles of equal value whose sum fits (D-15), which is always true while the highest tile is below 2^40. | 13.5 |
 | D-26 | Double doubles one tile in place. No gravity and no spawn, unless the Double raises the spawn window and small tiles clear (D-38). | 13.6 |
 | D-27 | Undo goes back one step only. It restores the board from before the last chain and takes that chain's points off the score. Every cost paid since then stays spent, including Undo's own cost. | 13.7 |
 | D-28 | Undo is affordable only when the score minus the last chain's points is at least the Undo cost. | 13.7 |
@@ -44,17 +44,20 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 | D-30 | Score never goes below zero: the rules model refuses any booster the player cannot afford. It never clamps a negative score to zero. | 13.8 |
 | D-31 | Tile labels: the full number up to 1024. From 2048 up, a number from 1 to 512 plus K, M, B or T (2K, 512K, 1M). Never more than 4 characters. | 14 |
 | D-32 | The score shows in full with commas (1,234,567). Booster costs and the merge preview use the tile label format. | 14 |
-| D-33 | The run (including this run's highest tile) saves as soon as each move resolves, before its animation ends, and when the app is paused. A drag in progress and targeting mode are not saved. | 15 |
+| D-33 | The run (including this run's highest tile) saves as soon as each move resolves, and when the app is paused. The board starts showing a move only once its save has finished, so the player never sees a result that was not saved. A drag in progress and targeting mode are not saved. | 15 |
 | D-34 | Starting a new game while a run is in progress asks for confirmation, then discards the saved run. | 15 |
 | D-35 | One move at a time: no new chain or booster is accepted until the previous move has finished on screen. | 15 |
 | D-36 | The click plays for every tile added to a chain, including the first, and once on commit. Never on backtrack or cancel. | 16 |
-| D-37 | Tile values and the score are 64-bit integers with no cap. | 5 |
+| D-37 | Tile values and the score are 64-bit integers with no cap. At the limit, which only a hand edited save can reach, every rule is set so the run can always go on or end, and a booster that could do nothing is not usable. | 5, 13.1 |
 | D-38 | Small tile clearing: when a chain or a Double raises the spawn window's smallest value, every tile below the new smallest value clears at once, scores nothing, and the board refills (gravity, then spawns) before the move check. Replaces D-13. | 9.4 |
 | D-39 | Hammer, Swap, Shuffle and Undo never trigger clearing. Undo brings back tiles the undone chain cleared. Clearing never touches Best Tile or this run's highest tile. A Hammer that lowers the highest tile lets smaller values spawn again until the window rises again. | 9.4 |
 | D-40 | While dragging, exactly the tiles that would join if the finger moved onto them now are highlighted (D-04). Tiles already in the chain, including the backtrack tile, are never highlighted. | 6.7 |
 | D-41 | This run's highest tile is the highest value on the board at any time this run, from any source. Hammer and Undo never lower it. It is saved with the run and shown on the end of run screen with the final score, Best Score, Best Tile and New game. | 11.4, 12.3 |
 | D-42 | The no moves offer marks Shuffle as the suggested rescue when it is usable, otherwise Undo when it is usable, otherwise nothing. | 12.2 |
 | D-43 | Hammer and Double act on one tap, and Swap acts on the tap of its second tile. There is no select then confirm step. A highlight under a pressed finger is press feedback only. | 13.1 |
+| D-44 | How to play: seven short sections of fixed text, three with an example row of real tiles in the current skin. It opens only from its button on the main menu or in Pause, and back closes it. | 21 |
+| D-45 | Stars: one star for each value that leaves the spawn window for the first time in a run, from the first 2K tile on. The count is worked out from this run's highest tile and never stored, so Hammer, Undo and loading can never add one twice (128K gives 7 stars). A floor rise that removes no tile still earns its star. Every star move shows the clear notice with the stars earned. | 11.5 |
+| D-46 | Free boosters: every 3 stars earn one, with no cap. While one is held, the next booster used is free whatever the score, and other conditions still apply. Cancelling targeting keeps it, Undo never gives one back, unused ones end with the run. The run saves how many were used. | 13.9 |
 
 ### 1.1 Sign-off
 
@@ -63,6 +66,9 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 - Bart added three things to v1 scope: small tiles clear automatically as the game moves up, as in 2248 (D-38 and D-39, replacing D-13); tiles that could join next are highlighted while dragging (D-40); the end of run screen shows this run's highest tile (D-41).
 - Not added: a confirm step before Shuffle and Undo.
 - D-42 and D-43 settle two gaps found in the Phase 1 design review.
+- On 2026-10-13 Bart approved fixing security finding SEC-01 (two touching 2^62 tiles in a hand edited save could never end the run). D-37 now lists every rule at the 64 bit limit, and D-04, D-15, D-25, the 13.1 usability rule and Double's targets follow it. Tests AT-143 and AT-144.
+- On 2026-10-13 Bart approved fixing every QA Phase 6 finding. In this document: AT-57 now uses Board P (QA Q1); the run saves the Best Score when it began, for the New best badge (12.3, 15.1, QA6-03, AT-145); and a move shows only once its save has finished (D-33, 15.1, QA6-06, AT-146).
+- On 2026-10-13 Bart added three more things to v1 scope: a How to play screen (D-44), stars (D-45) and free boosters (D-46). He also added an About screen in Settings. It holds no game rules, so it has no D number; its acceptance tests are AT-140 to AT-142. D-44 to D-46 go to Bart for review through the DM.
 
 ### 1.2 Decisions highlighted for Hard Stop 1
 
@@ -97,6 +103,9 @@ These settled gaps the brief left open and shape how the game feels, so they wer
 | Window floor | The smallest value in the spawn window: the larger of 16 and H / 64, divided by 8. It is 2 until H reaches 2048, then H / 512. |
 | Joinable tile | A tile that would join the chain if the finger moved onto it now (section 6.1). |
 | Run highest tile | The highest value that has been on the board at any time during this run (section 11.4). |
+| Stars | How many values have left the spawn window for the first time this run, worked out from the run highest tile (section 11.5). |
+| Free booster | One booster use that charges nothing. Every 3 stars earn one (section 13.9). |
+| Charge | What a booster use takes from the score: its cost (section 13.2), or 0 when a free booster is used. |
 | Valid move | Any chain of 2 or more tiles that the player could commit right now. |
 
 ## 4. Confirmed rules (copied unchanged from docs/BRIEF.md, section 3)
@@ -152,6 +161,16 @@ Rules:
 
 **D-37. Values and score are 64-bit integers with no cap.** Developers must not use floats for values, sums or the score. A run would need billions of moves to get near the 64-bit limit, so no cap rule is needed.
 
+Only a hand edited save can come near the limit, because a save may hold tiles up to 2^62 (section 15.1). No value, sum, cost or score may pass 2^63 minus 1 (9,223,372,036,854,775,807). Each rule at that edge leaves the run able to go on or end:
+
+- A tile that would take the chain's sum past the limit does not join (D-04). A touching equal pair whose sum would pass it is not a valid move (D-15). So two touching 2^62 tiles are not a move.
+- A Double on a 2^62 tile is not a valid target (section 13.6).
+- A cost that would pass the limit is not affordable, for example Double when B is 2^62. A held free booster still makes it affordable, because it charges 0 (D-46).
+- A booster that could do nothing on the current board is not usable, even when affordable or free (section 13.1). On an all 2^62 board only Hammer can act.
+- A chain whose points would push the score past the limit is refused and changes nothing. If that blocks every chain on the board, even the smallest touching pair, the score must be at least 2^62. Hammer, Swap and Shuffle (at most 2^62) are then affordable, and each use lowers the score until a chain fits. So the run is never stuck.
+
+Reasoning: the rules model already refuses these moves (docs/ARCHITECTURE.md, the overflow rule). The joining rule, the move check and usability must agree with those refusals. Otherwise a loaded run can sit in a state the rules call playable while nothing can be played. That was security finding SEC-01: two touching 2^62 tiles counted as a move, so the out of moves offer never opened and the run could never end. Bart approved the fix on 2026-10-13.
+
 ## 6. Making a chain
 
 ### 6.1 Joining rule (D-04)
@@ -164,6 +183,7 @@ As the finger moves, a tile T joins the chain only if all of these hold:
 2. T is not already in the chain.
 3. If the chain has 1 tile: T's value equals the last tile's value.
 4. If the chain has 2 or more tiles: T's value equals the last tile's value, or is exactly double it.
+5. The chain's sum with T added fits in a 64 bit integer (D-37). Only a chain holding tiles of 2^58 or more can fail this (40 tiles of 2^57 still fit), and only a hand edited save holds such tiles.
 
 If any condition fails, nothing happens. The finger may pass over T, and the chain stays as it was. Because a breaking tile can never join, the chain is valid at every moment once it has 2 tiles. The only "invalid chain" the player can lift on is a chain of 1 tile, which cancels with no penalty: board, score and Undo state stay exactly as they were.
 
@@ -174,9 +194,10 @@ The rules model also checks any chain handed to it before committing. A list of 
 - it has 2 or more cells, all different;
 - each cell touches the one before it;
 - the second value equals the first;
-- every later value equals the value before it or is double it.
+- every later value equals the value before it or is double it;
+- the sum of its values fits in a 64 bit integer (D-37).
 
-An invalid list is refused and changes nothing.
+An invalid list is refused and changes nothing. A valid chain whose points would push the score past the 64 bit limit is refused too (D-37).
 
 ### 6.2 Backtracking (D-05)
 
@@ -340,7 +361,7 @@ Worked example, dragging chain M8 one tile at a time:
 4. Empty every other cell of the chain. Then small tile clearing (D-38, section 9.4): if this chain raised the window floor, also empty every cell whose value is below the new window floor.
 5. Gravity: in each column, tiles move straight down to fill the empty cells below them, keeping their order. The result tile falls too if cells below it were emptied.
 6. Spawn: fill every empty cell (section 9). After gravity all empty cells are at the top of their columns.
-7. Records: Best Score becomes the larger of Best Score and the score. Best Tile becomes the larger of Best Tile and H.
+7. Records: Best Score becomes the larger of Best Score and the score. Best Tile becomes the larger of Best Tile and H. The run highest tile updates here too (D-41), and with it the stars and the free boosters earned (D-45, D-46).
 8. Save the run (section 15).
 9. Move check: if the board has no valid move, open the no moves offer (section 12).
 
@@ -557,13 +578,108 @@ Reasoning: it uses the same rule as Best Tile, limited to one run, so the player
 | RH6 | The run ends. The end of run screen shows final score, Best Score, Best Tile 16K and run highest tile 16K. | 16384 | 16384 |
 | RH7 | New game. The new starting board's highest tile is 8. | 8 | 16384 |
 
+### 11.5 Stars (D-45)
+
+Bart's request (2026-10-13): a star each time a low number is removed for the first time in a run. Hammer and Undo can never earn a star twice. The HUD shows the stars.
+
+**D-45. The star count.**
+
+- A value leaves the spawn window when the window floor rises above it (D-38). From the first 2K tile on, each doubling of the highest tile moves the floor up one step, so one more value leaves: 2 at 2K, 4 at 4K, 8 at 8K, and so on.
+- Stars = how many times the window floor of the run highest tile has doubled above its starting value of 2. With the values in section 18: 0 while the run highest tile is 1024 or less, otherwise log2(run highest tile) minus 10.
+- The count depends on the run highest tile alone (D-41). It is worked out whenever it is needed and never stored.
+
+| Run highest tile | Its window floor | Stars | Free boosters earned (D-46) |
+|---|---|---|---|
+| 1024 or less | 2 | 0 | 0 |
+| 2048 (2K) | 4 | 1 | 0 |
+| 4096 (4K) | 8 | 2 | 0 |
+| 8192 (8K) | 16 | 3 | 1 |
+| 16384 (16K) | 32 | 4 | 1 |
+| 32768 (32K) | 64 | 5 | 1 |
+| 65536 (64K) | 128 | 6 | 2 |
+| 131072 (128K) | 256 | 7 | 2 |
+| 262144 (256K) | 512 | 8 | 2 |
+| 524288 (512K) | 1024 | 9 | 3 |
+| 1048576 (1M) | 2048 | 10 | 3 |
+| 2^62 (the largest value a save can hold) | 2^53 | 52 | 17 |
+
+**When a star is earned.**
+
+- A move earns stars when it raises the run highest tile far enough that the count goes up. The stars earned by that move are the count after it minus the count before it. This is worked out at step 7 of section 8, with the other records.
+- Only a committed chain or a Double can do this:
+  - A spawn is never above the larger of 16 and H / 64, so it can never add a star.
+  - Hammer only removes a tile. Swap and Shuffle keep every value.
+  - Undo restores a board from earlier in the run, so it never holds a tile above the run highest tile (the save check in 15.1 holds this for loaded runs too).
+- A move that earns a star always raises the window floor, because the new floor is above the floor of every earlier board in the run. So a star always comes with that move's D-38 clear: the moment a low number is removed, as Bart described.
+
+**Every case.**
+
+| Case | Stars | Why |
+|---|---|---|
+| Two values at once (CL3: four 1024s make 4096) | 2 in one move | The floor jumps from 2 to 8, so 2 and 4 both leave. |
+| Hammer lowers the floor, then a chain raises it again (CL4) | No new star | Hammer never lowers the run highest tile, so the count stays. The chain only brings H back to a level the run already had. It still clears small tiles and shows the clear notice, without a star. |
+| Undo after a chain that earned a star (CL5) | The star stays | Undo never lowers the run highest tile (D-29, D-41). Making the same chain again earns nothing. |
+| A Double that raises the floor (CL2, DB2) | 1 | The doubled tile is the new run highest tile. A Double raises it one step at most. |
+| The starting board | 0 | Its highest tile is 16 at most. |
+| Loading a saved run | No new star | The count comes from the saved run highest tile. Loading is not a move, so nothing is earned and no notice shows. |
+| A floor rise that removes no tile | 1 all the same | See below. |
+| A new run highest tile of 1024 or less | 0 | The floor stays 2 until the first 2K. |
+
+**A floor rise that removes no tile still earns its star.** Sometimes the board holds no tile of the value that leaves the window (example SC7). The star is earned all the same:
+
+1. The value is gone from the game either way: it no longer spawns. That is what the star marks.
+2. Missing a star because the board happened to hold none of that value would feel random, and the player could not see why.
+3. The count stays a function of the run highest tile, so it needs no saved state of its own and cannot be gamed.
+
+**The star moment: what the player sees.**
+
+- A move that earns at least one star always shows the clear notice (AT-104), even when it removed no tile.
+- The notice names every value that left the spawn window in that move: each value from the floor before the move up to half the new floor. For CL3 that is 2 and 4 ("No more 2s or 4s"). For SC7 it is 2, although no 2 was on the board. It also shows how many stars the move earned.
+- A move that clears small tiles but earns no star (CL4, or a chain made again after an Undo) shows the notice with the same values rule and no star.
+- A move that raised the floor but removed no tile and earned no star shows no notice. This can only happen after a Hammer or an Undo lowered the floor.
+- The HUD shows this run's star count during play, in every skin. It shows the new count by the time input reopens after the move (D-35). Neither the notice nor the count ever holds input.
+- No sound (the brief allows only the click), no pause and no extra screen.
+- How the stars and the notice look is a design system choice.
+
+**Reasoning: the count comes from the run highest tile.** The DM suggested this. I checked it and adopted it:
+
+- The run highest tile never goes down. Hammer and Undo cannot lower it (D-41), so no level can be counted twice.
+- It only rises through a chain or a Double, the same two moves that trigger clearing (D-38). A star and a clear always come together.
+- It is already saved with the run and checked on load. Stars need no new saved field, cannot drift from the board, and a reopened run shows the same stars.
+- Counting stars as events and saving the count would give the same numbers in every case above, but needs one more saved value and one more check.
+
+**Worked examples.** Boards D and E are in section 19.0, and CL1 to CL5 in section 9.4.
+
+| # | Situation | Run highest tile | Stars | Notice |
+|---|---|---|---|---|
+| SC1 | A new run starts. Its highest tile is 16 at most. | 16 at most | 0 | none |
+| SC2 | CL1: the 1024 pair makes the first 2048 and clears the 2 on (0,3). | 1024, then 2048 | 0, then 1 | "No more 2s", one star |
+| SC3 | CL3: four 1024s make 4096. | 1024, then 4096 | 0, then 2 | "No more 2s or 4s", two stars |
+| SC4 | CL4 step 1: Hammer on the 2048. H drops to 1024. | 2048, stays 2048 | 1, stays 1 | none |
+| SC5 | CL4 step 2: the 1024 pair makes 2048 again and clears the 2 on (2,0). | stays 2048 | stays 1 | "No more 2s", no star |
+| SC6 | CL5: Undo right after CL1, then the same chain again. | stays 2048 | stays 1 | The Undo: none. The chain: "No more 2s", no star |
+| SC7 | Board E with (4,6) = 1024 and (4,7) = 1024. Board E has no 2s. The pair makes 2048 and clears nothing. | 1024, then 2048 | 0, then 1 | "No more 2s", one star |
+| SC8 | CL2: Double on the 1024 makes 2048 and clears the 2. | 1024, then 2048 | 0, then 1 | "No more 2s", one star |
+| SC9 | A 512 pair makes the run's first 1024. | 512, then 1024 | 0 | none |
+| SC10 | The app reopens a saved run whose run highest tile is 131072. | 131072 | 7 on load | none |
+
+**Bart's phone run** reached a highest tile of 131072 (128K). Under D-45 that gives 7 stars:
+
+| Run highest tile reached | 2K | 4K | 8K | 16K | 32K | 64K | 128K |
+|---|---|---|---|---|---|---|---|
+| Value that left the window | 2 | 4 | 8 | 16 | 32 | 64 | 128 |
+| Stars | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+| Free boosters earned (D-46) | 0 | 0 | 1 | 1 | 1 | 2 | 2 |
+
+The next star would have come at 256K. The third free booster would have come at 512K (9 stars).
+
 ## 12. Game over
 
 ### 12.1 What counts as a valid move (D-15)
 
-A board has a valid move if and only if two touching tiles (eight directions) have the same value.
+A board has a valid move if and only if two touching tiles (eight directions) have the same value, and their sum fits in a 64 bit integer (D-37). The sum of two equal tiles of value v fits when v is 2^61 or less, so only a pair of 2^62 tiles fails, and only a hand edited save can hold one.
 
-Reason: every valid chain starts with two touching equal tiles, and any two touching equal tiles are already a valid chain. So the move check never needs to search for longer chains. Checking each cell against its right, lower left, lower and lower right neighbors covers every touching pair once.
+Reason: every valid chain starts with two touching equal tiles, and any two such tiles whose sum fits are already a valid chain. A longer chain from the same pair has a larger sum, so if the pair does not fit, no chain from it does. So the move check never needs to search for longer chains. Checking each cell against its right, lower left, lower and lower right neighbors covers every touching pair once. The fit test is the one the rules model already applies before committing (6.1). Without it, two touching 2^62 tiles counted as a move that could never be committed, so the offer never opened and the run could never end (SEC-01).
 
 | # | Board | Valid move? |
 |---|---|---|
@@ -572,13 +688,15 @@ Reason: every valid chain starts with two touching equal tiles, and any two touc
 | V3 | Board D with (1,1) changed to 2 | Yes: (0,0) and (1,1) are both 2, diagonal |
 | V4 | Board D with (0,0) changed to 8 | Yes: (0,0) and (0,1) are both 8, one above the other |
 | V5 | Board D with (0,0) and (2,0) changed to 4096 | No: the two 4096 tiles are two cells apart |
+| V6 | Board D with (0,7) and (1,7) changed to 2^62 | No: they touch, but 2^62 + 2^62 = 2^63 does not fit (SEC-01) |
+| V7 | Board D with (0,7) and (1,7) changed to 2^61 | Yes: 2^61 + 2^61 = 2^62 fits |
 
 ### 12.2 The no moves offer (D-19)
 
 When the move check after a move, or after loading a saved run, finds no valid move:
 
 1. Chain input stops. The board stays visible so the player can judge which booster would help.
-2. The game works out which boosters are usable now. A booster is usable when it is affordable (section 13). Undo also needs a snapshot (section 13.7).
+2. The game works out which boosters are usable now. A booster is usable when it is affordable and could act on this board (section 13.1). Undo also needs a snapshot (section 13.7). A held free booster makes every booster affordable (D-46). Hammer can always act, so while a free booster is held the run never ends at once.
 3. If none is usable, the run ends at once (12.3). The player sees that it ended because no moves were left.
 4. Otherwise the player sees: that no moves are left; every booster with its cost, usable ones enabled and the rest visibly disabled; the suggested rescue marked (D-42, below); and an End run choice.
 5. Choosing Shuffle or Undo applies it at once. Choosing Hammer, Swap or Double enters targeting on the board. Cancelling targeting (tapping the booster again) returns to the offer with nothing charged.
@@ -587,17 +705,19 @@ When the move check after a move, or after loading a saved run, finds no valid m
 
 The offer has no time limit. The run never ends without the player choosing End run, unless nothing is usable.
 
+The offer cannot repeat forever. End run is always there. Every booster it allows does something to the board (13.1), and every use either lowers the score by at least 64 or spends a free booster. Only chains raise the score, and a booster earns at most one star (a Double on the highest tile), a third of a free booster. So a run of boosters with no chain in between always runs out.
+
 Which boosters can rescue:
 
 | Booster | Can it make a valid move? |
 |---|---|
-| Shuffle | Always, while any two tiles share a value (section 13.5). This is why it is the suggested rescue: it needs no planning at a tense moment. |
-| Swap | Yes, whenever any two tiles share a value: swap one of them next to the other. Needs the player to spot it. |
+| Shuffle | Always, while two tiles share a value whose pair fits (D-15, section 13.5). This is why it is the suggested rescue: it needs no planning at a tense moment. |
+| Swap | Yes, whenever two tiles share a value whose pair fits (2^61 or less): swap one of them next to the other. Needs the player to spot it. |
 | Undo | Yes: the board before the last chain had a valid move, the chain itself. |
-| Double | If some tile touches a tile of double its value. Or if doubling the highest tile raises the window floor, and the clear and refill make a pair (D-38, example CL2). |
+| Double | If some tile touches a tile of double its value and that pair fits (doubling a 2^61 next to a 2^62 makes no move). Or if doubling the highest tile raises the window floor, and the clear and refill make a pair (D-38, example CL2). |
 | Hammer | Sometimes, through the fall and the new tile. Not guaranteed. |
 
-All usable boosters are offered, because the brief says any booster the player can still afford. The game does not judge whether a choice will help.
+All usable boosters are offered, because the brief says any booster the player can still afford. The game does not judge whether a choice will help. It only leaves out a booster that could do nothing at all (13.1), which only happens on a hand edited board.
 
 **D-42. The suggested rescue.** The offer marks at most one booster as the suggested rescue:
 
@@ -605,7 +725,7 @@ All usable boosters are offered, because the brief says any booster the player c
 2. Otherwise Undo, if it is usable.
 3. Otherwise none. Any other usable booster is still offered, just not marked.
 
-Reasoning: these are the two rescues that always produce a valid move without the player having to plan anything. Shuffle comes first because it keeps the last chain's points. With the costs in section 13.2, Shuffle is unusable only when the score is below B. Hammer and Swap (B) and Double (2B) are then unusable too, so Undo (B / 2) is the only booster that can still be offered, and case 3 means the run ends at once. Case 3 only matters if the costs are retuned.
+Reasoning: these are the two rescues that always produce a valid move without the player having to plan anything. Shuffle comes first because it keeps the last chain's points. With the costs in section 13.2, Shuffle is unusable only when the score is below B and no free booster is held (D-46). Hammer and Swap (B) and Double (2B) are then unusable too, so Undo (B / 2) is the only booster that can still be offered, and case 3 means the run ends at once. Case 3 only matters if the costs are retuned, or on a hand edited board where every tile is equal: there Shuffle cannot act (13.1), Hammer may still be usable, and nothing is marked (AT-144).
 
 | # | Usable boosters | Marked |
 |---|---|---|
@@ -618,11 +738,12 @@ Reasoning: these are the two rescues that always produce a valid move without th
 
 - The saved run is deleted. Best Score and Best Tile are already up to date and stay saved.
 - The end of run screen shows the final score, Best Score, Best Tile, this run's highest tile (D-41) and New game.
+- It also shows the New best badge when this run set a new Best Score: the Best Score now is higher than the Best Score when this run began. The run saves that starting value (section 15.1), so closing and reopening the app mid run does not lose the badge. A run whose score only equalled the old record gets no badge.
 - Nothing more can be done with that run.
 
 ### 12.4 Worked examples
 
-All examples have H = 1024, so B = 1024. Costs: Hammer 1,024, Swap 1,024, Shuffle 1,024, Double 2,048, Undo 512.
+All examples have H = 1024, so B = 1024. Costs: Hammer 1,024, Swap 1,024, Shuffle 1,024, Double 2,048, Undo 512. No free booster is held in any of them. With one held, GO3 and GO6 would open the offer instead (example FB8).
 
 | # | Situation | What the player sees and does | Result |
 |---|---|---|---|
@@ -638,9 +759,10 @@ All examples have H = 1024, so B = 1024. Costs: Hammer 1,024, Swap 1,024, Shuffl
 
 ### 13.1 General rules (D-21, D-22, D-43)
 
-- Each booster always shows its current cost.
-- A booster is usable when it is affordable (score at least its cost). Undo has its own check (13.7). A booster that is not usable is visibly disabled, and tapping it does nothing.
-- The cost is read from the board at the moment of use (D-21). It is charged in the same step as the effect, never before.
+- Each booster always shows its current cost, or Free while a free booster is held (D-46).
+- A booster is usable when it is affordable: the score is at least its cost, or a free booster is held (D-46). Undo has its own check (13.7). A booster that is not usable is visibly disabled, and tapping it does nothing.
+- A booster must also be able to act on the current board. Swap and Shuffle need two tiles of different value: otherwise Swap has no legal pair (D-24) and every arrangement is the same board. Double needs a tile of 2^61 or less (13.6). Hammer can always act. Every real board passes this; only a hand edited board, such as all 40 tiles at 2^62, can fail it (D-37). Reason: a booster the player can tap always does something, and a free booster is never spent on nothing.
+- The cost is read from the board at the moment of use (D-21). It is charged in the same step as the effect, never before. A free booster charges 0 instead (D-46).
 - Boosters can be used any time during play when no chain is being dragged and no move is still finishing on screen (D-35), and during the no moves offer.
 - Shuffle and Undo have no target. Tapping them applies them at once.
 - Hammer and Double need one tile. Swap needs two tiles. Tapping one of them enters targeting mode:
@@ -742,11 +864,11 @@ Effect, in order:
 4. If all 100 have no valid move, take the last one and apply the fallback below.
 5. Records, save and move check, as steps 7 to 9 of section 8.
 
-Fallback: read the cells in reading order (row 0 left to right, then row 1, and so on). Find the first cell P whose value appears again later in reading order, and let Q be the first later cell with that value. Swap the tile in Q with the tile in the cell to the right of P, or, if P is in column 4, the cell below P. P and its twin now touch. (That neighbor cell is never Q itself, because then the board would already have had a valid move. When P is in column 4, a cell below it always exists: P has a later twin, so P cannot be the last cell, (4,7).)
+Fallback: read the cells in reading order (row 0 left to right, then row 1, and so on). Find the first cell P whose value is 2^61 or less (so its pair fits, D-15) and appears again later in reading order, and let Q be the first later cell with that value. Swap the tile in Q with the tile in the cell to the right of P, or, if P is in column 4, the cell below P. P and its twin now touch. (That neighbor cell is never Q itself, because then the board would already have had a valid move. When P is in column 4, a cell below it always exists: P has a later twin, so P cannot be the last cell, (4,7).)
 
 Reasoning: a paid rescue must not fail by bad luck. With only one equal pair on the board (the worst real case), a random arrangement puts it touching about 16 percent of the time (123 touching cell pairs out of 780), so 100 straight failures happen about 3 times in 100 million. The fallback makes the guarantee exact and testable.
 
-If no two tiles share a value, no arrangement can help. Shuffle still runs and is charged, then the no moves offer follows. This needs 40 different values, so a tile of at least 2^40, far beyond any real run. Shuffle is not blocked for it.
+If no two tiles share a value of 2^61 or less, no arrangement can help. Shuffle still runs and is charged, then the move check follows. This needs 40 different values (so a tile of at least 2^40), or equal values only at 2^62, both far beyond any real run. Shuffle is not blocked for it, as long as it can change the board: on a board where every tile is equal it is not usable (13.1).
 
 Worked examples:
 
@@ -755,7 +877,7 @@ Worked examples:
 
 ### 13.6 Double (D-26)
 
-Target: any one tile, including the highest.
+Target: any one tile, including the highest, whose doubled value fits in a 64 bit integer (2^61 or less, D-37). A 2^62 tile is not a target: tapping it does nothing, nothing is charged, no free booster is used and Double stays active, as with Swap's equal value tap (D-24). A forced call to the rules model is refused. When no tile on the board is a target, Double is not usable (13.1).
 
 Effect, in order:
 
@@ -768,7 +890,7 @@ Effect, in order:
 Worked examples:
 
 - DB1: score 30,000, H = 4096. Double a 16 that touches a 32. Cost 8,192. Score 21,808. The two 32s now touch.
-- DB2: score 30,000, H = 4096. Double the 4096. Cost 8,192 (read before the effect). Score 21,808. H is now 8192, so every price doubles right after. Best Tile becomes 8192 if it was lower. The window floor rises from 8 to 16, so every 8 on the board clears and the board refills from 16, 32, 64, 128 (D-38).
+- DB2: score 30,000, H = 4096. Double the 4096. Cost 8,192 (read before the effect). Score 21,808. H is now 8192, so every price doubles right after. Best Tile becomes 8192 if it was lower. The window floor rises from 8 to 16, so every 8 on the board clears and the board refills from 16, 32, 64, 128 (D-38). If 4096 was the run highest tile, this is the run's third star, so one free booster is now held for the next booster (D-45, D-46). The Double itself was paid.
 - DB3: CL2 in section 9.4. A Double on the highest tile clears a 2, and the refill creates the only valid move.
 
 ### 13.7 Undo (D-27, D-28, D-29)
@@ -778,7 +900,7 @@ Snapshot: every committed chain stores the board from just before it and its poi
 Undo is usable when both hold:
 
 - a snapshot exists, and
-- score minus the snapshot's points is at least the Undo cost (B / 2, from the current board).
+- score minus the snapshot's points is at least the Undo cost (B / 2, from the current board, or 0 while a free booster is held, D-46).
 
 Effect, in order:
 
@@ -818,7 +940,7 @@ Worked examples:
 ### 13.8 Score never goes below zero (D-30)
 
 - The score is never below zero, at any moment.
-- Chains only add points. A booster runs only when usable, and then the new score is the old score minus the cost, which is zero or more. For Undo, D-28 gives the same guarantee.
+- Chains only add points. A booster runs only when usable, and then the new score is the old score minus its charge (the cost, or 0 for a free booster), which is zero or more. For Undo, D-28 gives the same guarantee, free or not.
 - The rules model itself must refuse a booster that is not usable: it returns a failure and changes nothing, even if the screen asks for it. It never clamps a negative score to zero, because clamping would hide a bug.
 
 | # | Situation | Result |
@@ -827,6 +949,104 @@ Worked examples:
 | Z2 | Score 128, Hammer costs 128. | Hammer usable. After use the score is 0, and every booster is disabled (the cheapest possible cost is 64). |
 | Z3 | Score 0 and no moves. | Nothing usable. The run ends at once. |
 | Z4 | Undo in U5. | Refused. It would have left minus 34. |
+
+Z1 to Z4 assume no free booster is held. With one held, Z1 to Z3 change (D-46): Hammer is usable and free at any score, and in Z3 the offer opens with Shuffle marked. Z4 does not change: a free Undo is still refused when the score is below the chain's points (FB4).
+
+### 13.9 Free boosters (D-46)
+
+Bart's request (2026-10-13): every 3 stars give one free booster. The player's next booster costs nothing.
+
+**D-46. Free boosters.**
+
+**Earning and holding.**
+
+- Free boosters earned = stars (D-45) divided by 3, rounded down. The 3 is STARS_PER_FREE_BOOSTER (section 18). The first comes at 3 stars (run highest tile 8K), then 6 (64K), 9 (512K), and so on.
+- Free boosters held = earned minus used. "Used" counts the free boosters spent this run. It only ever goes up, and the run saves it.
+- There is no cap. Any number can be held.
+- A free booster is earned at step 7 of section 8, in the move that earns the third star (or sixth, and so on). The move check right after already counts it. So a chain that earns a free booster and leaves no valid move opens the offer with every booster free.
+
+**How a free booster is used: automatically, on the next booster.**
+
+- Whenever a booster's effect applies while at least one free booster is held, that use charges 0 instead of its cost, and exactly one free booster is used.
+- This applies to every booster, Undo included, and whatever the score. A player who could pay still gets it free. There is no way to save it for later or to pay instead.
+- A booster that earns a free booster is charged as normal. Example: a Double that makes the third star is paid, and the new free booster goes to the next booster (DB2, FB9).
+
+Reasoning: Bart's own words are "the player's next booster costs nothing", and this is the plain reading. It is also the easiest to understand: while the bar says Free, the next booster is free. Letting the player choose would need an extra control on every booster and a new state to explain and save. The cost of the automatic rule is small: a player who wants the free booster for a Double just makes the Double their next booster.
+
+**Affordability.**
+
+- While a free booster is held, every booster counts as affordable.
+- Every other condition still applies:
+  - Undo needs a snapshot, and the score minus the snapshot's points must be at least the Undo cost, which is now 0 (D-28). So a free Undo is refused when boosters since the chain have taken the score below that chain's points. Otherwise the score would go below zero (FB4).
+  - The booster must be able to act on this board (13.1), and Hammer, Swap and Double still need valid targets (D-24, 13.6).
+  - Boosters still cannot be used during a drag or while a move is finishing on screen (D-08, D-35).
+- A refused call uses nothing and changes nothing.
+
+**Targeting and cancel.** Entering targeting uses nothing. The free booster is used only when the effect applies: the Hammer or Double tap, or Swap's second tile (D-21, D-43). Cancelling (tapping the booster again, Android back, pause, focus loss, closing the app) and switching to another booster keep it. So does selecting and deselecting Swap's first tile.
+
+**Undo.**
+
+- A free booster used on any booster stays used, Undo included. Undo never gives one back, just as "the Undo cost stays spent" (D-27).
+- Undoing the chain that earned a free booster does not take it back, because the stars stay (D-45). If that Undo is the next booster, it is the Undo that uses the free booster (FB6).
+- The count of free boosters used is not part of the Undo snapshot.
+
+**The out of moves offer (D-19, D-42).**
+
+- While a free booster is held, every booster is affordable. Undo still needs its own checks, and each booster must be able to act on this board (13.1).
+- Hammer can always act, so the run never ends at once. On a real board Shuffle can always act too, so it is the marked rescue.
+- Every use spends a free booster and End run is always there, so the offer can never repeat forever (12.2). On an all 2^62 board only Hammer is usable (AT-144).
+- The buy button reads "Shuffle for free" in place of "Shuffle for 4K".
+
+**What the player sees.**
+
+- While at least one free booster is held, every booster's cost reads "Free" (4 characters, like the longest cost label). Disabled boosters read Free too and stay visibly disabled, for example Undo with no snapshot.
+- The player can see how many free boosters are held whenever there is at least one. Where and how is a design system choice, as is the star display.
+- When the last one is used, the costs come back at once.
+
+**End of the run.** Unused free boosters end with the run, like the stars. Nothing carries over: a new run starts with 0 stars and 0 free boosters, and New game during a run (D-34) discards them too.
+
+**Score and records.** A free booster charges 0, so the score does not change, and it adds no points (D-18). Best Score is never changed by it. Best Tile and the run highest tile follow the booster's own effect exactly as when paid: a free Double on the highest tile raises them (FB10).
+
+**Saving.** The run file keeps one more number: the free boosters used this run, a whole number from 0 up to the free boosters earned. Stars, free boosters earned and free boosters held are worked out from it and the run highest tile on load (section 15.1). Reopening a run therefore shows the same stars and the same free boosters.
+
+**Balance.** A free booster is worth one booster's cost at the moment it is used. The costs and typical scores come from sections 13.2 and 17.
+
+| Stage | H | Stars | Free boosters earned | Free Hammer, Swap or Shuffle worth | Free Double worth | Free Undo worth | Typical score |
+|---|---|---|---|---|---|---|---|
+| First minutes | 32 | 0 | 0 | none yet | none yet | none yet | about 200 |
+| Early | 256 | 0 | 0 | none yet | none yet | none yet | about 3,500 |
+| Mid | 4096 (4K) | 2 | 0 | none yet (the first comes at 8K) | none yet | none yet | about 75,000 |
+| First free booster | 8192 (8K) | 3 | 1 | 8,192 (8K) | 16,384 (16K) | 4,096 (4K) | about 150,000 |
+| Second | 65536 (64K) | 6 | 2 | 65,536 (64K) | 131,072 (128K) | 32,768 (32K) | about 1,200,000 |
+| Late (Bart's run) | 131072 (128K) | 7 | 2 | 131,072 (128K) | 262,144 (256K) | 65,536 (64K) | about 2,400,000 |
+| Third | 524288 (512K) | 9 | 3 | 524,288 (512K) | 1,048,576 (1M) | 262,144 (256K) | about 9,600,000 |
+
+Typical scores from 8K on use section 17's late game rule, about 18.3 times H.
+
+What that means:
+
+- In moves of income (late game, about H / 10 per move, section 17), a free Hammer, Swap or Shuffle saves about 10 moves, a free Double about 20 and a free Undo about 5.
+- Between two free boosters H grows eightfold, which takes about 570 moves (about 190 per doubling) and earns about 128 times H in points (18.3 x 8H minus 18.3 x H). A free booster used at the price it had when earned is then a small share of that income: about 0.4 percent as Undo, 0.8 percent as Hammer, Swap or Shuffle, and 1.6 percent as Double. It is a real reward but does not change the economy.
+- Its biggest value is as a sure rescue: while one is held, the run cannot end at once, whatever the score.
+- It cannot pay for itself. A free Double on the highest tile adds at most one star, and a free booster needs three.
+- With one per 2 stars, the first would come at 4K. H would grow fourfold between two of them, about 55 times H of income, so each would be about 0.9 to 3.6 percent of it. Either rate is safe for the economy. The difference is only how often the reward comes, so Bart's choice of 3 stands: it keeps a free booster a rarer event, and a player who reaches 8K gets the first one.
+
+**Worked examples.** The default setup notes in section 19 apply: the run highest tile equals the board's highest tile unless stated.
+
+| # | Situation | Result |
+|---|---|---|
+| FB1 | Board D with (0,7) = 4096 and (1,7) = 4096. Score 50,000. Run highest tile 4096, so 2 stars and nothing held. The player commits the pair. | 8192 on (1,7). Score 58,192. 3 stars, 1 free booster held. Every booster reads Free. |
+| FB2 | Right after FB1, Hammer on (4,0). Then Hammer on (4,0) again. | The first Hammer is free: score 58,192, nothing held, and the costs show again (Hammer 8K). The second is charged 8,192: score 50,000. |
+| FB3 | Board P, score 0, run highest tile 8192, no free booster used yet (1 held), no snapshot. | Hammer, Swap, Shuffle and Double are usable and read Free. Undo reads Free but is disabled (no snapshot). A Double on (0,0) makes it 4, score stays 0, nothing held, and all five are disabled. |
+| FB4 | Board D with (2,0) = 4096, (1,7) = 8 and (2,7) = 16. Score 8,160. The player commits 8, 8, 16 (+32, score 8,192), then Doubles the 4096 (cost 8,192, score 0). | The Double makes the third star: 1 free booster held. Undo would be free, but 0 minus the chain's 32 points is below zero, so Undo is disabled and a call to it is refused. Hammer, Swap, Shuffle and Double are usable for free. |
+| FB5 | Board P, score 5,000, run highest tile 8192, 1 free booster held. The player taps Hammer, taps it again; taps Swap, taps (0,0), taps Swap; taps Double, then Hammer, then presses back. | Nothing is used: still 1 held, score 5,000. A Shuffle then is free: score 5,000, nothing held, and Hammer costs 128 again. |
+| FB6 | Right after FB1, the player uses Undo. | Undo is free: the board goes back to the FB1 setup and the score to 50,000. The run highest tile stays 8192, so 3 stars stay, and the free booster stays used: nothing held. Making the same chain again gives score 58,192, still 3 stars, no new free booster. |
+| FB7 | Board D with (0,7) = 32768 and (1,7) = 32768. Score 1,000,000. Run highest tile 32768 (5 stars, 1 earned, none used, so 1 held). The player commits the pair, then uses Shuffle, then Double on a tile other than the 65536, then Hammer on a tile other than the 65536. | After the chain: score 1,065,536, 6 stars, 2 held. Shuffle and Double are free: score 1,065,536, nothing held. Hammer is charged 65,536: score 1,000,000. |
+| FB8 | Board D1024 (no valid move), score 0, no snapshot, run highest tile 8192, 1 free booster held. | The offer opens instead of ending the run. Hammer, Swap, Shuffle and Double are usable, Undo is disabled, Shuffle is marked and the button reads "Shuffle for free". After the Shuffle: score 0, a valid move, nothing held. |
+| FB9 | Board D with (2,0) = 4096. Score 30,000. Run highest tile 4096, nothing held. Double on (2,0), then Shuffle. | The Double is paid: score 21,808. It makes the third star, so 1 is held. The Shuffle is free: score 21,808, nothing held. |
+| FB10 | Board D with (2,0) = 8192. Score 1,000, Best Score 1,000, Best Tile 8192. Run highest tile 8192, 1 held. Double on (2,0). | Free: score and Best Score stay 1,000. The tile becomes 16384, so Best Tile and the run highest tile become 16384 (4 stars). Nothing held. |
+| FB11 | The offer is open with 1 free booster held. The player taps End run, then New game. | The free booster is lost with the run. The new run has 0 stars and 0 free boosters, and Hammer costs 128. |
+| FB12 | Bart's phone run: run highest tile 131072, 7 stars. | Under D-46 that run earns 2 free boosters, at 8K and at 64K. Each goes to the first booster used after it is earned. One still held when the run ends is lost with it. |
 
 ## 14. Number display
 
@@ -881,7 +1101,7 @@ Reasoning: the score is exact and rarely a power of two, so abbreviating it woul
 
 | Data | Kept | Contents |
 |---|---|---|
-| Current run | Until the run ends or a new game replaces it | The 40 tile values, the score, the run highest tile (D-41), and the Undo snapshot (40 values and the chain's points) or none |
+| Current run | Until the run ends or a new game replaces it | The 40 tile values, the score, the run highest tile (D-41), the free boosters used this run (D-46), the Best Score when this run began (for the New best badge, 12.3), and the Undo snapshot (40 values and the chain's points) or none. Stars and free boosters held are not saved: they are worked out from the run highest tile and the free boosters used. |
 | Settings | Always | Sound on or off (default on), selected skin (default: the approved direction) |
 | Records | Always | Best Score, Best Tile |
 
@@ -889,15 +1109,15 @@ Not saved: a drag in progress, targeting mode and a Swap selection, the no moves
 
 When the run is saved:
 
-- As soon as each move resolves in the rules model, before its animation ends.
+- As soon as each move resolves in the rules model, before any of it shows on screen.
 - When a new run's starting board is made.
 - When the app is paused, loses focus or is closed.
 
-Saving right after the model resolves means closing the app during an animation cannot undo or reroll a move.
+The board starts showing a move only once its save has finished. That takes at most a few frames (25 ms at most in QA's measurements), too short to notice. Until then the board, score and booster bar look exactly as they did at the lift or tap. The chain line and the commit click may stay as they are, because neither shows the result. So the player never sees a result that was not saved, a spawn included. A kill or close at any moment reopens either the run before the move, with nothing of it ever shown, or the run after it. Closing the app during an animation therefore cannot undo or reroll a move. If a save fails, the move shows anyway, so the game never freezes.
 
-On load: show the saved board and score exactly, update the records (step 7 of section 8), then run the move check. If there is no valid move, open the no moves offer (12.2).
+On load: show the saved board and score exactly, update the records (step 7 of section 8), then run the move check. If there is no valid move, open the no moves offer (12.2). The stars and free boosters held come from the saved run highest tile and free boosters used. Loading earns no star and shows no clear notice (D-45).
 
-What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; a run highest tile that is a power of two and at least the highest value on the saved board and on the snapshot board; an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. Best Score is 0 or more. Best Tile is 0 or a power of two. If the saved run fails validation, it is discarded and a new run starts. Valid settings and records are kept.
+What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; a run highest tile that is a power of two and at least the highest value on the saved board and on the snapshot board; free boosters used, a whole number from 0 up to the free boosters earned from that run highest tile (D-46); a Best Score when the run began of 0 or more (not checked against the records, which live in another file); an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. A run saved before D-46 existed has no count of free boosters used: it loads as 0 used, so its stars and free boosters appear on load, with no notice. A run saved before the starting Best Score existed takes the Best Score loaded with it instead. Its New best badge then shows only if the run beats the record again after reopening, which is the old behaviour. Best Score is 0 or more. Best Tile is 0 or a power of two. If the saved run fails validation, it is discarded and a new run starts. Valid settings and records are kept.
 
 ### 15.2 New game during a run (D-34)
 
@@ -905,7 +1125,7 @@ Starting a new game while a run is in progress asks the player to confirm. On co
 
 ### 15.3 One move at a time (D-35)
 
-After a move resolves, a new chain or booster tap is accepted only when that move's animation has finished. Input in the meantime is ignored, not queued. The player always acts on the board they can see. This rule does not set how long animations are; the design system keeps them short.
+After a move resolves, a new chain or booster tap is accepted only when that move's animation has finished. The short wait for its save before the animation starts (15.1) is part of the move. Input in the meantime is ignored, not queued. The player always acts on the board they can see. This rule does not set how long animations are; the design system keeps them short.
 
 ## 16. Click sound triggers (D-36)
 
@@ -982,8 +1202,11 @@ Developers read every constant from this table. Bart can rebalance by changing v
 | MIN_LABEL_DIGIT_HEIGHT_DP | 12 | Smallest digit height on a tile label at SMALLEST_TILE_DP. On smaller tiles, the same share of the tile side (12 / 56) | 14.1 |
 | SCORE_MIN_CHARACTERS | 13 | Characters the score display must fit | 14.2 |
 | SOUND_DEFAULT | On | Sound setting on first launch | 15.1, 16 |
+| STARS_PER_FREE_BOOSTER | 3 | Stars needed for each free booster | 13.9 |
 
-D-38 to D-43 add no new constants. Small tile clearing uses the window floor, which comes from SPAWN_TOP_MIN, SPAWN_TOP_DIVISOR and SPAWN_WINDOW_SIZE. Changing those moves the clear too.
+D-38 to D-43 add no new constants. Small tile clearing uses the window floor, which comes from SPAWN_TOP_MIN, SPAWN_TOP_DIVISOR and SPAWN_WINDOW_SIZE. Changing those moves the clear too. D-45 adds none either: the star count is how many times the window floor of the run highest tile has doubled above the floor of an empty board (2 with these values), so it moves with the same three constants. D-46 adds STARS_PER_FREE_BOOSTER.
+
+The rules already require every tile to be a power of two of 2 or more (section 5), so the spawn constants must keep every window value one. SPAWN_TOP_MIN and SPAWN_TOP_DIVISOR must stay powers of two, and SPAWN_TOP_MIN at least 2 to the power SPAWN_WINDOW_SIZE (16 with these values), so the smallest window value is at least 2. The star count (D-45) relies on this too.
 
 ## 19. Acceptance tests
 
@@ -993,7 +1216,7 @@ Each test gives the setup, the action and the exact expected result. The Type sa
 - **Play**: QA walks it in the running game (editor or phone).
 - **Both**: a unit test for the rule, plus a QA check of what the player sees.
 
-"Scripted spawn" means the test replaces the random draws with listed values, in fill order (9.3). A test that says "seeds 1 to N" repeats with each seed. Unless a test says otherwise, there is no Undo snapshot, Best Score is 0, Best Tile is 0, and the run highest tile equals the setup board's highest tile.
+"Scripted spawn" means the test replaces the random draws with listed values, in fill order (9.3). A test that says "seeds 1 to N" repeats with each seed. Unless a test says otherwise, there is no Undo snapshot, Best Score is 0, Best Tile is 0, and the run highest tile equals the setup board's highest tile. The stars follow from the run highest tile (D-45), and every free booster those stars have earned counts as already used, so none is held at the start (D-46). A test that holds free boosters says so.
 
 Some setups hold tiles below the window floor (for example Board D with a 4096 in it). Real play cannot reach such boards after D-38, but they isolate one rule. Small tile clearing only runs when a move raises the floor (D-38), so those tiles stay unless the test's own move raises it. Where a move does raise it, the expected result includes the clear. The hooks these tests need from the rules model are listed in section 20.
 
@@ -1149,7 +1372,7 @@ row 7:   8  32   8  32   8
 
 **AT-42. Undo does not lower Best Score.** Type: Unit. Setup: the state right after the commit in AT-41 (score 10,006, Best Score 10,006). Action: Undo (cost 64). Expected: score 9,926. Best Score stays 10,006.
 
-**AT-43. Best Tile counts Double and is not lowered by Hammer.** Type: Unit. Setup: Board D with (0,7) = 4096 and (1,7) = 4096, score 50,000, Best Tile 4096. Action: commit (0,7), (1,7); then Double on the 8192; then Hammer on the 16384. Expected: after the commit Best Tile 8192 and score 58,192. After Double (cost 16,384): score 41,808, Best Tile 16384. After Hammer (cost 16,384): score 25,424, H is below 16384, Best Tile still 16384. (The commit and the Double each raise the floor and clear small tiles, D-38. That does not change these numbers.)
+**AT-43. Best Tile counts Double and is not lowered by Hammer.** Type: Unit. Setup: Board D with (0,7) = 4096 and (1,7) = 4096, score 50,000, Best Tile 4096. Action: commit (0,7), (1,7); then Double on the 8192; then Hammer on the 16384. Expected: after the commit Best Tile 8192 and score 58,192. The 8192 is this run's third star, so one free booster is held (D-46). After Double (free): score 58,192, Best Tile 16384, no free booster held. After Hammer (cost 16,384): score 41,808, H is below 16384, Best Tile still 16384. (The commit and the Double each raise the floor and clear small tiles, D-38. That does not change these numbers.) Updated on 2026-10-13 for D-46: before it, the Double cost 16,384.
 
 **AT-44. Records persist.** Type: Play. Setup: finish a run that set a new Best Score and Best Tile. Action: close the app fully, reopen it, start a new run. Expected: Best Score and Best Tile show the values from the finished run.
 
@@ -1189,7 +1412,7 @@ row 7:   8  32   8  32   8
 | 4096 | 4096 | 4096 | 4096 | 4096 | 8192 | 2048 |
 | 131072 | 131072 | 131072 | 131072 | 131072 | 262144 | 65536 |
 
-**AT-57. Unaffordable boosters are visibly disabled.** Type: Both. Setup: Board D, no snapshot. Action: set the score to 127, then 128, then 256. Expected: at 127 all five are disabled and tapping them does nothing. At 128 Hammer, Swap and Shuffle are enabled, Double and Undo disabled. At 256 Double is enabled too. Undo stays disabled (no snapshot).
+**AT-57. Unaffordable boosters are visibly disabled.** Type: Both. Setup: Board P, no snapshot. Board P has a valid move, so no offer opens and the bar can be tapped at every score. (Changed from Board D on 2026-10-13, QA Q1: on Board D the run ends at once at 127. The costs are the same.) Action: set the score to 127, then 128, then 256. Expected: at 127 all five are disabled and tapping them does nothing. At 128 Hammer, Swap and Shuffle are enabled, Double and Undo disabled. At 256 Double is enabled too. Undo stays disabled (no snapshot).
 
 **AT-58. Spending down to exactly zero.** Type: Unit. Setup: Board D, score 128. Action: Hammer on any tile. Expected: score 0. All five boosters are now disabled.
 
@@ -1232,8 +1455,9 @@ row 7:   8  32   8  32   8
 - The floor rises from 8 to 16, so all 30 tiles of value 2, 4 and 8 clear (D-38). Column 2 below the 8192 is now empty, so the 8192 falls to (2,7).
 - The 30 cells refill from 16, 32, 64, 128.
 - Hammer now costs 8,192. Best Tile 8192.
+- The 8192 is this run's third star (D-45), so one free booster is now held and every booster reads Free (D-46). The Double itself was paid.
 
-(Updated at Hard Stop 1: before D-38 the tile stayed on (2,0).)
+(Updated at Hard Stop 1: before D-38 the tile stayed on (2,0). Updated on 2026-10-13 with the star and free booster line.)
 
 **AT-76. Undo after a chain.** Type: Both. Setup: Board D with (2,0) = 512, (1,7) = 8 and (2,7) = 16. Score 1,000. Action: commit (0,7), (1,7), (2,7) (8, 8, 16), then Undo. Expected: after the commit, score 1,032 and Undo enabled at cost 256. After Undo, the board equals the setup board exactly, score 744, and Undo is disabled.
 
@@ -1257,7 +1481,7 @@ row 7:   8  32   8  32   8
 
 ### 19.10 Score never below zero
 
-**AT-84. Random play never goes below zero.** Type: Unit. Setup: seeds 1 to 20, a new run each. Action: 10,000 random actions per run: valid chain commits, and calls to all five boosters with random targets whether or not they are usable. Expected: the score is never below zero. Every refused call changed nothing. Every accepted booster lowered the score by exactly its cost (Undo: by the chain's points plus its cost).
+**AT-84. Random play never goes below zero.** Type: Unit. Setup: seeds 1 to 20, a new run each. Action: 10,000 random actions per run: valid chain commits, and calls to all five boosters with random targets whether or not they are usable. Expected: the score is never below zero. Every refused call changed nothing, free boosters included. Every accepted booster lowered the score by exactly its charge: its cost, or 0 when it used a free booster (Undo: by the chain's points plus its charge). Free boosters held never go below zero. (Updated on 2026-10-13 for D-46.)
 
 ### 19.11 Number display
 
@@ -1374,14 +1598,185 @@ Expected:
 
 **AT-111. Swap selects on its first tap and acts on its second.** Type: Both. Setup: Board P, score 5,000. Action: tap Swap, tap (0,0), then tap (2,7). Expected: after the first tile tap, (0,0) is selected and nothing is charged. On the second tap the swap applies at once: (0,0) = 32, (2,7) = 2, score 4,872, targeting ends.
 
-### 19.14 Coverage
+### 19.14 Added on 2026-10-13
+
+Play setups that need stars or free boosters can use a run file written by hand in the save format (docs/ARCHITECTURE.md section 10), or a run played that far.
+
+**How to play (D-44)**
+
+**AT-112. How to play opens from the main menu.** Type: Play. Setup: the main menu (first launch, or after a run ends). Note Best Score and Best Tile. Action: tap How to play; scroll to the end; press Android back. Open it again and close it with its own close control. Expected: the screen opens titled "How to play" with sections HP1 to HP7 of section 21.2 in order, every title and text exactly as written there. Both back and the close control return to the main menu. Best Score and Best Tile are unchanged.
+
+**AT-113. How to play opens from Pause and leaves the run untouched.** Type: Play. Setup: a run in progress right after a chain, with Undo enabled. Note the board, score, stars and Undo cost. Action: open Pause, tap How to play, press back, then tap Resume. Expected: How to play opens from Pause. Back returns to Pause, not to the board. After Resume the board, score, stars, free boosters held and Undo cost are exactly as noted.
+
+**AT-114. How to play never opens by itself.** Type: Play. Setup: a fresh install. Action: launch the app; start a new game; play until the run ends; start another game; close the app and reopen it. Expected: How to play never appears unless its button is tapped.
+
+**AT-115. Real tiles in the current skin, and the screen fits.** Type: Play. Setup: 360 x 720 dp and 360 x 640 dp portrait screens. Action: for each skin (Gumdrop, Slate, Nova), select it in Settings, then open How to play from the main menu and from Pause. Expected:
+- The rows HP1 (2, 2, 4 then 8), HP2 (2, 2, 2 then 4) and HP5 (1024, 1024 then 2K) are drawn by that skin's own tile component, with its colors and font. The labels read "1024" and "2K".
+- The result tile in each row is set apart from the chain tiles.
+- Titles and text use that skin's fonts, colors and casing.
+- On 360 x 720 dp the whole content scrolls in at most about two screen heights. Nothing is clipped on either screen.
+- Tapping or dragging the example tiles does nothing.
+
+**AT-116. The How to play content checks out.** Type: Unit. Setup: the content the screen shows (TH21). Action: read it, and check each example row on the rules model. Expected:
+- Seven sections, titles and texts exactly as in section 21.2. Each title is 1 to 4 words and each text 2 sentences.
+- Each example row, laid out as touching cells on a test board, is a valid chain (D-04), and its result tile equals the merge result (TH15): 2, 2, 4 gives 8; 2, 2, 2 gives 4; 1024, 1024 gives 2048.
+- Each label equals NumberFormat's tile label (TH17): "1024" and "2K".
+
+**Stars (D-45)**
+
+**AT-117. Star count and free boosters earned.** Type: Unit. Setup: run states with the run highest tile 16, 1024, 2048, 4096, 8192, 65536, 131072, 1048576 and 2^62. Action: read the stars and free boosters earned (TH3). Expected, in the same order: stars 0, 0, 1, 2, 3, 6, 7, 10, 52; free boosters earned 0, 0, 0, 0, 1, 2, 2, 3, 17. The 131072 case is Bart's phone run: 7 stars, 2 free boosters earned.
+
+**AT-118. The first 2K earns a star (example SC2).** Type: Unit. Setup: as AT-99. Action: commit (4,6), (4,7). Expected: everything in AT-99, plus: stars 0 before and 1 after. The move result reports 1 star earned and 0 free boosters earned.
+
+**AT-119. Two stars in one move (example SC3).** Type: Unit. Setup: as AT-100. Action: commit (0,7), (1,7), (2,7), (3,7). Expected: everything in AT-100, plus: stars 0 before and 2 after. The move result reports 2 stars earned. The notice values (TH12) are 2 and 4.
+
+**AT-120. Hammer, then a chain back to the same level, earns no star (examples SC4 and SC5).** Type: Both. Setup: as AT-38 (run highest tile 2048, so 1 star). Action: as AT-38. Expected: everything in AT-38, plus:
+- After the Hammer: 1 star, 0 earned. No notice.
+- After the chain: 1 star, 0 earned. The move result still reports the 2 on (2,0) as cleared, and the notice values are 2.
+- Play: the clear notice shows "No more 2s" with no star. The HUD star count stays at 1.
+
+**AT-121. Undo keeps the star, and the same chain again earns none (example SC6).** Type: Unit. Setup: as AT-80. Action: commit (0,7), (1,7); Undo; commit (0,7), (1,7) again. Expected:
+- After the first commit: 1 star, 1 earned, score 22,048.
+- After Undo: still 1 star, score 18,976. The run highest tile stays 2048.
+- After the second commit: score 21,024, still 1 star, 0 earned. The twelve 2s are cleared again.
+
+**AT-122. A Double that raises the floor earns a star (example SC8).** Type: Unit. Setup: as AT-101. Action: Double on (2,0). Expected: everything in AT-101, plus: stars 0 before and 1 after, and the move result reports 1 star earned.
+
+**AT-123. A floor rise that removes no tile still earns its star (example SC7).** Type: Both. Setup: Board E with (4,6) = 1024 and (4,7) = 1024. Score 10,000. Scripted spawn 4. Action: commit (4,6), (4,7). Expected:
+- Score 12,048. (4,7) = 2048. (4,0) = 4, so (4,0) and (4,1) are both 4 and the board has a valid move.
+- The window floor rose from 2 to 4. The move result reports no cleared tiles, 1 star earned and notice values 2.
+- Stars 1.
+- Play: the clear notice shows "No more 2s" with one star, although no tile cleared.
+
+**AT-124. A new highest tile below 2K earns no star (example SC9).** Type: Unit. Setup: Board D with (0,7) = 512 and (1,7) = 512. Score 0. Action: commit (0,7), (1,7). Expected: score 1,024 and (1,7) = 1024. The run highest tile is 1024, the floor stays 2, nothing is cleared, and the move result reports 0 stars earned. Stars 0.
+
+**AT-125. The starting board and a loaded run earn no star (examples SC1 and SC10).** Type: Unit. Setup and action: (a) start new runs with seeds 1 to 100. (b) Load a saved run (TH18) with a valid board, run highest tile 131072 and 1 free booster used. Expected: (a) every new run has 0 stars and 0 free boosters. (b) The loaded run has 7 stars and 1 free booster held. The load reports no star earned and nothing that would show a clear notice.
+
+**AT-126. The player sees the star.** Type: Play. Setup: a real run where H is 1024, with the score high enough to Undo after the next chain. Action: make the first 2048; then use Undo; then make the same chain again. Expected:
+- The first chain: the clear notice shows with one star, and the HUD star count reads 1 no later than when the board can be played again.
+- After Undo the HUD still reads 1.
+- The chain again: the notice shows with no star, and the count stays 1.
+- In every skin the star count is visible on the play screen. Nothing about the stars holds input or plays a sound.
+
+**Free boosters (D-46)**
+
+**AT-127. The third star earns a free booster (example FB1).** Type: Both. Setup: Board D with (0,7) = 4096 and (1,7) = 4096. Score 50,000. Run highest tile 4096 (2 stars). Action: commit (0,7), (1,7). Expected:
+- Score 58,192. 3 stars. The move result reports 1 free booster earned. 1 free booster held.
+- Every booster status shows it as free (TH3), with its cost unchanged: Hammer 8,192, Double 16,384, Undo 4,096. All five are usable, Undo because a snapshot exists and 58,192 minus 8,192 is at least 0.
+- Play: every booster on the bar reads Free, and the number of free boosters held is shown.
+
+**AT-128. The next booster is free, automatically, one at a time (example FB2).** Type: Unit. Setup: the state right after AT-127. Action: Hammer on (4,0); then Hammer on (4,0) again. Expected: the first Hammer is accepted, charges 0 and is reported as using a free booster. Score 58,192, 0 free boosters held, every booster no longer free. The second Hammer charges 8,192: score 50,000.
+
+**AT-129. A free booster makes an unaffordable booster usable (example FB3).** Type: Both. Setup: Board P. Score 0. Run highest tile 8192. Free boosters used 0, so 1 held. No snapshot. Action: read the booster statuses; then Double on (0,0). Expected:
+- Before: Hammer, Swap, Shuffle and Double are usable and free. Undo is free but not usable (no snapshot).
+- After: (0,0) = 4, score 0, 0 free boosters held. All five boosters are disabled (score 0, cheapest cost 64).
+- Play: before the Double all five read Free and only Undo looks disabled. After it they all read their costs and look disabled.
+
+**AT-130. A free Undo still follows D-28 (example FB4).** Type: Unit. Setup: Board D with (2,0) = 4096, (1,7) = 8 and (2,7) = 16. Score 8,160. Run highest tile 4096. Action: commit (0,7), (1,7), (2,7); Double on (2,0); then call Undo on the rules model. Expected:
+- After the commit: score 8,192.
+- After the Double (cost 8,192): score 0, 3 stars, 1 free booster held.
+- Undo is not usable (cannot afford: 0 minus 32 is below 0) and the call is refused. Score 0, board unchanged, still 1 free booster held.
+- Hammer, Swap, Shuffle and Double are usable.
+
+**AT-131. Cancelling targeting keeps the free booster (example FB5).** Type: Both. Setup: Board P. Score 5,000. Run highest tile 8192. Free boosters used 0, so 1 held. Action: tap Hammer, tap Hammer; tap Swap, tap (0,0), tap (0,0), tap Swap; tap Double, tap Hammer, press back; tap Double, open Pause, resume; then tap Shuffle. Expected:
+- Through every cancel, deselect, switch and the pause: still 1 free booster held, score 5,000, all five read Free.
+- The Shuffle is free: score 5,000, 0 held. Hammer costs 128 again.
+
+**AT-132. A free booster used on Undo stays used (example FB6).** Type: Unit. Setup: the state right after AT-127. Action: Undo; then commit (0,7), (1,7) again. Expected:
+- Undo is accepted, charges 0 and uses the free booster. The board equals the AT-127 setup and the score is 50,000. Still 3 stars (the run highest tile stays 8192). 0 free boosters held.
+- After the second commit: score 58,192, 3 stars, 0 stars and 0 free boosters earned, 0 held.
+
+**AT-133. Two free boosters held (example FB7).** Type: Unit. Setup: Board D with (0,7) = 32768 and (1,7) = 32768. Score 1,000,000. Run highest tile 32768 (5 stars). Free boosters used 0, so 1 held. Action: commit (0,7), (1,7); Shuffle; Double on any tile that is not the 65536; Hammer on any tile that is not the 65536. Expected:
+
+| After | Score | Stars | Free boosters held |
+|---|---|---|---|
+| The commit | 1,065,536 | 6 | 2 |
+| Shuffle (free) | 1,065,536 | 6 | 1 |
+| Double (free) | 1,065,536 | 6 | 0 |
+| Hammer (cost 65,536) | 1,000,000 | 6 | 0 |
+
+**AT-134. A Double that earns a free booster is itself paid (example FB9).** Type: Unit. Setup: as AT-75. Action: Double on (2,0); then Shuffle. Expected: after the Double, score 21,808, 3 stars and 1 free booster held. The Shuffle charges 0: score 21,808, 0 held.
+
+**AT-135. The out of moves offer with a free booster (example FB8).** Type: Both. Setup: Board D1024. Score 0. No snapshot. Run highest tile 8192. (a) Free boosters used 0, so 1 held. (b) Free boosters used 1, so none held. Action: run the move check; in (a) then tap Shuffle. Expected:
+- (a) The offer opens. Hammer, Swap, Shuffle and Double are usable and read Free. Undo is disabled. Shuffle is marked as the suggested rescue, and the buy button reads "Shuffle for free". After the tap: score 0, the board has a valid move, 0 free boosters held, and the offer closes.
+- (b) Nothing is usable, so the run ends at once with final score 0, as in AT-50.
+
+**AT-136. A free booster never touches score or Best Score (example FB10).** Type: Unit. Setup: Board D with (2,0) = 8192. Score 1,000. Best Score 1,000. Best Tile 8192. Run highest tile 8192. Free boosters used 0, so 1 held. Action: Double on (2,0). Expected: the Double charges 0. Score 1,000 and Best Score 1,000. The tile becomes 16384, so Best Tile and the run highest tile are 16384 and the stars 4. 0 free boosters held.
+
+**AT-137. Unused free boosters end with the run (example FB11).** Type: Both. Setup: Board D1024. Score 5,000. Run highest tile 8192. Free boosters used 0, so 1 held. The offer is open. Action: tap End run, then New game. Expected: the end of run screen shows this run's highest tile 8K. The new run has 0 stars and 0 free boosters held, and its boosters show costs (Hammer 128), not Free.
+
+**AT-138. Stars and free boosters survive a restart.** Type: Both. Setup: (Unit) a run state with a valid board, run highest tile 131072 and 1 free booster used. (Play) a run with at least 3 stars and 1 free booster held. Action: (Unit) save it and load it again (TH18). (Play) note the stars, close the app fully and reopen it, then use any booster. Expected: (Unit) the loaded state equals the saved one: 7 stars, 1 free booster held. (Play) the run reopens with the same stars and every booster still reads Free. The booster used next charges nothing.
+
+**AT-139. Checking the saved count of free boosters used.** Type: Unit (TH18, save format of docs/ARCHITECTURE.md section 10). Setup: a valid run file with run highest tile 131072 (exponent 17, so 2 free boosters earned) and a valid profile. Action: load copies with free boosters used set to (a) 0, (b) 2, (c) 3, (d) minus 1, (e) 1.5, (f) the text "1", and (g) a copy with no such entry at all. Expected:
+- (a) and (b) load, with 2 and 0 free boosters held.
+- (c) to (f) are refused as in AT-95: the run is discarded, nothing crashes, and the profile is untouched.
+- (g) loads as 0 used, so 2 free boosters held (section 15.1).
+
+**About screen (no D number)**
+
+**AT-140. About opens from Settings and back closes it.** Type: Play. Setup: Settings open, once from the main menu and once from Pause. Action: tap About, press Android back; tap About again, use its own close control. Expected: About opens from Settings. Back and the close control each return to Settings, which is still open. A second back closes Settings as before. It works in every skin.
+
+**AT-141. About shows what it is and who made it.** Type: Both. Setup: none. Action: open About in each skin. Expected:
+- It shows the game name SumUp, the version (the same as on the Settings version line), that it is made by Bart Basi, and that the game is fully offline and collects no data.
+- It shows the attribution exactly as "Copyright 2026 Bart Basi".
+- Unit: the About text (TH22) contains the exact text "Copyright 2026 Bart Basi".
+
+**AT-142. Every license can be read in full.** Type: Both. Setup: none. Action: from About, open in turn the game's license (the GNU GPL version 3 text), the Godot engine's license notice (its MIT notice and the notices for its parts) and the Outfit font's license (SIL Open Font License 1.1). Scroll each from its first line to its last. Expected:
+- Unit: each text shown equals its source exactly, character for character: the GPL text file and OFL.txt that ship with the game, and Godot's own license and copyright data.
+- Play: on a 360 x 640 dp screen each text scrolls to its last line, which is visible. No line is clipped or cut short.
+
+**The 64 bit edge (SEC-01, D-37)**
+
+**AT-143. Two touching 2^62 tiles do not block the run.** Type: Unit. Setup: Board D with (0,7) = 2^62 and (1,7) = 2^62. This is the board of security finding SEC-01 (cells 35 and 36 at exponent 62). Score 0. Run highest tile 2^62, so 52 stars and 17 free boosters earned. No snapshot.
+
+(a) All 17 free boosters used, so none held. Action: read the valid move check (TH13) and the joinable cells for the chain [(0,7)] (TH14); commit [(0,7), (1,7)]; run the move check. Expected:
+- No valid move. (1,7) is not joinable.
+- The commit is refused and changes nothing.
+- Nothing is usable: Hammer, Swap and Shuffle cost 2^62, Double's 2^63 does not fit, and Undo has no snapshot.
+- The run ends at once with final score 0. It does not stay in play.
+
+(b) 16 free boosters used, so 1 held. Action: run the move check; Double on (0,7); Double on (2,7). Expected:
+- The offer opens. Hammer, Swap, Shuffle and Double are usable and free, Undo is not, and Shuffle is marked.
+- Double on (0,7) is refused as a bad target. Nothing changes and 1 free booster is still held.
+- Double on (2,7) is accepted and charges 0. (2,7) = 16, which touches (3,7) = 16, so the board has a valid move and play goes on. 0 held.
+
+**AT-144. An all 2^62 board with a free booster held cannot loop.** Type: Unit. Setup: all 40 cells 2^62. Run highest tile 2^62. No snapshot. Scripted spawn 2^53.
+
+(a) Score 0. 16 free boosters used, so 1 held. Action: run the move check; call Swap on (0,0) and (1,0), Shuffle, and Double on (0,0) on the rules model; then Hammer on (0,0). Expected:
+- No valid move. The offer opens with only Hammer usable, and free. Swap and Shuffle are not usable (every tile is equal), Double is not (no tile of 2^61 or less) and Undo is not (no snapshot). Nothing is marked. End run is offered.
+- The Swap, Shuffle and Double calls are refused and change nothing. 1 free booster is still held.
+- The Hammer is accepted and charges 0: (0,0) = 2^53, score 0, 0 held.
+- Still no valid move and nothing usable, so the run ends at once.
+
+(b) The finding's variant: score 2^63 minus 1 (9,223,372,036,854,775,807), no free booster held. Action: run the move check, then Hammer on (0,0). Expected:
+- The offer opens with only Hammer usable (cost 2^62). Swap and Shuffle are not usable (every tile is equal), Double is not (its cost does not fit and it has no target), and Undo is not.
+- After the Hammer: score 2^62 minus 1 (4,611,686,018,427,387,903) and (0,0) = 2^53. No valid move, nothing usable, and the run ends at once.
+
+**From QA's Phase 6 report (2026-10-13)**
+
+**AT-145. New best survives a restart (QA6-03).** Type: Both. Setup: a profile with Best Score 5,000, and a saved run file: Board D1024, score 5,000, no snapshot, Best Score when the run began 4,000. So this run raised the record from 4,000 to 5,000 before the app closed. Action: open the app (the run resumes and the offer opens, because Board D1024 has no valid move), then tap End run. Repeat with two changed copies of the run file: (b) Best Score when the run began 5,000; (c) no starting Best Score in the file at all, as saved before this rule. Expected:
+- (a) The end of run screen shows the New best badge.
+- (b) No badge: the run only equalled the record.
+- (c) No badge, the old behaviour (section 15.1).
+- Unit: the same three files through TH18 and the session give a run summary with New best true, false and false.
+- Play, in a real run as well: set a new Best Score, use a booster so the score drops below it, close the app fully and reopen it, then play to the out of moves offer without passing the Best Score again and tap End run. The badge shows.
+
+**AT-146. A kill right after the lift never shows an unsaved move (QA6-06).** Type: Both. Setup: a run in progress. Action:
+- Unit (TH23): hold back the save writer, commit a chain, check the view, then release the writer.
+- Play: 20 times, commit a chain and hard kill the process in the first frame after the lift (as QA's r_f), and also inside the save request (as r_g). Capture the last frame shown before each kill, then reopen.
+
+Expected:
+- Unit: while the save is held back, the board view has not started the move. The board, score and booster bar are as at the lift. Once the save finishes, the move's animation starts.
+- Play: each reopen gives one of two results. Either the run from before the move, and the captured frame shows nothing of the move: no merged tile, no score change, no clear and no spawn. Or the run after the move, with its result and points. A result that was on screen is never missing after reopening.
+
+### 19.15 Coverage
 
 | Decision or rule | Tests |
 |---|---|
 | D-01 Board size | AT-01 |
 | D-02 Rounding down | AT-26, AT-27, AT-28 |
 | D-03 Preview | AT-07, AT-14, AT-89, AT-90 |
-| D-04 Joining rule | AT-06, AT-08, AT-09, AT-10, AT-11, AT-12, AT-13 |
+| D-04 Joining rule | AT-06, AT-08, AT-09, AT-10, AT-11, AT-12, AT-13, AT-143 |
 | D-05 Backtracking | AT-14, AT-15, AT-16 |
 | D-06 Path, leaving, lifting | AT-18, AT-19, AT-20, AT-25 |
 | D-07 Hit radius | AT-21 |
@@ -1392,35 +1787,39 @@ Expected:
 | D-12 Fill order | AT-31, AT-32 |
 | D-13 Tiles below the window | Replaced by D-38. AT-38 was rewritten for D-38 and D-39 |
 | D-14 Starting board | AT-01 to AT-03 |
-| D-15 Valid move | AT-45 |
-| D-16 Best Score | AT-41, AT-42, AT-80 |
-| D-17 Best Tile | AT-05, AT-37, AT-43, AT-75, AT-80 |
+| D-15 Valid move | AT-45, AT-143, AT-144 |
+| D-16 Best Score | AT-41, AT-42, AT-80, AT-136 |
+| D-17 Best Tile | AT-05, AT-37, AT-43, AT-75, AT-80, AT-136 |
 | D-18 Only chains add points | AT-39, AT-40 |
-| D-19 No moves offer | AT-46 to AT-55, AT-73, AT-101, AT-109 |
+| D-19 No moves offer | AT-46 to AT-55, AT-73, AT-101, AT-109, AT-135, AT-143, AT-144 |
 | D-20 Costs | AT-56, AT-60 |
 | D-21 Cost read at use, charged with effect | AT-37, AT-60, AT-61, AT-75 |
 | D-22 Targeting | AT-61 to AT-66 |
 | D-23 Hammer | AT-37, AT-53, AT-67 |
 | D-24 Swap | AT-52, AT-68, AT-69 |
-| D-25 Shuffle | AT-48, AT-70 to AT-73 |
-| D-26 Double | AT-74, AT-75, AT-101 |
+| D-25 Shuffle | AT-48, AT-70 to AT-73, AT-144 |
+| D-26 Double | AT-74, AT-75, AT-101, AT-143, AT-144 |
 | D-27 Undo | AT-49, AT-76, AT-77, AT-78, AT-81 |
-| D-28 Undo affordability | AT-79 |
+| D-28 Undo affordability | AT-79, AT-130 |
 | D-29 Undo keeps records and generator | AT-42, AT-80, AT-82 |
-| D-30 Never below zero | AT-57, AT-58, AT-59, AT-84 |
+| D-30 Never below zero | AT-57, AT-58, AT-59, AT-84, AT-130 |
 | D-31 Tile labels | AT-85, AT-86, AT-87 |
 | D-32 Score and cost formats | AT-88, AT-89 |
-| D-33 Saving | AT-55, AT-65, AT-83, AT-91 to AT-93, AT-95 |
+| D-33 Saving | AT-55, AT-65, AT-83, AT-91 to AT-93, AT-95, AT-138, AT-139, AT-145, AT-146 |
 | D-34 New game | AT-96 |
-| D-35 One move at a time | AT-97 |
+| D-35 One move at a time | AT-97, AT-146 |
 | D-36 Click triggers | AT-98 |
-| D-37 64-bit values | AT-28, AT-71, AT-73 |
+| D-37 64-bit values and the limit (SEC-01) | AT-28, AT-71, AT-73, AT-143, AT-144 |
 | D-38 Small tile clearing | AT-36, AT-38, AT-75, AT-99, AT-100, AT-101, AT-104 |
 | D-39 Clearing and other rules | AT-38, AT-80, AT-102, AT-103 |
 | D-40 Joinable highlight | AT-105, AT-106, AT-107 |
 | D-41 Run highest tile | AT-50, AT-54, AT-91, AT-95, AT-99, AT-108 |
 | D-42 Suggested rescue | AT-47, AT-49, AT-109 |
 | D-43 Targeting acts on tap | AT-62, AT-110, AT-111 |
+| D-44 How to play | AT-112 to AT-116 |
+| D-45 Stars | AT-75, AT-117 to AT-126, AT-138 |
+| D-46 Free boosters | AT-43, AT-75, AT-84, AT-127 to AT-139, AT-143, AT-144 |
+| About screen (no D number) | AT-140 to AT-142 |
 | Confirmed: chain rules | AT-06 to AT-16 |
 | Confirmed: merge and after merge | AT-17, AT-26, AT-29 to AT-31 |
 | Confirmed: score, Best Score and Best Tile kept separately | AT-39 to AT-44 |
@@ -1429,6 +1828,10 @@ Expected:
 | Confirmed: number display | AT-85 to AT-89 |
 | Confirmed: persistence | AT-44, AT-83, AT-91 to AT-95 |
 | Hard Stop 1 additions (Bart) | AT-99 to AT-108 |
+| 2026-10-13 additions (Bart) | AT-112 to AT-142 |
+| SEC-01 fix (Bart, 2026-10-13) | AT-143, AT-144 |
+| End of run New best badge (12.3) | AT-145 |
+| QA Phase 6 fixes (Bart, 2026-10-13) | AT-57, AT-145, AT-146 |
 
 ## 20. Test hooks the acceptance tests need
 
@@ -1438,9 +1841,9 @@ For the contract in docs/ARCHITECTURE.md. The rules model (core and boosters) mu
 
 | # | Hook | Used by |
 |---|---|---|
-| TH1 | Build a run state directly: 40 values, score, Undo snapshot (40 values and points) or none, Best Score, Best Tile, run highest tile. | Most Unit tests |
+| TH1 | Build a run state directly: 40 values, score, Undo snapshot (40 values and points) or none, Best Score, Best Tile, run highest tile, free boosters used (D-46). | Most Unit tests |
 | TH2 | Read the full state back: everything in TH1. | Most Unit tests |
-| TH3 | Read derived values for the current board: H, B, the spawn window and floor, each booster's cost, and each booster's usability with the reason it is unusable (cannot afford, or no snapshot). | AT-34, AT-47, AT-49, AT-56, AT-57, AT-60, AT-109 |
+| TH3 | Read derived values for the current board: H, B, the spawn window and floor, each booster's cost, whether each booster is free now, each booster's usability with the reason it is unusable (cannot afford, no snapshot, or nothing it could act on, 13.1), the stars, and the free boosters earned and held. | AT-34, AT-47, AT-49, AT-56, AT-57, AT-60, AT-109, AT-117, AT-125, AT-127 to AT-137, AT-143, AT-144 |
 | TH4 | Override the section 18 constants for one test (for example the costs). | AT-109 (d) |
 
 **Controlling randomness**
@@ -1448,7 +1851,7 @@ For the contract in docs/ARCHITECTURE.md. The rules model (core and boosters) mu
 | # | Hook | Used by |
 |---|---|---|
 | TH5 | A seedable random number generator, one per run. Its state can be read, and restored. | AT-02, AT-04, AT-35, AT-36, AT-82, AT-84 |
-| TH6 | Scripted spawns: a list of values used instead of random draws, in fill order (9.3). Every spawn path uses it: chain refill, Hammer refill, Double refill after a clear. | AT-31, AT-32, AT-38, AT-53, AT-67, AT-99, AT-101, AT-103 |
+| TH6 | Scripted spawns: a list of values used instead of random draws, in fill order (9.3). Every spawn path uses it: chain refill, Hammer refill, Double refill after a clear. | AT-31, AT-32, AT-38, AT-53, AT-67, AT-99, AT-101, AT-103, AT-144 |
 | TH7 | Forced starting boards: the generator returns a given board on every attempt, and the attempt count can be read. | AT-03 |
 | TH8 | Forced Shuffle arrangements: Shuffle returns a given arrangement on every attempt, and the attempt count can be read. | AT-72 |
 | TH9 | The weighted draw on its own: draw number (0 to 99) plus window gives a value. | AT-35 |
@@ -1457,25 +1860,91 @@ For the contract in docs/ARCHITECTURE.md. The rules model (core and boosters) mu
 
 | # | Hook | Used by |
 |---|---|---|
-| TH10 | Commit any list of cells as a chain. The answer says accepted or refused, and a refusal changes nothing. | AT-12, AT-13, AT-25 to AT-30 |
-| TH11 | Call any booster with its targets, whether or not it is usable. The answer says accepted or refused, and a refusal changes nothing. | AT-40, AT-59, AT-79, AT-84, AT-103 |
-| TH12 | A move result that lists: points added; the result cell and value; the cleared chain cells; the small tiles cleared by D-38 (cells and values); tile moves from gravity; spawned cells and values; whether the no moves offer opens; whether the run ended. The board view and the clear notice (AT-104) need this too. | AT-17, AT-29 to AT-31, AT-36, AT-38, AT-99 to AT-103 |
+| TH10 | Commit any list of cells as a chain. The answer says accepted or refused, and a refusal changes nothing. | AT-12, AT-13, AT-25 to AT-30, AT-143 |
+| TH11 | Call any booster with its targets, whether or not it is usable. The answer says accepted or refused, and a refusal changes nothing. | AT-40, AT-59, AT-79, AT-84, AT-103, AT-143, AT-144 |
+| TH12 | A move result that lists: points added; the charge, and whether a free booster was used (D-46); the result cell and value; the cleared chain cells; the small tiles cleared by D-38 (cells and values); the notice values, every value that left the spawn window in this move (D-45); the stars and free boosters this move earned; tile moves from gravity; spawned cells and values; whether the no moves offer opens; whether the run ended. The board view, the HUD and the clear notice (AT-104) need this too. | AT-17, AT-29 to AT-31, AT-36, AT-38, AT-99 to AT-103, AT-118 to AT-124, AT-127, AT-128, AT-132, AT-136 |
 
 **Queries**
 
 | # | Hook | Used by |
 |---|---|---|
-| TH13 | Has a valid move (D-15). | AT-02, AT-45, AT-70, AT-71 |
-| TH14 | Joinable cells for a given chain (D-40). | AT-105, AT-106 |
+| TH13 | Has a valid move (D-15). | AT-02, AT-45, AT-70, AT-71, AT-143, AT-144 |
+| TH14 | Joinable cells for a given chain (D-40). | AT-105, AT-106, AT-143 |
 | TH15 | Merge result (preview value) for a given list of values. | AT-26, AT-27, AT-90 |
-| TH16 | The suggested rescue for the current state (D-42). | AT-47, AT-49, AT-109 |
+| TH16 | The suggested rescue for the current state (D-42). | AT-47, AT-49, AT-109, AT-143, AT-144 |
 | TH17 | Label format for a value, and score format. | AT-85, AT-86, AT-88 |
 
 **Outside the rules model**
 
 | # | Hook | Area | Used by |
 |---|---|---|---|
-| TH18 | Save a run and records to the save format, and load from given data, with the validation result. | save | AT-95 |
+| TH18 | Save a run and records to the save format, and load from given data, with the validation result. | save | AT-95, AT-125, AT-138, AT-139, AT-145 |
 | TH19 | Hit test: finger position and tile pitch give a tile or none. | board | AT-21 |
 | TH20 | A count of click requests made to the audio service. | audio | AT-98 |
+| TH21 | Read the How to play content the screen shows: section titles, texts, example rows and result tiles. | ui | AT-116 |
+| TH22 | Read the About screen's text and each license text it shows. | ui | AT-141, AT-142 |
+| TH23 | Hold back the save writer and release it, and read whether the board view has started showing the last move. | save, ui | AT-146 |
+
+## 21. How to play screen (D-44)
+
+Bart's request (2026-10-13): a How to play button on the main menu and in Pause opens a screen explaining how the game works and how points are scored, in short sections, each with a small row of real tiles drawn in the current skin. It opens only when tapped, never by itself.
+
+**D-44. How to play.**
+
+### 21.1 Rules for the screen
+
+- Only a "How to play" button opens it: one on the main menu and one in Pause. It never opens by itself, not at first launch and not when a run starts or ends.
+- Android back and the screen's own close control both close it and return to where it was opened. From Pause it returns to Pause, so the run stays paused until the player taps Resume.
+- It changes nothing. Board, score, stars, free boosters, Undo, records and settings stay exactly as they were. It is not a move.
+- It follows the shared arrangement for menus and dialogs, drawn in the current skin's style: fonts, colors, panels and casing (Bart, 2026-10-10).
+- Example rows are real tiles drawn by the current skin's tile component, with tile labels (D-31), never pictures. Each row shows the chain tiles in drag order, then the result tile, set apart so the player can tell it is the result. The tiles are only an illustration: tapping or dragging them does nothing.
+- The text is fixed. It holds no live numbers such as current prices or the score.
+- On a 360 x 720 dp screen it takes at most about two screen heights, and it scrolls when it is longer than the screen.
+- The layout is a design system choice.
+
+### 21.2 The text
+
+Screen title: "How to play". Seven sections, in this order. The brief asked for about six: the seven topics it lists each need their own section to stay within two short sentences.
+
+| # | Title | Text | Example row | Result tile |
+|---|---|---|---|---|
+| HP1 | Make a chain | Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it. | 2, 2, 4 | 8 |
+| HP2 | What it makes | Lift to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 6 becomes 4. | 2, 2, 2 | 4 |
+| HP3 | After a merge | The merged tile lands where your chain ended, tiles above fall and new ones drop in. While you drag, highlighted tiles can join next. | none | none |
+| HP4 | Score | A chain scores the sum of its tiles. Boosters cost points, your score never drops below zero, and best score and best tile are saved. | none | none |
+| HP5 | Move up, earn stars | Each new highest tile from 2K up removes the smallest number and earns a star. Every 3 stars make your next booster free. | 1024, 1024 | 2K |
+| HP6 | Boosters | Hammer smashes a tile, Swap swaps two, Shuffle mixes the board, Double doubles one, Undo takes back your last chain. Prices grow as you go. | none | none |
+| HP7 | Out of moves | When no two touching tiles match, you can pick a booster to keep going. If you can't, or you tap End run, the run ends. | none | none |
+
+Sizes: titles of 3, 3, 3, 1, 4, 1 and 3 words (the comma in "Move up, earn stars" is part of the title). Each text is two sentences of 22, 25, 24, 25, 23, 25 and 25 words, 169 in all. Three example rows, each of 2 or 3 tiles plus the result. Booster names are those on the booster bar, and "End run" and "Out of moves" match the offer (DESIGN_SYSTEM.md 7.5).
+
+### 21.3 Checks against the rules
+
+| Item | Check | Rules |
+|---|---|---|
+| HP1 row: 2, 2, 4 makes 8 | 2 equals 2, so the chain can start. 4 is double 2, so it joins. The sum, 8, is already a power of two, so the result is 8. | D-04, D-02 |
+| HP2 row: 2, 2, 2 makes 4 | 2 equals 2, and the third 2 equals the last tile. The sum is 6, and the largest power of two not above 6 is 4. Same as M2. | D-04, D-02 |
+| HP2 "6 becomes 4" | The HP2 row's sum and result. | D-02 |
+| HP2 "lift on one tile to cancel" | A tile that breaks the rules never joins, so a chain of 1 tile is the only one that cancels. | D-04, D-06 |
+| HP3 | The result goes in the last cell of the chain, tiles above fall, new tiles fill from the top, and the highlight marks exactly the tiles that would join. | D-09, D-40 |
+| HP4 | Points are the sum of the tiles, not the result (2, 2, 2 scores 6). Boosters are paid from the score, which never goes below zero. Best Score and Best Tile are kept. | D-18, D-30, D-16, D-17 |
+| HP5 row: 1024, 1024 makes 2K | An equal pair. The sum, 2048, is already a power of two. 1024 shows in full and 2048 as "2K". | D-04, D-02, D-31 |
+| HP5 "from 2K up" | The first star comes when the run highest tile reaches 2048 and 2 leaves the spawn window. | D-45 |
+| HP5 "Every 3 stars make your next booster free" | STARS_PER_FREE_BOOSTER is 3, and the free booster goes to the next booster used. | D-46 |
+| HP6 | The five booster names. Costs follow the highest tile. | D-20 |
+| HP7 | No valid move means no two touching tiles are equal. The offer follows, and the run ends when nothing is usable or on End run. | D-15, D-19 |
+
+Simplified on purpose. Each of these lines is true but leaves out a rare case:
+
+- HP3 does not say that the merged tile itself can fall (G2).
+- HP5 says "a star" for each new highest tile. A jump of two steps at once removes two numbers and earns two stars (CL3). The clear notice shows exactly what happened.
+- HP6 "Prices grow as you go": costs follow the highest tile on the board, so hammering the highest tile lowers them again.
+- HP7 "If you can't" means no booster is usable.
+
+Reasoning:
+
+- The sections follow the order the player meets the rules: chain, merge, refill, score, moving up, boosters, out of moves.
+- Real tiles in the current skin show the player the exact tiles they will play with, including a label like "2K".
+- Each example is the simplest one that shows its rule: HP1 a sum that is already a power of two, HP2 the rounding case, HP5 the first star.
+- No live numbers, so the text is always right, whatever the state of the run.
 
