@@ -352,7 +352,12 @@ func test_at_142_outfit_license_matches_its_source() -> void:
 	var panel: AboutPanel = _about(&"gumdrop")
 	var ofl: String = FileAccess.get_file_as_string("res://src/design/fonts/OFL.txt")
 	assert_true(ofl.contains("SIL OPEN FONT LICENSE"), "OFL.txt is there")
-	assert_eq(LicenseTexts.squeeze(panel.license_text(&"outfit")), LicenseTexts.squeeze(ofl), "OFL.txt, whitespace normalized")
+	assert_eq(LicenseTexts.squeeze(panel.license_text(&"outfit")), LicenseTexts.squeeze(LicenseTexts.without_rules(ofl)), "OFL.txt, whitespace normalized, rule lines left out (AT-142)")
+	var view_paragraphs: int = 0
+	for block: Dictionary in LicenseTexts.blocks(&"outfit"):
+		if int(block["kind"]) == LicenseTexts.Kind.PARAGRAPH:
+			view_paragraphs += 1
+	assert_eq(view_paragraphs, LicenseTexts.reflow(ofl).size(), "the same number of paragraphs as the source")
 
 
 func test_at_142_godot_license_matches_the_engine() -> void:
@@ -374,7 +379,8 @@ func test_at_142_godot_license_matches_the_engine() -> void:
 		parts.append(String(licenses[license_name]))
 	assert_true(components > 10 and licenses.size() > 5, "the engine lists its parts and licenses")
 	var shown: String = panel.license_text(&"godot")
-	assert_eq(LicenseTexts.squeeze(shown), LicenseTexts.squeeze(" ".join(parts)), "every part and license text, whitespace normalized")
+	assert_eq(LicenseTexts.squeeze(shown), LicenseTexts.squeeze(LicenseTexts.without_rules("
+".join(parts))), "every part and license text, whitespace normalized, rule lines left out")
 	assert_true(shown.contains("GODOT ENGINE LICENSE"), "Slate's headings in capitals")
 
 
@@ -426,7 +432,13 @@ func test_godot_license_view_builds_in_batches() -> void:
 	assert_false(view.call(&"is_built"), "the paragraphs follow frame by frame, never all in the opening frame")
 	view.call(&"finish")
 	assert_true(view.call(&"is_built"), "then complete")
-	assert_eq(int(view.call(&"label_count")), LicenseTexts.blocks(&"godot").size(), "one label per block")
+	var rules: int = 0
+	for block: Dictionary in LicenseTexts.blocks(&"godot"):
+		if int(block["kind"]) == LicenseTexts.Kind.RULE:
+			rules += 1
+	assert_eq(rules, 37, "Godot's license texts hold 37 rule lines (DESIGN_SYSTEM.md 7.14)")
+	assert_eq(int(view.call(&"label_count")), LicenseTexts.blocks(&"godot").size() - rules, "one label per block that is not a rule")
+	assert_eq(int(view.call(&"rule_count")), rules, "one divider per rule line")
 
 
 # Rows that open a screen (7.11)
@@ -485,3 +497,70 @@ func test_a_row_ignores_other_buttons() -> void:
 	right.pressed = false
 	row._gui_input(right)
 	assert_eq(_taps, 0, "only the left button or a touch")
+
+
+func test_rule_lines_become_dividers() -> void:
+	var text: String = "Copyright 2021 X\n\n----------------------------------------\nSIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\n----------------------------------------\n\nIntroduction\n============\nSome text\n*  6. Disclaimer of Warranty  *\n  * * *  \n-- x\n"
+	var parts: PackedStringArray = LicenseTexts.reflow_parts(text)
+	assert_eq(parts[0], "Copyright 2021 X", "text before")
+	assert_eq(parts[1], "", "a line of dashes is a rule")
+	assert_eq(parts[2], "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007", "the OFL title stands alone between two rules")
+	assert_eq(parts[3], "", "the second rule")
+	assert_eq(parts[4], "Introduction", "an underlined title stands alone")
+	assert_eq(parts[5], "", "over a rule of equals signs")
+	assert_eq(parts[6], "Some text * 6. Disclaimer of Warranty *", "a line with other characters stays text (the MPL box border)")
+	assert_eq(parts[7], "", "spaced asterisks are a rule too")
+	assert_eq(parts[8], "-- x", "two dashes and a letter stay text")
+	assert_eq(parts.size(), 9, "nothing else")
+	assert_true(LicenseTexts.is_rule_line("==="), "three is enough")
+	assert_false(LicenseTexts.is_rule_line("--"), "two is not")
+	assert_false(LicenseTexts.is_rule_line("-=-"), "one character only")
+	assert_false(LicenseTexts.is_rule_line("~~~~"), "only -, = or *")
+	assert_eq(LicenseTexts.reflow(text).size(), 5, "reflow leaves the rules out")
+	var blocks: Array[Dictionary] = LicenseTexts.blocks(&"outfit")
+	var kinds: Array[int] = []
+	for block: Dictionary in blocks:
+		kinds.append(int(block["kind"]))
+	assert_eq(kinds.count(LicenseTexts.Kind.RULE), 2, "OFL.txt has 2 rule lines")
+
+
+## A license view on the stage, with step() fed sizes of the test's own.
+func _staged_view(id: StringName) -> Control:
+	var panel: AboutPanel = _about(&"gumdrop")
+	panel.open_license(id)
+	return panel.license_view()
+
+
+func test_license_view_fades_in_only_after_its_first_screenful() -> void:
+	var view: Control = _staged_view(&"game")
+	assert_eq(view.call(&"stage"), 0, "waiting for layout")
+	assert_eq(view.modulate.a, 0.0, "invisible until the first screenful is built")
+	view.call(&"step", 0.0, 2000.0)
+	assert_eq(int(view.call(&"label_count")), 0, "the frame after the tap reads the text, builds nothing")
+	view.call(&"step", 0.0, 2000.0)
+	assert_eq(view.call(&"stage"), 0, "no width yet, no labels")
+	var steps: int = 0
+	while int(view.call(&"stage")) == 1 or int(view.call(&"stage")) == 0:
+		view.call(&"step", 936.0, 2000.0)
+		steps += 1
+		assert_true(steps < 50, "the first screenful comes in a few frames")
+		if steps >= 50:
+			return
+	assert_eq(view.call(&"stage"), 2, "the fade starts once the first screenful is built")
+	var built: int = int(view.call(&"label_count"))
+	assert_true(built > 0, "the first screenful is there (%d labels)" % built)
+	assert_false(view.call(&"is_built"), "not the whole text")
+	for i: int in 5:
+		view.call(&"step", 936.0, 2000.0)
+	assert_eq(int(view.call(&"label_count")), built, "nothing more is built during the fade")
+	view.call(&"fade_finished")
+	assert_eq(view.call(&"stage"), 3, "after the fade the rest builds")
+	view.call(&"step", 936.0, 2000.0)
+	assert_true(int(view.call(&"label_count")) > built, "a little each frame")
+	var frames: int = 0
+	while not bool(view.call(&"is_built")) and frames < 2000:
+		var before: int = int(view.call(&"label_count"))
+		view.call(&"step", 936.0, 2000.0)
+		assert_true(int(view.call(&"label_count")) > before, "at least one block per frame")
+		frames += 1
+	assert_eq(view.call(&"stage"), 4, "done")

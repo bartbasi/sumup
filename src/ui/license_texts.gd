@@ -15,6 +15,8 @@ extends RefCounted
 ##
 ## Reflowed for the phone: blank lines split paragraphs; inside a paragraph
 ## every line break and run of spaces becomes one space; nothing else changes.
+## A rule line (three or more of one of -, = or *, and only spaces besides)
+## also splits paragraphs and becomes a rule block, drawn as the divider.
 
 const NOTICE_PATH: String = "res://NOTICE"
 const COPYING_PATH: String = "res://COPYING"
@@ -33,8 +35,14 @@ const _CHECKS: Dictionary[String, Array] = {
 }
 
 ## One block of a license view: a heading, a name (a part or license name, in
-## the body role), a paragraph, or the plain message for a missing text.
-enum Kind { HEADING, NAME, PARAGRAPH, MISSING }
+## the body role), a paragraph, the plain message for a missing text, or a
+## rule (a rule line of the source, drawn as the skin's divider).
+enum Kind { HEADING, NAME, PARAGRAPH, MISSING, RULE }
+
+## The characters a rule line is made of (DESIGN_SYSTEM.md 7.14).
+const RULE_CHARACTERS: String = "-=*"
+## The fewest of them that make a rule line.
+const RULE_MIN_LENGTH: int = 3
 
 const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
 
@@ -104,22 +112,59 @@ static func read_checked(path: String, starts_with: String, contains: String) ->
 	return text
 
 
-## text reflowed: one entry per paragraph (DESIGN_SYSTEM.md 7.14).
+## text reflowed: one entry per paragraph, rule lines left out
+## (DESIGN_SYSTEM.md 7.14). A rule line still ends the paragraph before it.
 static func reflow(text: String) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
-	var lines: PackedStringArray = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+	for part: String in reflow_parts(text):
+		if not part.is_empty():
+			out.append(part)
+	return out
+
+
+## text reflowed with its rule lines kept in place: one entry per paragraph,
+## and an empty entry for each rule line. Blank lines and rule lines end a
+## paragraph; inside one, every line break and run of spaces becomes one
+## space.
+static func reflow_parts(text: String) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	var lines: PackedStringArray = text.replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ").replace("\f", " ").replace("\v", " ").split("\n")
 	var paragraph: PackedStringArray = PackedStringArray()
 	for line: String in lines:
-		var words: String = squeeze(line)
-		if words.is_empty():
+		# The words of the line, one space between each (split is native, so
+		# this stays fast on the 37 KB of COPYING).
+		var words: String = " ".join(line.split(" ", false))
+		var rule: bool = is_rule_line(line)
+		if words.is_empty() or rule:
 			if not paragraph.is_empty():
 				out.append(" ".join(paragraph))
 				paragraph = PackedStringArray()
+			if rule:
+				out.append("")
 		else:
 			paragraph.append(words)
 	if not paragraph.is_empty():
 		out.append(" ".join(paragraph))
 	return out
+
+
+## True for a rule line: three or more of one character, -, = or *, and
+## nothing else but spaces (DESIGN_SYSTEM.md 7.14). "*  6. Disclaimer *" is
+## text.
+static func is_rule_line(line: String) -> bool:
+	var marks: String = line.replace(" ", "").replace("\t", "")
+	if marks.length() < RULE_MIN_LENGTH or not RULE_CHARACTERS.contains(marks[0]):
+		return false
+	return marks == marks[0].repeat(marks.length())
+
+
+## text with its rule lines taken out, for comparing a view with its source:
+## the view draws them as dividers, which hold no text.
+static func without_rules(text: String) -> String:
+	var kept: PackedStringArray = PackedStringArray()
+	for line: String in text.replace("\r\n", "\n").split("\n"):
+		kept.append("" if is_rule_line(line) else line)
+	return "\n".join(kept)
 
 
 ## text with every run of white space (spaces, tabs, line breaks, ASCII
@@ -139,8 +184,11 @@ static func _add_file(out: Array[Dictionary], path: String) -> void:
 
 
 static func _add_paragraphs(out: Array[Dictionary], text: String) -> void:
-	for paragraph: String in reflow(text):
-		_add(out, Kind.PARAGRAPH, paragraph)
+	for part: String in reflow_parts(text):
+		if part.is_empty():
+			_add(out, Kind.RULE, "")
+		else:
+			_add(out, Kind.PARAGRAPH, part)
 
 
 static func _add(out: Array[Dictionary], kind: Kind, text: String) -> void:

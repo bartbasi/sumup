@@ -23,6 +23,8 @@ extends Control
 ##   about       About
 ##   license_game, license_godot, license_outfit
 ##               a license text inside About; prints the time to build it
+##   license_godot_rules  Godot's text scrolled to the FreeType license, to
+##               judge the rule lines drawn as dividers
 ## Every page prints the content column and the height of its panel, if any.
 ## Capture with tools/capture.tscn, for example:
 ##   godot --path . res://tools/capture.tscn -- --scene res://scenes/ui/review/review_gumdrop_menu.tscn --out docs/design/review/prod-screens-gumdrop-menu.png
@@ -143,10 +145,10 @@ func _ready() -> void:
 			(_panel(HOW_TO_PLAY_SCENE) as HowToPlayPanel).setup(_skin)
 		"about":
 			(_panel(ABOUT_SCENE) as AboutPanel).setup(_skin)
-		"license_game", "license_godot", "license_outfit":
+		"license_game", "license_godot", "license_outfit", "license_godot_rules":
 			var about: AboutPanel = _panel(ABOUT_SCENE) as AboutPanel
 			about.setup(_skin)
-			about.open_license(StringName(page.trim_prefix("license_")))
+			about.open_license(StringName(page.trim_prefix("license_").trim_suffix("_rules")))
 		"offer_none":
 			var config: GameConfig = GameConfig.new()
 			config.cost_shift[&"shuffle"] = 2
@@ -197,7 +199,9 @@ func _measure() -> void:
 		reading = (_shown as AboutPanel).license_view()
 		if not bool(reading.call(&"is_built")):
 			return
-		print("%s: built in %.1f ms, %d labels" % [tag, float(reading.get(&"build_usec")) / 1000.0, int(reading.call(&"label_count"))])
+		print("%s: first screenful in %.1f ms, built in %.1f ms, %d labels, %d dividers" % [tag, float(reading.get(&"first_screen_usec")) / 1000.0, float(reading.get(&"build_usec")) / 1000.0, int(reading.call(&"label_count")), int(reading.call(&"rule_count"))])
+		if page == "license_godot_rules":
+			_scroll_to_text(reading, "The FreeType Project LICENSE")
 	if _measure_frames == MEASURE_AFTER_FRAMES or reading != null:
 		get_tree().process_frame.disconnect(_measure)
 	print("%s: content column x %.0f, width %.0f" % [tag, column.position.x, column.size.x])
@@ -216,6 +220,17 @@ func _measure() -> void:
 	if page.begins_with("offer") and _game_screen != null:
 		var offer: OfferPanel = _game_screen.offer_panel()
 		print("%s: offer panel %.0f px tall, buy button '%s'" % [tag, offer.size.y, offer.buy_button().text if offer.buy_button() != null else "none"])
+
+
+## Scrolls a reading screen so the label that starts with text is at the top.
+func _scroll_to_text(reading: Control, text: String) -> void:
+	var scroll: ScrollContainer = reading.call(&"scroll")
+	for node: Node in reading.find_children("*", "Label", true, false):
+		var label: Label = node as Label
+		if label.text.begins_with(text):
+			var top: float = label.get_global_rect().position.y - scroll.get_global_rect().position.y + float(scroll.scroll_vertical)
+			scroll.scroll_vertical = roundi(top)
+			return
 
 
 func _exit_tree() -> void:

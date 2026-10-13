@@ -63,9 +63,12 @@ func info_text() -> String:
 ## TH22. The full text a license row opens: &"game" (NOTICE, then COPYING),
 ## &"godot" (the engine's license and every part with its license texts),
 ## &"outfit" (OFL.txt). Every label's text, blank lines between, as shown.
+## Rule lines are drawn as dividers and hold no text, so they are left out.
 func license_text(id: StringName) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for block: Dictionary in LicenseTexts.blocks(id):
+		if int(block["kind"]) == LicenseTexts.Kind.RULE:
+			continue
 		if int(block["kind"]) == LicenseTexts.Kind.HEADING:
 			parts.append(_skin.cased(&"heading", String(block["text"])))
 		else:
