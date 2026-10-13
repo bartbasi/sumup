@@ -19,6 +19,7 @@ var cost_shift: Dictionary[StringName, int] = {&"hammer": 0, &"swap": 0, &"shuff
 var label_full_max: int = 1024          # LABEL_FULL_MAX
 var label_step: int = 1024              # LABEL_STEP
 var label_suffixes: PackedStringArray = PackedStringArray(["K", "M", "B", "T"])   # LABEL_SUFFIXES
+var stars_per_free_booster: int = 3     # STARS_PER_FREE_BOOSTER (D-46)
 
 
 ## Number of cells on the board: columns times rows.

@@ -297,13 +297,17 @@ func test_at_41_best_score_updates_live_on_commit() -> void:
 	assert_true(result.new_best_score, "new Best Score")
 
 
-## The commit half of AT-43. The Double and Hammer halves are boosters tests.
+## The commit half of AT-43 (updated on 2026-10-13 for D-46). The free Double
+## and the Hammer after it are boosters tests.
 func test_at_43_best_tile_after_the_commit() -> void:
 	var state: RunState = F.state(F.changed(F.board_d(), {Vector2i(0, 7): 4096, Vector2i(1, 7): 4096}), 50000)
 	var records: Records = F.records(0, 4096)
-	_commit(state, records, [Vector2i(0, 7), Vector2i(1, 7)], F.seeded(43))
+	var result: MoveResult = _commit(state, records, [Vector2i(0, 7), Vector2i(1, 7)], F.seeded(43))
 	assert_eq(records.best_tile, 8192, "Best Tile 8192")
 	assert_eq(state.score, 58192, "score 58,192")
+	assert_eq(CoreRules.stars(state.run_highest, config), 3, "the 8192 is this run's third star")
+	assert_eq(result.free_earned, 1, "so it earns a free booster")
+	assert_eq(CoreRules.free_held(state, config), 1, "one free booster is held")
 
 
 ## The chain half of AT-38, from the board right after the Hammer (column 2
@@ -495,6 +499,8 @@ func test_a_refused_commit_changes_nothing_at_all() -> void:
 		assert_eq(result.points, 0, "%s: no points" % [list])
 		assert_eq(result.cells_after, result.cells_before, "%s: the result shows no change" % [list])
 		assert_true(result.spawn_cells.is_empty(), "%s: no spawns" % [list])
+		assert_eq(result.stars_earned, 0, "%s: no stars" % [list])
+		assert_true(result.notice_values.is_empty(), "%s: no notice values" % [list])
 
 
 func test_a_board_that_does_not_match_the_config_is_refused() -> void:

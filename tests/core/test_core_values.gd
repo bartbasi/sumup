@@ -28,6 +28,7 @@ func test_game_config_defaults_match_gdd_section_18() -> void:
 	assert_eq(config.label_full_max, 1024, "LABEL_FULL_MAX")
 	assert_eq(config.label_step, 1024, "LABEL_STEP")
 	assert_eq(config.label_suffixes, PackedStringArray(["K", "M", "B", "T"]), "LABEL_SUFFIXES")
+	assert_eq(config.stars_per_free_booster, 3, "STARS_PER_FREE_BOOSTER")
 
 
 func test_game_config_overrides_stay_in_their_instance() -> void:
@@ -45,13 +46,15 @@ func test_game_config_overrides_stay_in_their_instance() -> void:
 func test_run_state_create_fills_every_field() -> void:
 	var board: PackedInt64Array = F.board_p()
 	var snapshot: PackedInt64Array = F.board_d()
-	var state: RunState = RunState.create(board, 1234, snapshot, 40, 4096, 5)
+	var state: RunState = RunState.create(board, 1234, snapshot, 40, 4096, 5, 1, 38500)
+	assert_eq(state.best_at_start, 38500, "Best Score at the start as given (QA6-03)")
 	assert_eq(state.cells, F.board_p(), "cells")
 	assert_eq(state.score, 1234, "score")
 	assert_eq(state.snapshot_cells, F.board_d(), "snapshot cells")
 	assert_eq(state.snapshot_points, 40, "snapshot points")
 	assert_eq(state.run_highest, 4096, "run highest as given")
 	assert_eq(state.columns, 5, "columns")
+	assert_eq(state.free_used, 1, "free boosters used as given (D-46)")
 	assert_true(state.has_snapshot(), "has a snapshot")
 
 
@@ -61,7 +64,11 @@ func test_run_state_create_defaults() -> void:
 	assert_eq(state.snapshot_points, 0, "no snapshot points")
 	assert_eq(state.run_highest, 32, "run highest 0 means the board's highest tile")
 	assert_eq(state.columns, 5, "five columns")
+	assert_eq(state.free_used, 0, "no free boosters used by default")
 	assert_eq(state.highest(), 32, "H")
+	assert_eq(RunState.new().free_used, 0, "a bare state has used none")
+	assert_eq(state.best_at_start, -1, "Best Score at the start is unknown by default")
+	assert_eq(RunState.new().best_at_start, -1, "and on a bare state")
 
 
 func test_run_state_create_copies_the_given_arrays() -> void:
@@ -89,10 +96,12 @@ func test_run_state_value_at_corners_and_off_board() -> void:
 
 
 func test_run_state_copy_is_deep_and_equal() -> void:
-	var state: RunState = RunState.create(F.board_p(), 500, F.board_d(), 16, 64)
+	var state: RunState = RunState.create(F.board_p(), 500, F.board_d(), 16, 8192, 5, 1, 0)
 	var other: RunState = state.copy()
 	assert_true(other.equals(state), "a copy equals the original")
 	assert_true(state.equals(other), "equality goes both ways")
+	assert_eq(other.free_used, 1, "the copy keeps free_used")
+	assert_eq(other.best_at_start, 0, "the copy keeps best_at_start")
 	other.cells[0] = 1024
 	other.snapshot_cells[0] = 1024
 	assert_eq(state.cells, F.board_p(), "changing the copy's board leaves the original")
@@ -132,6 +141,27 @@ func test_run_state_equals_checks_every_field() -> void:
 	other = base.copy()
 	other.columns = 4
 	assert_false(base.equals(other), "different columns")
+	other = base.copy()
+	other.free_used = 1
+	assert_false(base.equals(other), "different free boosters used")
+	other = base.copy()
+	other.best_at_start = 0
+	assert_false(base.equals(other), "a different Best Score at the start, 0 against unknown")
+
+
+## QA6-03: core never sets best_at_start. A chain keeps it, and the Undo
+## snapshot is only a board and its points.
+func test_core_never_changes_best_at_start() -> void:
+	for start: int in [-1, 0, 38500]:
+		var state: RunState = RunState.create(F.board_p(), 1000, PackedInt64Array(), 0, 0, 5, 0, start)
+		var records: Records = F.records(40000, 32)
+		var result: MoveResult = RunRules.commit_chain(state, records, [Vector2i(1, 6), Vector2i(2, 6)] as Array[Vector2i], F.seeded(6), GameConfig.new())
+		assert_true(result.accepted, "%d: the chain commits" % start)
+		RunRules.update_records(state, records, MoveResult.new())
+		assert_eq(state.best_at_start, start, "%d: kept through a commit and the records" % start)
+		assert_eq(state.snapshot_cells, F.board_p(), "%d: the snapshot is the board before" % start)
+	var fresh: RunState = RunRules.new_run(F.seeded(1), F.records(5000, 64), GameConfig.new())
+	assert_eq(fresh.best_at_start, -1, "new_run leaves it unknown for GameSession to set")
 
 
 func test_records_rise_and_never_drop() -> void:
@@ -179,22 +209,42 @@ func test_move_result_defaults() -> void:
 	assert_false(result.offer_opens, "no offer")
 	assert_false(result.run_ends, "no run end")
 	assert_eq(MoveResult.Kind.size(), 7, "seven kinds")
+	assert_true(result.notice_values.is_empty(), "no notice values (D-45)")
+	assert_eq(result.stars_earned, 0, "no stars earned")
+	assert_eq(result.free_earned, 0, "no free boosters earned (D-46)")
+	assert_false(result.free_used, "no free booster used")
 
 
 func test_booster_status_and_run_summary_hold_their_fields() -> void:
 	var status: BoosterStatus = BoosterStatus.new()
+	assert_false(status.free, "not free by default")
 	status.id = &"undo"
 	status.cost = 64
 	status.usable = false
 	status.reason = BoosterStatus.Usability.NO_SNAPSHOT
 	status.active = false
 	status.suggested = true
+	status.free = true
 	assert_eq(status.reason, BoosterStatus.Usability.NO_SNAPSHOT, "reason")
-	assert_eq(BoosterStatus.Usability.size(), 3, "three usability values")
+	assert_true(status.free, "free (D-46)")
+	assert_eq(status.cost, 64, "the price stays while free (AT-56)")
+	assert_eq(BoosterStatus.Usability.size(), 4, "four usability values")
 	var summary: RunSummary = RunSummary.new()
+	assert_eq(summary.stars, 0, "no stars by default")
 	summary.final_score = 476
 	summary.run_highest = 1024
 	summary.no_moves_left = true
+	summary.stars = 7
 	assert_eq(summary.final_score, 476, "final score")
+	assert_eq(summary.stars, 7, "this run's stars (D-45)")
 	assert_eq(summary.best_score, 0, "best score defaults to 0")
 	assert_false(summary.new_best_score, "no badge by default")
+
+
+## SEC-01: NO_TARGET is appended last, so saved or compared numbers of the
+## older values never change.
+func test_usability_values_keep_their_numbers() -> void:
+	assert_eq(int(BoosterStatus.Usability.USABLE), 0, "USABLE")
+	assert_eq(int(BoosterStatus.Usability.CANNOT_AFFORD), 1, "CANNOT_AFFORD")
+	assert_eq(int(BoosterStatus.Usability.NO_SNAPSHOT), 2, "NO_SNAPSHOT")
+	assert_eq(int(BoosterStatus.Usability.NO_TARGET), 3, "NO_TARGET, last")

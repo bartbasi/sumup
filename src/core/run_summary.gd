@@ -6,5 +6,6 @@ var final_score: int
 var best_score: int
 var best_tile: int
 var run_highest: int
+var stars: int            # D-45: this run's stars
 var new_best_score: bool  # this run set the Best Score (the New best badge)
 var no_moves_left: bool   # the run ended because nothing was usable (12.2 step 3)

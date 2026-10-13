@@ -1,7 +1,7 @@
 class_name RunState extends RefCounted
-## The current run (GDD 15.1): the board, the score, the Undo snapshot and this
-## run's highest tile. Plain data with small helpers. Only RunRules,
-## BoosterRules and SaveCodec create or change one.
+## The current run (GDD 15.1): the board, the score, the Undo snapshot, this
+## run's highest tile and the free boosters used. Plain data with small
+## helpers. Only RunRules, BoosterRules and SaveCodec create or change one.
 ##
 ## Packed arrays are shared by reference in GDScript, so code that changes a
 ## board works on a duplicate and assigns it back.
@@ -12,12 +12,14 @@ var score: int = 0
 var snapshot_cells: PackedInt64Array = PackedInt64Array()    # Undo snapshot board; empty when there is no snapshot
 var snapshot_points: int = 0                                 # the snapshot chain's points
 var run_highest: int = 0                                     # D-41
+var free_used: int = 0                                       # D-46: free boosters used this run. Only ever goes up. Not part of the Undo snapshot.
+var best_at_start: int = -1                                  # QA6-03: Best Score when this run began. -1 means unknown (a format 1 run file). Core never sets it. Not part of the Undo snapshot.
 
 
 ## TH1. Builds a state directly. run_highest 0 means "the highest value on cells".
 ## The arrays are copied, so the caller may keep changing its own.
 @warning_ignore("shadowed_variable")
-static func create(cells: PackedInt64Array, score: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0, run_highest: int = 0, columns: int = 5) -> RunState:
+static func create(cells: PackedInt64Array, score: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0, run_highest: int = 0, columns: int = 5, free_used: int = 0, best_at_start: int = -1) -> RunState:
 	var state: RunState = RunState.new()
 	state.columns = columns
 	state.cells = cells.duplicate()
@@ -25,6 +27,8 @@ static func create(cells: PackedInt64Array, score: int, snapshot_cells: PackedIn
 	state.snapshot_cells = snapshot_cells.duplicate()
 	state.snapshot_points = snapshot_points
 	state.run_highest = run_highest if run_highest != 0 else CoreRules.highest(cells)
+	state.free_used = free_used
+	state.best_at_start = best_at_start
 	return state
 
 
@@ -56,6 +60,8 @@ func copy() -> RunState:
 	other.snapshot_cells = snapshot_cells.duplicate()
 	other.snapshot_points = snapshot_points
 	other.run_highest = run_highest
+	other.free_used = free_used
+	other.best_at_start = best_at_start
 	return other
 
 
@@ -68,4 +74,6 @@ func equals(other: RunState) -> bool:
 		and score == other.score
 		and snapshot_cells == other.snapshot_cells
 		and snapshot_points == other.snapshot_points
-		and run_highest == other.run_highest)
+		and run_highest == other.run_highest
+		and free_used == other.free_used
+		and best_at_start == other.best_at_start)

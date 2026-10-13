@@ -406,18 +406,23 @@ func test_joinable_cells_at_a_corner_stay_on_the_board() -> void:
 	assert_eq(CoreRules.joinable_cells(board, chain, config), expected, "only the three neighbors on the board")
 
 
-## The joining rule of GDD 6.1 written out on its own, without CoreRules.
+## The joining rule of GDD 6.1 written out on its own, without CoreRules,
+## including condition 5: the sum with the new tile fits in 64 bits.
 func _oracle_joinable(board: PackedInt64Array, chain: Array[Vector2i]) -> Array[Vector2i]:
 	var joinable: Array[Vector2i] = []
 	var last: Vector2i = chain[chain.size() - 1]
 	var last_value: int = F.at(board, last)
+	var total: int = 0
+	for value: int in F.values_of(board, chain):
+		total += value
 	for row: int in F.ROWS:
 		for column: int in F.COLUMNS:
 			var cell: Vector2i = Vector2i(column, row)
 			if chain.has(cell) or absi(cell.x - last.x) > 1 or absi(cell.y - last.y) > 1:
 				continue
 			var value: int = F.at(board, cell)
-			if value == last_value or (chain.size() >= 2 and value == last_value * 2):
+			var fits: bool = total <= 9223372036854775807 - value
+			if fits and (value == last_value or (chain.size() >= 2 and value == last_value * 2)):
 				joinable.append(cell)
 	return joinable
 

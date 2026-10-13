@@ -3,8 +3,6 @@ class_name RunRules extends RefCounted
 ## refused move changes nothing: not the state, not the records, not the
 ## random generator.
 
-const _INT64_MAX: int = 9223372036854775807
-
 
 ## D-14. New run: score 0, no snapshot, records updated from the board. Sets rng.start_attempts.
 ## Draws whole boards from the starting window until one has a valid move, at
@@ -32,7 +30,8 @@ static func new_run(rng: RunRandom, records: Records, config: GameConfig) -> Run
 
 ## D-09 steps 1 to 7 and the valid move check. Refuses with &"invalid_chain" if the chain breaks any rule (TH10).
 ## Also refuses a chain whose sum, or the score after it, would not fit in a
-## signed 64 bit integer, so the score can never wrap below zero.
+## signed 64 bit integer, so the score can never wrap below zero. Both use
+## the same fit test as joining and the move check (CoreRules._fits_sum).
 static func commit_chain(state: RunState, records: Records, chain: Array[Vector2i], rng: RunRandom, config: GameConfig) -> MoveResult:
 	var result: MoveResult = MoveResult.new()
 	result.kind = MoveResult.Kind.CHAIN
@@ -42,7 +41,7 @@ static func commit_chain(state: RunState, records: Records, chain: Array[Vector2
 	var points: int = -1
 	if _fits(state, config) and CoreRules.is_valid_chain(state.cells, chain, config):
 		points = CoreRules._sum_of(_values_of(state, chain, config))
-	if points < 0 or state.score < 0 or points > _INT64_MAX - state.score:
+	if points < 0 or not CoreRules._fits_sum(state.score, points):
 		result.refusal = &"invalid_chain"
 		result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
 		return result
@@ -67,8 +66,8 @@ static func commit_chain(state: RunState, records: Records, chain: Array[Vector2
 	clear_small(state, floor_before, result, config)
 	# Steps 5 and 6: gravity, then spawns.
 	settle(state, result, rng, config)
-	# Step 7: records and this run's highest tile.
-	update_records(state, records, result)
+	# Step 7: records, this run's highest tile, stars and free boosters.
+	update_records(state, records, result, config)
 
 	result.accepted = true
 	result.points = points
@@ -83,11 +82,13 @@ static func commit_chain(state: RunState, records: Records, chain: Array[Vector2
 ## floor_before is the window floor of the board before the move. The new
 ## floor comes from the board as it is now, after the result is placed or the
 ## tile doubled. Only a floor that went up clears anything. Records
-## floor_before and floor_after in result either way.
+## floor_before, floor_after and the notice values (D-45: every value that
+## left the window, even when no tile of it was on the board) either way.
 static func clear_small(state: RunState, floor_before: int, result: MoveResult, config: GameConfig) -> void:
 	var floor_after: int = CoreRules.window_floor(CoreRules.highest(state.cells), config)
 	result.floor_before = floor_before
 	result.floor_after = floor_after
+	result.notice_values = CoreRules._left_window(floor_before, floor_after)
 	if floor_after <= floor_before:
 		return
 	var board: PackedInt64Array = state.cells.duplicate()
@@ -143,12 +144,20 @@ static func settle(state: RunState, result: MoveResult, rng: RunRandom, config: 
 	result.cells_after = board.duplicate()
 
 
-## Step 7 plus D-41: records and run_highest. Sets result.new_best_score and result.new_best_tile.
-## run_highest only ever rises, so a Hammer or Undo that lowers H keeps it.
-static func update_records(state: RunState, records: Records, result: MoveResult) -> void:
+## Step 7 plus D-41, D-45 and D-46: records and run_highest. Sets result.new_best_score, new_best_tile,
+## stars_earned and free_earned (the counts after the move minus before). A null config means the defaults.
+## run_highest only ever rises, so a Hammer or Undo that lowers H keeps it,
+## and the stars and free boosters it gave stay. A loaded run already holds
+## its run_highest, so the update on load earns nothing.
+static func update_records(state: RunState, records: Records, result: MoveResult, config: GameConfig = null) -> void:
+	var rules: GameConfig = config if config != null else GameConfig.new()
+	var stars_before: int = CoreRules.stars(state.run_highest, rules)
+	var free_before: int = CoreRules.free_earned(state.run_highest, rules)
 	var top: int = state.highest()
 	if top > state.run_highest:
 		state.run_highest = top
+	result.stars_earned = CoreRules.stars(state.run_highest, rules) - stars_before
+	result.free_earned = CoreRules.free_earned(state.run_highest, rules) - free_before
 	var old_score: int = records.best_score
 	var old_tile: int = records.best_tile
 	records.update_from(state)

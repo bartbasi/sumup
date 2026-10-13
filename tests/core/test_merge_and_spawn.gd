@@ -196,6 +196,8 @@ func test_at_45_move_check() -> void:
 	assert_true(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(1, 1): 2}), config), "V3: diagonal")
 	assert_true(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(0, 0): 8}), config), "V4: one above the other")
 	assert_false(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(0, 0): 4096, Vector2i(2, 0): 4096}), config), "V5: two cells apart")
+	assert_false(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(0, 7): 1 << 62, Vector2i(1, 7): 1 << 62}), config), "V6: 2^62 + 2^62 does not fit (SEC-01)")
+	assert_true(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(0, 7): 1 << 61, Vector2i(1, 7): 1 << 61}), config), "V7: 2^61 + 2^61 fits")
 
 
 func test_move_check_boards_e_and_d1024_have_none() -> void:
@@ -233,7 +235,8 @@ func test_move_check_full_boards_and_large_values() -> void:
 	assert_true(CoreRules.has_valid_move(F.board_all(2), config), "Board A2")
 	assert_true(CoreRules.has_valid_move(F.board_all(4), config), "Board A4")
 	assert_true(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(0, 7): 131072, Vector2i(1, 7): 131072}), config), "a 128K pair")
-	assert_true(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(2, 3): 1 << 62, Vector2i(3, 4): 1 << 62}), config), "a 2^62 pair")
+	assert_true(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(2, 3): 1 << 61, Vector2i(3, 4): 1 << 61}), config), "a 2^61 pair fits")
+	assert_false(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(2, 3): 1 << 62, Vector2i(3, 4): 1 << 62}), config), "a 2^62 pair does not fit (SEC-01)")
 	assert_false(CoreRules.has_valid_move(F.changed(F.board_d(), {Vector2i(2, 3): 1 << 62, Vector2i(3, 4): 1 << 61}), config), "2^62 next to 2^61")
 
 
