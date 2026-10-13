@@ -3,15 +3,15 @@ class_name OfferPanel extends PanelContainer
 ## the HUD's place, so the board and the booster bar stay visible and usable:
 ## - "Out of moves" (the signal label) with the current score beside it;
 ## - "Pick a booster to keep this run going." (muted);
-## - the suggested buy button ("Shuffle for 4K", primary) and End run
-##   (secondary).
+## - the suggested buy button ("Shuffle for 4K", primary; "Shuffle for free"
+##   while a free booster is held, GDD D-46) and End run (secondary).
 ## With no suggestion, End run stands alone as the primary button and the text
 ## reads "No rescue left. Pick a booster or end the run."
 ##
 ## In a skin whose dialog panel floats (Gumdrop) the offer is a card; in a
 ## sheet skin (Slate, Nova) it sits on the backdrop with no box. GameScreen
-## places it full width under the safe area's top and reads its height from
-## its minimum size. setup must run with the panel in the tree.
+## places it in the content column under the safe area's top and reads its
+## height from its minimum size. setup must run with the panel in the tree.
 
 signal booster_chosen(booster_id: StringName)
 signal end_run_chosen()
@@ -50,7 +50,7 @@ func show_offer(statuses: Array[BoosterStatus], score: int) -> void:
 	_score = score
 	_shown = true
 	var suggested: BoosterStatus = _suggested()
-	var key: String = "%d|%s|%d" % [score, suggested.id if suggested != null else &"", suggested.cost if suggested != null else 0]
+	var key: String = _key(suggested)
 	if key != _shown_key and _skin != null:
 		_rebuild()
 
@@ -76,6 +76,14 @@ func score_text() -> String:
 	return _score_label.text if _score_label != null else ""
 
 
+## What the offer shows, so it rebuilds only when that changes: the score
+## and the suggested booster with its cost, usability and free state.
+func _key(suggested: BoosterStatus) -> String:
+	if suggested == null:
+		return "%d|" % _score
+	return "%d|%s|%d|%s|%s" % [_score, suggested.id, suggested.cost, suggested.usable, suggested.free]
+
+
 func _suggested() -> BoosterStatus:
 	for status: BoosterStatus in _statuses:
 		if status.suggested:
@@ -87,7 +95,7 @@ func _rebuild() -> void:
 	UiParts.clear(self)
 	var skin: SkinData = _skin
 	var suggested: BoosterStatus = _suggested()
-	_shown_key = "%d|%s|%d" % [_score, suggested.id if suggested != null else &"", suggested.cost if suggested != null else 0]
+	_shown_key = _key(suggested)
 	var content: VBoxContainer = UiParts.vbox(skin.num(&"space_s"))
 	add_child(content)
 
@@ -112,7 +120,7 @@ func _rebuild() -> void:
 	content.add_child(buttons)
 	_buy = null
 	if suggested != null:
-		_buy = UiParts.button(skin, &"PrimaryButton", Copy.buy(suggested.id, suggested.cost))
+		_buy = UiParts.button(skin, &"PrimaryButton", Copy.buy(suggested.id, suggested.cost, suggested.free))
 		_buy.name = "Buy"
 		_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_buy.disabled = not suggested.usable

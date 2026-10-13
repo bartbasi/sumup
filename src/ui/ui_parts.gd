@@ -21,9 +21,17 @@ const ROLES: Dictionary[StringName, StringName] = {
 	&"PrimaryButton": &"body",
 	&"SecondaryButton": &"body",
 	&"ChipButton": &"body",
+	&"HeadingLabel": &"heading",
+	&"ReadingLabel": &"reading",
+	&"RowDetailLabel": &"label",
 }
 
 const _LEFT_ALIGNED_SKIN: StringName = &"slate"
+const _FREE_SECTIONS_SKIN: StringName = &"nova"
+const _CASE_UPPER: String = "upper"
+## DESIGN_SYSTEM.md 7.2: the wordmark, "Sum" in ink and "Up" in accent.
+const WORDMARK_PARTS: Array[String] = ["Sum", "Up"]
+const _WORDMARK_COLORS: Array[StringName] = [&"ink", &"accent"]
 
 
 ## The type role of a variation in this skin.
@@ -43,6 +51,27 @@ static func block_alignment(skin: SkinData) -> HorizontalAlignment:
 	return HORIZONTAL_ALIGNMENT_LEFT if align_start(skin) else HORIZONTAL_ALIGNMENT_CENTER
 
 
+## True for the skin that rules its screens with hairlines (Slate): under the
+## reading screen header, and between reading screen sections with no gap
+## (DESIGN_SYSTEM.md 7.11).
+static func ruled(skin: SkinData) -> bool:
+	return skin.id == _LEFT_ALIGNED_SKIN
+
+
+## The gap between reading screen sections (DESIGN_SYSTEM.md 7.11): Gumdrop's
+## cards space_s apart, Slate's ruled sections none, Nova's space_l apart.
+static func section_gap(skin: SkinData) -> float:
+	if ruled(skin):
+		return 0.0
+	return skin.num(&"space_l") if floats_free(skin) else skin.num(&"space_s")
+
+
+## True for the skin whose reading screen sections stand free on the
+## backdrop with no box and no rule (Nova).
+static func floats_free(skin: SkinData) -> bool:
+	return skin.id == _FREE_SECTIONS_SKIN
+
+
 ## A label in a variation, its text cased for the variation's role.
 static func label(skin: SkinData, variation: StringName, text: String, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var made: Label = Label.new()
@@ -50,6 +79,7 @@ static func label(skin: SkinData, variation: StringName, text: String, align: Ho
 	made.text = skin.cased(role(skin, variation), text)
 	made.horizontal_alignment = align
 	made.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	made.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return made
 
 
@@ -59,6 +89,72 @@ static func paragraph(skin: SkinData, variation: StringName, text: String, align
 	made.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	made.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return made
+
+
+## A label for a name in a role whose rule may be lowercase (DESIGN_SYSTEM.md
+## 3.4: names keep their capitals). Capitals may apply; any other rule leaves
+## the text as written.
+static func name_label(skin: SkinData, variation: StringName, text: String) -> Label:
+	var made: Label = label(skin, variation, text)
+	made.text = text.to_upper() if case_rule(skin, role(skin, variation)) == _CASE_UPPER else text
+	return made
+
+
+## The case rule of a type role: "none", "upper" or "lower".
+static func case_rule(skin: SkinData, type_role: StringName) -> String:
+	if not skin.type_roles.has(type_role):
+		return ""
+	return String(skin.type_roles[type_role].get("case", ""))
+
+
+## The two tone wordmark "SumUp" (DESIGN_SYSTEM.md 7.2): "Sum" in ink and
+## "Up" in accent, two labels in the display role with no gap, never cased.
+## font_px 0 keeps the display role's size.
+static func wordmark(skin: SkinData, font_px: int, start: bool) -> HBoxContainer:
+	var row: HBoxContainer = hbox(0.0)
+	row.name = "Wordmark"
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN if start else BoxContainer.ALIGNMENT_CENTER
+	for index: int in WORDMARK_PARTS.size():
+		var part: Label = Label.new()
+		part.theme_type_variation = &"DisplayLabel"
+		part.text = WORDMARK_PARTS[index]
+		part.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		part.add_theme_color_override(&"font_color", skin.color(_WORDMARK_COLORS[index]))
+		if font_px > 0:
+			part.add_theme_font_size_override(&"font_size", font_px)
+		row.add_child(part)
+	return row
+
+
+## The menu wordmark's size: its advance width equals width. floor(display
+## size x width / the width at the display size), then 1 px smaller until it
+## fits, never below the display size (DESIGN_SYSTEM.md 7.2).
+static func fitted_wordmark_size(skin: SkinData, width: float) -> int:
+	var display: Font = skin.font(&"display")
+	var base: int = skin.font_size(&"display")
+	var at_base: float = wordmark_width(display, base)
+	if at_base <= 0.0:
+		return base
+	var fitted: int = floori(float(base) * width / at_base)
+	while fitted > base and wordmark_width(display, fitted) > width:
+		fitted -= 1
+	return maxi(base, fitted)
+
+
+## The wordmark's advance width at font_px: its two parts side by side.
+static func wordmark_width(display: Font, font_px: int) -> float:
+	var total: float = 0.0
+	for part: String in WORDMARK_PARTS:
+		total += display.get_string_size(part, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_px).x
+	return total
+
+
+## An empty Control height px tall (and width px wide).
+static func spacer(height: float, width: float = 0.0) -> Control:
+	var gap: Control = Control.new()
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gap.custom_minimum_size = Vector2(width, height)
+	return gap
 
 
 ## A button in a variation. In Slate every button but a chip left aligns its

@@ -14,9 +14,13 @@ class_name App extends Control
 ##   On app pause, focus loss and close, after the drag and targeting are
 ##   cancelled (GDD 13.1), they are written at once, after anything queued.
 ## - Run end: the saved run is deleted, the profile saved, EndPanel shown.
-## - Back: cancel targeting; else close the top panel (closing Pause
-##   resumes); else on the play screen open Pause; else quit after saving.
-##   On desktop, Escape does the same.
+## - The show gate (QA6-06): the board shows a move only once SaveService is
+##   idle, so the player never sees a move that is not on disk.
+## - How to play opens over the main menu or Pause; About over Settings, and
+##   a license text inside About (flow 11 and 12).
+## - Back: cancel targeting; else close the top panel (an open license text
+##   inside About first; closing Pause resumes); else on the play screen open
+##   Pause; else quit after saving. On desktop, Escape does the same.
 ## - Skin switch: a new theme, apply_skin on every live screen and panel, and
 ##   a cross-fade from a still of the old look over the new skin's
 ##   skin_switch motion.
@@ -27,6 +31,8 @@ const PAUSE_SCENE: PackedScene = preload("res://scenes/ui/pause_panel.tscn")
 const SETTINGS_SCENE: PackedScene = preload("res://scenes/ui/settings_panel.tscn")
 const CONFIRM_SCENE: PackedScene = preload("res://scenes/ui/confirm_dialog.tscn")
 const END_SCENE: PackedScene = preload("res://scenes/ui/end_panel.tscn")
+const HOW_TO_PLAY_SCENE: PackedScene = preload("res://scenes/ui/how_to_play_panel.tscn")
+const ABOUT_SCENE: PackedScene = preload("res://scenes/ui/about_panel.tscn")
 const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
 
 ## Test seam: the save folder. Tests set a temp folder inside user:// before
@@ -129,6 +135,7 @@ func _show_game() -> void:
 	_game.name = "Game"
 	_screen_layer.add_child(_game)
 	_game.setup(session, settings, audio, skin)
+	_game.board().set_show_gate(save.is_idle)
 	_game.pause_requested.connect(open_pause)
 
 
@@ -143,6 +150,7 @@ func _show_menu() -> void:
 		_screen_layer.add_child(_menu)
 		_menu.new_game_chosen.connect(_start_new_game)
 		_menu.settings_chosen.connect(open_settings)
+		_menu.how_to_play_chosen.connect(open_how_to_play)
 	_menu.setup(skin, records)
 
 
@@ -184,12 +192,36 @@ func open_pause() -> void:
 	pause.resume_chosen.connect(_close_panel.bind(pause))
 	pause.new_game_chosen.connect(_ask_new_game)
 	pause.settings_chosen.connect(open_settings)
+	pause.how_to_play_chosen.connect(open_how_to_play)
 	pause.play_in()
 
 
 func open_settings() -> void:
 	var panel: SettingsPanel = _open_panel(SETTINGS_SCENE) as SettingsPanel
 	panel.setup(skin, settings)
+	panel.closed.connect(_close_panel.bind(panel))
+	panel.about_chosen.connect(open_about)
+	panel.play_in()
+
+
+## Flow 11 (D-44): How to play over the main menu or Pause. Only its buttons
+## open it. Closing it returns to where it was opened; from Pause the run
+## stays paused.
+func open_how_to_play() -> void:
+	if top_panel() is HowToPlayPanel:
+		return
+	var panel: HowToPlayPanel = _open_panel(HOW_TO_PLAY_SCENE) as HowToPlayPanel
+	panel.setup(skin)
+	panel.closed.connect(_close_panel.bind(panel))
+	panel.play_in()
+
+
+## Flow 12: About over Settings. Its license rows open their texts inside it.
+func open_about() -> void:
+	if top_panel() is AboutPanel:
+		return
+	var panel: AboutPanel = _open_panel(ABOUT_SCENE) as AboutPanel
+	panel.setup(skin)
 	panel.closed.connect(_close_panel.bind(panel))
 	panel.play_in()
 
@@ -342,13 +374,19 @@ func _interrupt() -> void:
 	session.cancel_targeting()
 
 
-## Flow 10.
+## Flow 10: cancel targeting; else close the top panel (ConfirmDialog, an
+## open license text inside AboutPanel, AboutPanel, HowToPlayPanel,
+## SettingsPanel, PausePanel, where closing Pause resumes); else on the play
+## screen (offer included) open Pause; else, on the main menu or the end of
+## run panel, quit after saving.
 func _on_back() -> void:
 	if session.targeting_booster() != &"":
 		session.cancel_targeting()
 		return
 	var top: Control = top_panel()
-	if top is ConfirmDialog or top is SettingsPanel or top is PausePanel:
+	if top is AboutPanel and (top as AboutPanel).close_license():
+		return
+	if top is ConfirmDialog or top is AboutPanel or top is HowToPlayPanel or top is SettingsPanel or top is PausePanel:
 		_close_panel(top)
 		return
 	if top == null and _game != null:

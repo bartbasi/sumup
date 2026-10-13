@@ -17,6 +17,13 @@ extends Control
 ##   confirm     the New game confirmation over Pause
 ##   first_launch  the real App on first launch with an empty save folder and
 ##               no simulated insets; prints where the brand block sits
+##   offer_free  the offer with a free booster held ("Shuffle for free")
+##   howto       How to play, top; prints its content height in screen heights
+##   howto_end   How to play, scrolled to the end
+##   about       About
+##   license_game, license_godot, license_outfit
+##               a license text inside About; prints the time to build it
+## Every page prints the content column and the height of its panel, if any.
 ## Capture with tools/capture.tscn, for example:
 ##   godot --path . res://tools/capture.tscn -- --scene res://scenes/ui/review/review_gumdrop_menu.tscn --out docs/design/review/prod-screens-gumdrop-menu.png
 ##
@@ -31,7 +38,13 @@ const PAUSE_SCENE: PackedScene = preload("res://scenes/ui/pause_panel.tscn")
 const SETTINGS_SCENE: PackedScene = preload("res://scenes/ui/settings_panel.tscn")
 const CONFIRM_SCENE: PackedScene = preload("res://scenes/ui/confirm_dialog.tscn")
 const END_SCENE: PackedScene = preload("res://scenes/ui/end_panel.tscn")
+const HOW_TO_PLAY_SCENE: PackedScene = preload("res://scenes/ui/how_to_play_panel.tscn")
+const ABOUT_SCENE: PackedScene = preload("res://scenes/ui/about_panel.tscn")
 const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
+## The run highest tile on the free offer page: 3 stars, 1 free booster.
+const FREE_RUN_HIGHEST: int = 8192
+## Frames before the measurements, and before scrolling howto_end.
+const MEASURE_AFTER_FRAMES: int = 3
 
 const APP_SCENE: PackedScene = preload("res://scenes/ui/app.tscn")
 ## Where the first launch page keeps its throwaway save folder.
@@ -75,6 +88,9 @@ const NO_MOVES_SCORE: int = 1200
 @export var skin_id: StringName = &"gumdrop"
 ## menu, play, pause, settings, offer, offer_none, end or confirm.
 @export var page: String = "menu"
+## When above 0, touch_min and button_height take this value on a copy of the
+## skin, to measure the panels before QA6-05 (144) against now (160).
+@export var touch_px: float = 0.0
 
 var _skin: SkinData = null
 var _app: App = null
@@ -83,6 +99,10 @@ var _frames: int = 0
 var _best_score: int = BEST_SCORE
 var _session: GameSession = null
 var _audio: AudioService = null
+## The page's reading screen or dialog panel, for the measurements.
+var _shown: Control = null
+var _game_screen: GameScreen = null
+var _measure_frames: int = 0
 
 
 func _ready() -> void:
@@ -92,6 +112,11 @@ func _ready() -> void:
 		return
 	SafeArea.simulated_insets = SAFE_INSETS
 	_skin = SkinCatalog.get_skin(skin_id)
+	if touch_px > 0.0:
+		_skin = _skin.duplicate(true) as SkinData
+		_skin.numbers = _skin.numbers.duplicate()
+		_skin.numbers[&"touch_min"] = touch_px
+		_skin.numbers[&"button_height"] = touch_px
 	theme = UiKit.build_theme(_skin)
 	_audio = AudioService.new()
 	add_child(_audio)
@@ -112,6 +137,16 @@ func _ready() -> void:
 			(_panel(SETTINGS_SCENE) as SettingsPanel).setup(_skin, settings)
 		"offer":
 			_game(_board(NO_MOVES), FINAL_SCORE, null)
+		"offer_free":
+			_game(_board(NO_MOVES), FINAL_SCORE, null, FREE_RUN_HIGHEST)
+		"howto", "howto_end":
+			(_panel(HOW_TO_PLAY_SCENE) as HowToPlayPanel).setup(_skin)
+		"about":
+			(_panel(ABOUT_SCENE) as AboutPanel).setup(_skin)
+		"license_game", "license_godot", "license_outfit":
+			var about: AboutPanel = _panel(ABOUT_SCENE) as AboutPanel
+			about.setup(_skin)
+			about.open_license(StringName(page.trim_prefix("license_")))
 		"offer_none":
 			var config: GameConfig = GameConfig.new()
 			config.cost_shift[&"shuffle"] = 2
@@ -144,6 +179,43 @@ func _ready() -> void:
 			(_panel(CONFIRM_SCENE) as ConfirmDialog).setup(_skin, Copy.CONFIRM_TITLE, Copy.CONFIRM_BODY, Copy.NEW_GAME, Copy.CANCEL)
 		_:
 			push_error("ui_review: unknown page '%s'" % page)
+	get_tree().process_frame.connect(_measure)
+
+
+## The measurements the screens review asks for, printed once the layout has
+## settled: the content column, the panel's height, How to play's length in
+## screen heights, the time a license text took to build.
+func _measure() -> void:
+	_measure_frames += 1
+	if _measure_frames < MEASURE_AFTER_FRAMES:
+		return
+	var screen: Vector2 = get_viewport_rect().size
+	var column: Rect2 = SafeArea.content_column(get_viewport(), _skin)
+	var tag: String = "ui_review: %s %s %dx%d" % [_skin.id, page, roundi(screen.x), roundi(screen.y)]
+	var reading: Control = _shown if _shown != null and _shown.has_method(&"scroll") else null
+	if _shown is AboutPanel and (_shown as AboutPanel).license_view() != null:
+		reading = (_shown as AboutPanel).license_view()
+		if not bool(reading.call(&"is_built")):
+			return
+		print("%s: built in %.1f ms, %d labels" % [tag, float(reading.get(&"build_usec")) / 1000.0, int(reading.call(&"label_count"))])
+	if _measure_frames == MEASURE_AFTER_FRAMES or reading != null:
+		get_tree().process_frame.disconnect(_measure)
+	print("%s: content column x %.0f, width %.0f" % [tag, column.position.x, column.size.x])
+	if _shown != null and _shown.has_method(&"panel"):
+		var panel: Control = _shown.call(&"panel")
+		print("%s: panel %.0f px tall, %.0f px wide" % [tag, panel.size.y, panel.size.x])
+	if reading != null:
+		var scroll: ScrollContainer = reading.call(&"scroll")
+		var content: float = scroll.get_child(0).get_combined_minimum_size().y
+		print("%s: scroll content %.0f px in a %.0f px view, %.2f screen heights" % [tag, content, scroll.size.y, content / maxf(1.0, scroll.size.y)])
+		if page == "howto_end":
+			scroll.scroll_vertical = roundi(scroll.get_v_scroll_bar().max_value)
+	if page == "about" and _shown is AboutPanel:
+		var copyright: Rect2 = (_shown as AboutPanel).copyright_label().get_global_rect()
+		print("%s: the attribution ends %.0f px down the screen" % [tag, copyright.end.y])
+	if page.begins_with("offer") and _game_screen != null:
+		var offer: OfferPanel = _game_screen.offer_panel()
+		print("%s: offer panel %.0f px tall, buy button '%s'" % [tag, offer.size.y, offer.buy_button().text if offer.buy_button() != null else "none"])
 
 
 func _exit_tree() -> void:
@@ -205,14 +277,15 @@ func _board(values: Array[int]) -> PackedInt64Array:
 
 ## The play screen showing a resumed run: the board appears at once and the
 ## move check opens the offer when there is no valid move.
-func _game(cells: PackedInt64Array, score: int, config: GameConfig) -> void:
+func _game(cells: PackedInt64Array, score: int, config: GameConfig, run_highest: int = 0) -> void:
 	var rng: RunRandom = RunRandom.new()
 	rng.set_seed(1)
 	_session = GameSession.new(config, rng, _records())
 	var game: GameScreen = GAME_SCENE.instantiate() as GameScreen
 	add_child(game)
+	_game_screen = game
 	game.setup(_session, Settings.new(), _audio, _skin)
-	_session.resume(RunState.create(cells, score))
+	_session.resume(RunState.create(cells, score, PackedInt64Array(), 0, run_highest))
 	if _session.is_waiting_for_view():
 		_session.move_shown()
 
@@ -220,4 +293,5 @@ func _game(cells: PackedInt64Array, score: int, config: GameConfig) -> void:
 func _panel(scene: PackedScene) -> Control:
 	var panel: Control = scene.instantiate() as Control
 	add_child(panel)
+	_shown = panel
 	return panel

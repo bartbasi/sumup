@@ -120,10 +120,10 @@ func _fill(skin: SkinData, summary: RunSummary) -> void:
 	buttons.add_child(menu)
 
 
-## The width the score may take: the screen less the panel's margins and
-## padding.
+## The width the score may take: the content column less the panel's margins
+## and padding.
 func _text_width(skin: SkinData) -> float:
-	return get_viewport_rect().size.x - 2.0 * (skin.num(&"board_margin") + skin.num(&"space_m"))
+	return SafeArea.content_column(get_viewport(), skin).size.x - 2.0 * (skin.num(&"board_margin") + skin.num(&"space_m"))
 
 
 func _on_new_game() -> void:

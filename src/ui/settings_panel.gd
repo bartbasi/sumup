@@ -3,6 +3,9 @@ class_name SettingsPanel extends "res://src/ui/dialog_base.gd"
 ## - "Settings" with a close icon button;
 ## - the Sound row with the skin's toggle;
 ## - a divider, "Skin", then the three skin choices side by side;
+## - a divider, then the About row, which opens About (a row that opens a
+##   screen: row_height tall, never less than touch_min, "About" in the body
+##   role and the chevron on the right; the whole row is the target);
 ## - the version line.
 ## Each skin choice is a swatch in that skin's own bg (radius_chip of the
 ## current skin) holding tiles 2, 4 and 8 drawn by that skin's own tile
@@ -14,7 +17,9 @@ class_name SettingsPanel extends "res://src/ui/dialog_base.gd"
 ## settings.set_skin_id. The App listens, switches the game live and saves.
 
 signal closed()
+signal about_chosen()
 
+const OpenRow: GDScript = preload("res://src/ui/open_row.gd")
 ## DESIGN_SYSTEM.md 7.9 fixed component constants.
 const PREVIEW_TILE: float = 72.0
 const SWATCH_PADDING: float = 0.22    # share of the preview tile side
@@ -25,6 +30,7 @@ const ThemeKit: GDScript = preload("res://src/design/shared/theme_kit.gd")
 var _settings: Settings = null
 var _toggle: SkinToggle = null
 var _chips: Dictionary[StringName, Button] = {}
+var _about_row: Control = null
 
 
 func setup(skin: SkinData, settings: Settings) -> void:
@@ -63,6 +69,13 @@ func setup(skin: SkinData, settings: Settings) -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		choices.add_child(_choice(skin, SkinCatalog.get_skin(skin_id), panel_bg))
 
+	_content.add_child(UiParts.divider())
+	_about_row = OpenRow.new()
+	_about_row.name = "About"
+	_about_row.call(&"setup", skin, Copy.ABOUT, "")
+	_about_row.connect(&"tapped", _on_about)
+	_content.add_child(_about_row)
+
 	_content.add_child(UiParts.label(skin, &"CaptionLabel", Copy.version_line(), UiParts.block_alignment(skin)))
 
 
@@ -79,6 +92,11 @@ func sound_toggle() -> SkinToggle:
 ## The chip of each skin, by id. For tests.
 func skin_chips() -> Dictionary[StringName, Button]:
 	return _chips
+
+
+## The About row. For tests.
+func about_row() -> Control:
+	return _about_row
 
 
 func _choice(skin: SkinData, choice_skin: SkinData, panel_bg: Color) -> VBoxContainer:
@@ -145,3 +163,8 @@ func _on_sound_toggled(on: bool) -> void:
 func _on_close() -> void:
 	if not _closing:
 		closed.emit()
+
+
+func _on_about() -> void:
+	if not _closing:
+		about_chosen.emit()

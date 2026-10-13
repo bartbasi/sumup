@@ -102,6 +102,72 @@ static func settle(app: App) -> void:
 		app.save.flush()
 
 
-## Lets the session finish showing the last move, as the board would.
+## Lets the session finish showing the last move, as the board would: the
+## save lands, the board's show gate opens, then the move has been shown.
 static func shown(app: App) -> void:
+	gate(app)
 	app.session.move_shown()
+
+
+## A host Control size_px big with skin's Theme, for layout checks. Headless
+## tests run before the scene tree enters, so nothing is ever inside the tree:
+## anchors never size anything and screens skip their own layout. Layout
+## checks size every screen by hand (fit), call its layout_in with rects of
+## their own, sort its containers (layout) and measure with rect_in. Free the
+## host with free_stage.
+static func stage(size_px: Vector2i, skin_id: StringName) -> Control:
+	var host: Control = Control.new()
+	host.theme = UiKit.build_theme(SkinCatalog.get_skin(skin_id))
+	root().add_child(host)
+	fit(host, Vector2(size_px))
+	return host
+
+
+static func free_stage(host: Control) -> void:
+	if host != null and is_instance_valid(host):
+		host.get_parent().remove_child(host)
+		host.free()
+
+
+## A phone's safe rect on a screen of size_px: the capture tool's default
+## insets, 120 px on top and 66 px at the bottom.
+static func safe_rect(size_px: Vector2i) -> Rect2:
+	return Rect2(0.0, 120.0, float(size_px.x), float(size_px.y) - 186.0)
+
+
+## control's rect in the coordinates of ancestor, from positions alone
+## (global rects need the scene tree).
+static func rect_in(control: Control, ancestor: Node) -> Rect2:
+	var at: Vector2 = Vector2.ZERO
+	var node: Node = control
+	while node != null and node != ancestor:
+		if node is Control:
+			at += (node as Control).position
+		node = node.get_parent()
+	return Rect2(at, control.size)
+
+
+## Places control at the origin, size_px big, without anchors.
+static func fit(control: Control, size_px: Vector2) -> void:
+	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	control.position = Vector2.ZERO
+	control.size = size_px
+
+
+## Lays out every container under node now, as the next frame would. Wrapped
+## labels need their width before their height, so it runs a few passes.
+static func layout(node: Node, passes: int = 4) -> void:
+	for pass_index: int in passes:
+		if node is Container:
+			node.notification(Container.NOTIFICATION_SORT_CHILDREN)
+		for child: Node in node.find_children("*", "Container", true, false):
+			child.notification(Container.NOTIFICATION_SORT_CHILDREN)
+
+
+## The save lands and the board runs the gate check it would run deferred
+## (headless tests never run the frame's message queue), so a move held at
+## the gate starts, with its move_started.
+static func gate(app: App) -> void:
+	settle(app)
+	if app != null and app.game_screen() != null:
+		app.game_screen().board()._check_gate()

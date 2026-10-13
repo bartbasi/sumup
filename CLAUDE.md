@@ -95,6 +95,7 @@ godot --headless --path . --script res://tests/run_tests.gd   # all tests; exit 
 
 - `godot` on PATH is a WinGet link to the main Godot 4.7.2 exe. It works from Bash with real exit codes. In PowerShell the same exe does not wait or return an exit code unless its output is piped, so prefer Bash.
 - Do not use `godot_console.exe`. It fails with "CreateProcess failed, error 193" because a stray installer log file named `C:\Users\Bart` breaks the wrapper's unquoted path. Bart wants that file left alone: never move, rename or delete it.
+- Other projects run Godot on this machine at the same time (Bart's Updraft project, from another Claude session, uses the same exe name). Never end Godot processes by name (`taskkill /IM`, `pkill godot`, `Stop-Process -Name`). End only a process you started, by its own PID, and wrap long Godot runs in `timeout` so a hang ends by itself.
 - Android SDK: `C:\Android\Sdk`. adb is at `C:\Android\Sdk\platform-tools\adb.exe` and is not on PATH. JDK 17 (Temurin) is on PATH. The Android debug keystore lives outside the repo in Godot's editor settings folder.
 - docs/ has a `.gdignore`, so Godot never imports the design screenshots into the game.
 - Pushing (DM only): git's credential manager has no GitHub login here, so push through the gh login without changing git config: `git -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin main`.

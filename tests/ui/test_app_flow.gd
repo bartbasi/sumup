@@ -545,12 +545,14 @@ func test_at_104_a_clear_shows_the_notice() -> void:
 	var chain: Array[Vector2i] = [Vector2i(4, 6), Vector2i(4, 7)]
 	var result: MoveResult = app.session.commit_chain(chain)
 	assert_eq(result.cleared_values, PackedInt64Array([2]), "the move cleared the 2s")
+	U.gate(app)
 	assert_not_null(app.game_screen().hud().call(&"clear_notice"), "the HUD shows the clear notice")
 
 
 func test_scores_reach_the_hud() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 1234), 98765, 32)
 	var app: App = _start()
+	U.gate(app)
 	var label: Label = app.game_screen().hud().score_label()
 	assert_eq(label.text, "1,234", "the score")
 

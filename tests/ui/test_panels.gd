@@ -208,10 +208,31 @@ func test_pause_panel_buttons() -> void:
 	panel.resume_chosen.connect(_record.bind("resume"))
 	panel.new_game_chosen.connect(_record.bind("new game"))
 	panel.settings_chosen.connect(_record.bind("settings"))
-	for button_name: String in ["Resume", "Newgame", "Settings"]:
+	panel.how_to_play_chosen.connect(_record.bind("how to play"))
+	for button_name: String in ["Resume", "Newgame", "Howtoplay", "Settings"]:
 		(panel.find_child(button_name, true, false) as Button).pressed.emit()
-	assert_eq(_events, ["resume", "new game", "settings"] as Array[String], "every choice reports")
+	assert_eq(_events, ["resume", "new game", "how to play", "settings"] as Array[String], "every choice reports")
 	assert_true(_has_text(panel, "Paused"), "the title")
+
+
+func test_pause_arrangement_7_3() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var panel: PausePanel = (load("res://scenes/ui/pause_panel.tscn") as PackedScene).instantiate() as PausePanel
+		_host(skin_id).add_child(panel)
+		panel.setup(skin)
+		var content: Node = panel.find_child("Resume", true, false).get_parent()
+		var order: Array[String] = []
+		var variations: Array[StringName] = []
+		for child: Node in content.get_children():
+			if child is Button:
+				order.append(String(child.name))
+				variations.append((child as Button).theme_type_variation)
+		assert_eq(order, ["Resume", "Newgame", "Howtoplay", "Settings"] as Array[String], "%s: Resume, New game, How to play, Settings" % skin_id)
+		assert_eq(variations, [&"PrimaryButton", &"SecondaryButton", &"SecondaryButton", &"SecondaryButton"] as Array[StringName], "%s: Resume primary, the rest secondary" % skin_id)
+		var how: Button = content.find_child("Howtoplay", false, false) as Button
+		assert_eq(how.text, skin.cased(&"body", "How to play"), "%s: the copy" % skin_id)
+		assert_true(how.custom_minimum_size.y >= skin.num(&"touch_min"), "%s: at least touch_min tall" % skin_id)
 
 
 func test_confirm_dialog() -> void:
@@ -248,6 +269,45 @@ func test_settings_panel_controls() -> void:
 	assert_eq(_events, ["closed"] as Array[String], "close reports")
 
 
+func test_settings_about_row_7_7() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var settings: Settings = Settings.new()
+		var panel: SettingsPanel = (load("res://scenes/ui/settings_panel.tscn") as PackedScene).instantiate() as SettingsPanel
+		_host(skin_id).add_child(panel)
+		panel.setup(skin, settings)
+		var row: Control = panel.about_row()
+		var content: Node = row.get_parent()
+		var count: int = content.get_child_count()
+		assert_eq(row.get_index(), count - 2, "%s: the About row is next to last" % skin_id)
+		assert_true(content.get_child(count - 3) is HSeparator, "%s: after a divider" % skin_id)
+		var version: Label = content.get_child(count - 1) as Label
+		assert_eq(version.text, skin.cased(&"label", Copy.version_line()), "%s: then the version line, as today" % skin_id)
+		assert_eq(row.call(&"title_text"), skin.cased(&"body", "About"), "%s: About in the body role" % skin_id)
+		assert_eq(row.call(&"detail_text"), "", "%s: no detail line" % skin_id)
+		assert_true(row.custom_minimum_size.y >= skin.num(&"touch_min"), "%s: at least touch_min" % skin_id)
+		assert_true(row.custom_minimum_size.y >= skin.num(&"row_height"), "%s: at least row_height" % skin_id)
+		assert_not_null(row.find_child("Chevron", true, false) as SkinIcon, "%s: the chevron on the right" % skin_id)
+		assert_eq(row.find_child("Chevron", true, false).get_index(), 1, "%s: after the title" % skin_id)
+		panel.about_chosen.connect(_record.bind("about %s" % skin_id))
+		row.emit_signal(&"tapped")
+		assert_true(_events.has("about %s" % skin_id), "%s: a tap on the row opens About" % skin_id)
+		panel.close()
+		row.emit_signal(&"tapped")
+		assert_eq(_events.count("about %s" % skin_id), 1, "%s: a closing panel takes no tap" % skin_id)
+
+
+func test_offer_reads_for_free_while_a_free_booster_is_held() -> void:
+	# AT-135 (a): Board D1024, score 0, run highest 8192, 1 free booster held.
+	var session: GameSession = _offer_session(RunState.create(U.board_d1024(), 0, PackedInt64Array(), 0, 8192))
+	assert_true(session.is_offer_open(), "the offer opens")
+	for skin_id: StringName in SkinCatalog.IDS:
+		var panel: OfferPanel = _offer_panel(skin_id, session)
+		assert_eq(panel.buy_button().text, SkinCatalog.get_skin(skin_id).cased(&"body", "Shuffle for free"), "%s: Shuffle for free" % skin_id)
+	assert_eq(Copy.buy(&"undo", 2048, true), "Undo for free", "any booster")
+	assert_eq(Copy.buy(&"undo", 2048, false), "Undo for 2K", "paid")
+
+
 func test_settings_swatch_edge_only_when_it_matches_the_panel() -> void:
 	var settings: Settings = Settings.new()
 	settings.set_skin_id(&"slate")
@@ -276,12 +336,46 @@ func test_main_menu() -> void:
 	menu.new_game_chosen.connect(_record.bind("new game"))
 	menu.settings_chosen.connect(_record.bind("settings"))
 	assert_eq(menu.best_score_text(), "96,520", "Best Score")
-	assert_true(_has_text(menu, "SumUp"), "the wordmark")
+	assert_true(_has_text(menu, "Sum") and _has_text(menu, "Up"), "the two tone wordmark")
 	assert_eq(_tile_count(menu), 5, "the four decorative tiles, then Best Tile")
 	assert_true(_has_text(menu, "Best tile"), "the Best tile row")
+	menu.how_to_play_chosen.connect(_record.bind("how to play"))
 	(menu.find_child("NewGame", true, false) as Button).pressed.emit()
 	(menu.find_child("Settings", true, false) as BaseButton).pressed.emit()
-	assert_eq(_events, ["new game", "settings"] as Array[String], "both report")
+	(menu.find_child("HowToPlay", true, false) as Button).pressed.emit()
+	assert_eq(_events, ["new game", "settings", "how to play"] as Array[String], "every button reports")
+
+
+func test_main_menu_arrangement_7_2() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var menu: MainMenu = (load("res://scenes/ui/main_menu.tscn") as PackedScene).instantiate() as MainMenu
+		_host(skin_id).add_child(menu)
+		menu.setup(skin, Records.new())
+		var new_game: Button = menu.find_child("NewGame", true, false) as Button
+		var how: Button = menu.find_child("HowToPlay", true, false) as Button
+		var buttons: VBoxContainer = new_game.get_parent() as VBoxContainer
+		assert_eq(how.get_parent(), buttons, "%s: both buttons in one column" % skin_id)
+		assert_eq(new_game.get_index(), 0, "%s: New game first" % skin_id)
+		assert_eq(how.get_index(), 1, "%s: How to play under it" % skin_id)
+		assert_eq(buttons.get_theme_constant(&"separation"), roundi(skin.num(&"space_s")), "%s: space_s apart" % skin_id)
+		assert_eq(new_game.theme_type_variation, &"PrimaryButton", "%s: New game primary" % skin_id)
+		assert_eq(how.theme_type_variation, &"SecondaryButton", "%s: How to play secondary" % skin_id)
+		var layout: Node = menu.find_child("Layout", true, false)
+		assert_eq(buttons.get_parent().get_index(), layout.get_child_count() - 1, "%s: the buttons on the bottom of the safe area" % skin_id)
+		var margins: MarginContainer = buttons.get_parent() as MarginContainer
+		assert_eq(margins.get_theme_constant(&"margin_left"), roundi(skin.num(&"board_margin")), "%s: full width less board_margin" % skin_id)
+		# The wordmark: two labels, as wide as the tile row.
+		var wordmark: HBoxContainer = menu.wordmark()
+		assert_eq(wordmark.get_child_count(), 2, "%s: two labels" % skin_id)
+		assert_eq(wordmark.get_theme_constant(&"separation"), 0, "%s: no gap" % skin_id)
+		var size_px: int = (wordmark.get_child(0) as Label).get_theme_font_size(&"font_size")
+		var row_width: float = 4.0 * 160.0 + 3.0 * skin.num(&"space_s")
+		var display: Font = skin.font(&"display")
+		assert_true(UiParts.wordmark_width(display, size_px) <= row_width, "%s: no wider than the tile row (%d px)" % [skin_id, size_px])
+		assert_true(UiParts.wordmark_width(display, size_px + 1) > row_width or size_px == skin.font_size(&"display"), "%s: and as large as fits" % skin_id)
+		assert_true(size_px >= skin.font_size(&"display"), "%s: never below the display size" % skin_id)
+		assert_eq(wordmark.alignment, BoxContainer.ALIGNMENT_BEGIN if skin_id == &"slate" else BoxContainer.ALIGNMENT_CENTER, "%s: Slate left aligns it" % skin_id)
 
 
 func test_main_menu_hides_best_tile_before_the_first_run() -> void:

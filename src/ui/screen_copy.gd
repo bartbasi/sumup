@@ -35,6 +35,40 @@ const NEW_BEST: String = "New best"
 const SOUND: String = "Sound"
 const SKIN: String = "Skin"
 
+## 2026-10-13 additions (DESIGN_SYSTEM.md 7.10).
+const HOW_TO_PLAY: String = "How to play"
+const ABOUT: String = "About"
+const VERSION: String = "Version %s"
+const MADE_BY: String = "Made by Bart Basi"
+## A license term (NOTICE, term 1): shown exactly, never cased.
+const COPYRIGHT: String = "Copyright 2026 Bart Basi"
+const ABOUT_SECTIONS: Array[Dictionary] = [
+	{"title": "What it is", "text": "SumUp is a number merge puzzle. Join touching tiles of the same number into bigger ones and see how high you can go."},
+	{"title": "Offline, no data", "text": "SumUp works fully offline. It collects no data, has no ads or accounts and asks for no permissions."},
+	{"title": "Licenses", "text": "SumUp is free software: you can share and change it under the GNU General Public License, version 3, with two additional terms. Every copy keeps the attribution above, and changed versions are marked as changed. SumUp comes with no warranty."},
+]
+## The license rows, in order: id, title, detail line.
+const LICENSE_ROWS: Array[Dictionary] = [
+	{"id": &"game", "title": "SumUp", "detail": "GNU GPL version 3, two added terms"},
+	{"id": &"godot", "title": "Godot Engine", "detail": "MIT license and its parts"},
+	{"id": &"outfit", "title": "Outfit font", "detail": "SIL Open Font License 1.1"},
+]
+const LICENSE_TITLES: Dictionary[StringName, String] = {
+	&"game": "SumUp license",
+	&"godot": "Godot Engine",
+	&"outfit": "Outfit font",
+}
+const NOTICE_HEADING: String = "Notice"
+const GPL_HEADING: String = "GNU General Public License"
+const GODOT_LICENSE_HEADING: String = "Godot Engine license"
+const GODOT_PARTS_HEADING: String = "Third party parts"
+const GODOT_TEXTS_HEADING: String = "License texts"
+const PART_COPYRIGHT: String = "Copyright %s"
+const PART_LICENSE: String = "License: %s"
+## Shown in a license view instead of a text that is missing or damaged in
+## this copy of the game.
+const TEXT_MISSING: String = "This text could not be read in this copy of SumUp. Installing the game again should bring it back."
+
 const HINTS: Dictionary[StringName, String] = {
 	&"hammer": "Tap a tile to smash it",
 	&"swap": "Tap two tiles to swap them",
@@ -44,9 +78,37 @@ const SWAP_SECOND: String = "Now tap the tile to swap with"
 
 
 ## The suggested buy button: "Shuffle for 4K". The cost uses the tile label
-## format (D-32).
-static func buy(booster_id: StringName, cost: int) -> String:
+## format (D-32). While a free booster is held: "Shuffle for free" (D-46).
+static func buy(booster_id: StringName, cost: int, free: bool = false) -> String:
+	if free:
+		return "%s for free" % booster_name(booster_id)
 	return "%s for %s" % [booster_name(booster_id), NumberFormat.tile_label(cost)]
+
+
+## GDD 21.2, HP1 to HP7, word for word. Each section: {"title": String,
+## "text": String, "example": PackedInt64Array (the joined tiles in drag
+## order, empty for none), "result": int (the result tile, 0 for none)}.
+static func how_to_play_sections() -> Array[Dictionary]:
+	return [
+		_section("Make a chain", "Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it.", [2, 2, 4], 8),
+		_section("What it makes", "Lift to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 6 becomes 4.", [2, 2, 2], 4),
+		_section("After a merge", "The merged tile lands where your chain ended, tiles above fall and new ones drop in. While you drag, highlighted tiles can join next.", [], 0),
+		_section("Score", "A chain scores the sum of its tiles. Boosters cost points, your score never drops below zero, and best score and best tile are saved.", [], 0),
+		_section("Move up, earn stars", "Each new highest tile from 2K up removes the smallest number and earns a star. Every 3 stars make your next booster free.", [1024, 1024], 2048),
+		_section("Boosters", "Hammer smashes a tile, Swap swaps two, Shuffle mixes the board, Double doubles one, Undo takes back your last chain. Prices grow as you go.", [], 0),
+		_section("Out of moves", "When no two touching tiles match, you can pick a booster to keep going. If you can't, or you tap End run, the run ends.", [], 0),
+	]
+
+
+static func _section(title: String, text: String, example: Array[int], result: int) -> Dictionary:
+	return {"title": title, "text": text, "example": PackedInt64Array(example), "result": result}
+
+
+## "Version 0.1" for About, or "" when the project sets no version (the line
+## is then left out, DESIGN_SYSTEM.md 7.10).
+static func version_text() -> String:
+	var version: String = str(ProjectSettings.get_setting("application/config/version", ""))
+	return "" if version.is_empty() else VERSION % version
 
 
 static func booster_name(booster_id: StringName) -> String:

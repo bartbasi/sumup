@@ -3,9 +3,11 @@ extends Control
 ## - the skin's scrim over the whole screen, which also takes every touch
 ##   meant for what is below it;
 ## - the skin's dialog panel (the CardPanel variation) anchored to the bottom
-##   of the safe area, in the thumb zone. A floating card (Gumdrop) sits
-##   board_margin from the sides and the bottom; a sheet (Slate, Nova) runs to
-##   the screen edges and pads its content by the bottom inset (2.2).
+##   of the safe area, in the thumb zone, inside the content column (2.8). A
+##   floating card (Gumdrop) sits board_margin inside the column and from the
+##   bottom; a sheet (Slate, Nova) spans the column, reaches the screen's
+##   bottom edge and pads its content by the bottom inset (2.2). On phones
+##   the column is the whole width, so a sheet runs edge to edge.
 ## It comes in with dialog_in over the scrim and leaves with dialog_out.
 ##
 ## Subclasses call _frame(skin) at the start of setup and add their content to
@@ -98,17 +100,27 @@ func _notification(what: int) -> void:
 func _layout() -> void:
 	if _panel == null or _skin == null or not is_inside_tree():
 		return
-	var safe: Rect2 = SafeArea.viewport_safe_rect(get_viewport())
-	var origin: Vector2 = get_global_rect().position
-	var inner: Rect2 = Rect2(safe.position - origin, safe.size)
-	var left: float = 0.0
-	var right: float = 0.0
+	layout_in(get_global_rect(), SafeArea.content_column(get_viewport(), _skin), UiParts.panel_floats(self))
+
+
+## The panel's place for the panel's own rect and the content column, both in
+## the same (global) coordinates. floats: the skin's panel is a floating card.
+## _layout calls it; tests call it with rects of their own, since headless
+## tests never enter the scene tree.
+func layout_in(screen: Rect2, column: Rect2, floats: bool) -> void:
+	if _panel == null or _skin == null:
+		return
+	var origin: Vector2 = screen.position
+	var size_now: Vector2 = screen.size
+	var inner: Rect2 = Rect2(column.position - origin, column.size)
+	var left: float = inner.position.x
+	var right: float = maxf(0.0, size_now.x - inner.end.x)
 	var bottom: float = 0.0
-	var pad: float = maxf(0.0, size.y - inner.end.y)
-	if UiParts.panel_floats(self):
+	var pad: float = maxf(0.0, size_now.y - inner.end.y)
+	if floats:
 		var margin: float = _skin.num(&"board_margin")
-		left = inner.position.x + margin
-		right = maxf(0.0, size.x - inner.end.x) + margin
+		left += margin
+		right += margin
 		bottom = pad + margin
 		pad = 0.0
 	_inset_pad.custom_minimum_size = Vector2(0.0, pad)
@@ -121,6 +133,11 @@ func _layout() -> void:
 	_panel.offset_right = -right
 	_panel.offset_bottom = -bottom
 	_panel.offset_top = -bottom
+
+
+## The skin's dialog panel. For tests.
+func panel() -> PanelContainer:
+	return _panel
 
 
 static func _ignore_input(node: Node) -> void:
