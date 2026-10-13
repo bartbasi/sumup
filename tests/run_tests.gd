@@ -1,5 +1,5 @@
 extends SceneTree
-## Headless test runner for numbersgame. No addons.
+## Headless test runner for SumUp. No addons.
 ##
 ## Run from the repo root:
 ##     godot --headless --path . --script res://tests/run_tests.gd
@@ -47,7 +47,7 @@ func _initialize() -> void:
 
 
 func _run_all() -> int:
-	print("numbersgame tests, Godot %s" % Engine.get_version_info().string)
+	print("SumUp tests, Godot %s" % Engine.get_version_info().string)
 	var files: PackedStringArray = PackedStringArray()
 	_collect_test_files(TESTS_ROOT, files)
 	files.sort()

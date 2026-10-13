@@ -1,14 +1,15 @@
-# numbersgame: standing rules
+# SumUp: standing rules
 
-numbersgame is a number merge puzzle game (same core mechanic as "2248") for Android, built in Godot 4. Bart Basi owns the project. The main Claude Code session is the Development Manager (DM): it plans, launches every agent, integrates, commits, and is the only one who talks to Bart. The full kickoff brief is in docs/BRIEF.md. Read it before starting any phase.
+SumUp is a number merge puzzle game (same core mechanic as "2248") for Android, built in Godot 4. Bart Basi owns the project. The main Claude Code session is the Development Manager (DM): it plans, launches every agent, integrates, commits, and is the only one who talks to Bart. The full kickoff brief is in docs/BRIEF.md. Read it before starting any phase.
 
 ## Fixed decisions (ask Bart before revisiting any of these)
 
 - Engine: Godot 4.7.2 stable (`4.7.2.stable.official.ed1daf0bf`), Compatibility renderer.
 - Language: GDScript, statically typed everywhere (typed variables, parameters and return values). No C#, no GDExtension. project.godot treats untyped declarations as errors.
 - Platform for v1: Android, portrait only. Develop and iterate in the Godot editor on Windows.
-- Repo: github.com/bartbasi/numbersgame, private. Only the DM pushes.
-- Assets: nothing paid, nothing third party. Every visual and every sound is made in code (StyleBoxFlat, Theme resources, `_draw()`, shaders, Tweens, AudioStreamWAV filled by code). No image files, no audio files, no asset store downloads, no addons. The one exception is the Outfit font (see Bart's decisions below).
+- Repo: github.com/bartbasi/sumup, private. Only the DM pushes.
+- Assets: nothing paid, nothing third party. Every visual and every sound is made in code (StyleBoxFlat, Theme resources, `_draw()`, shaders, Tweens, AudioStreamWAV filled by code). No image files, no audio files, no asset store downloads, no addons. The exceptions are the Outfit font and the GPL text in COPYING (see Bart's decisions below).
+- License: GNU GPL version 3 with the section 7 terms in NOTICE (see Bart's decisions below). COPYING is the official text, byte for byte (MD5 1ebbd3e34237af26da5dc08a4e440464). Never edit it.
 - Network: none. No accounts, ads, analytics or leaderboards. Release builds request no Android permissions.
 - Skins: built in only for v1. No import of any kind.
 - Level goals: not in v1. Keep game rules separate from UI so they can be added later, but build nothing for them.
@@ -21,7 +22,7 @@ Each agent edits only what it owns, plus any path its task brief from the DM exp
 
 | Path | Owner |
 |---|---|
-| CLAUDE.md, docs/BRIEF.md, docs/ARCHITECTURE.md, .claude/agents/, .gitattributes | DM |
+| CLAUDE.md, docs/BRIEF.md, docs/ARCHITECTURE.md, .claude/agents/, .gitattributes, COPYING, NOTICE | DM |
 | scenes/main.tscn, tests/run_tests.gd, tests/base_test.gd | DM |
 | README.md, project.godot, export_presets.cfg, .gitignore, scripts/ (build and install scripts) | platform-dev |
 | docs/GDD.md (rules, balance, acceptance test list) | lead-game-designer |
@@ -48,9 +49,17 @@ Autoload and input map entries in project.godot are added by the DM during integ
 - 2026-10-10, Hard Stop 1: Fonts. Gumdrop and Nova use Outfit (SIL Open Font License 1.1). Slate uses the system font (Roboto on Android). `Outfit[wght].ttf` and its `OFL.txt` are the only third party files allowed in the repo, unmodified, side by side, and logged in docs/ASSETS.md.
 - 2026-10-10, Hard Stop 1: Best Score updates live (GDD D-16). All GDD rules are approved as recommended.
 - 2026-10-10, Hard Stop 1: Three additions to v1 scope: small tiles are cleared automatically as the game moves up, as in 2248; tiles that could join next are highlighted while dragging; the end of run screen shows this run's highest tile. Not added: a confirm step before Shuffle and Undo.
-- 2026-10-10: Bart approved creating the private GitHub repo bartbasi/numbersgame and pushing (Hard Stop 2 cleared early).
+- 2026-10-10: Bart approved creating the private GitHub repo and pushing (Hard Stop 2 cleared early). It was created as bartbasi/numbersgame and renamed bartbasi/sumup on 2026-10-13.
 - 2026-10-11: Bart approved the rebuilt tile colors (DESIGN_SYSTEM.md) and the working copy in DESIGN_SYSTEM.md 7.8.
 - 2026-10-11: Reopening the app with a saved run goes straight back into the run. The main menu shows only at first launch, when no valid run is saved, and after a run ends.
+- 2026-10-13: Three additions to v1 scope.
+  - How to play: a button on the main menu and in Pause opens a screen explaining how the game works and how points are scored, in short sections, each with a small row of real tiles drawn in the current skin. It opens only when tapped, never by itself.
+  - About: a row in Settings opens an About screen: what the game is, the version, made by Bart Basi, fully offline with no data collected, and the licenses (the game's own, the Godot engine's MIT notice and its parts, the Outfit font's OFL).
+  - Stars: a star each time a low number is removed for the first time in a run (the window floor reaching a new level, from the 2K tile on). Hammer and Undo can never earn a star twice. Every 3 stars give one free booster: the player's next booster costs nothing. The HUD shows the stars.
+- 2026-10-13: License. The game is GNU GPL version 3 with two additional terms under section 7: 7(b) every copy and every modified version keeps the attribution "Copyright 2026 Bart Basi" in its About screen; 7(c) modified versions must be marked as changed from the original. The full GPL text ships in the app and is readable in the About screen. The GPL text is an approved third party file, like the font.
+- 2026-10-13: The game is renamed from numbersgame to SumUp, everywhere in the repo and on GitHub (bartbasi/sumup). The Android package is com.bartbasi.sumup. Dated review reports in docs/reviews/ keep the old name, as records of what was tested. The local folder on this machine stays `C:\bart\numbergame`.
+- 2026-10-13, Phase 6: of the three Low security findings, Bart chose to fix SEC-01 (a board whose only pairs overflow 64 bits counts as a move) now. SEC-02 (no flush before the save rename, no profile backup) and SEC-03 (the Windows account name in local paths) stay open for later.
+- 2026-10-13, Phase 6: Bart chose to fix all eight QA findings in docs/reviews/qa-2026-10-13.md now (QA6-01 to QA6-08), including QA6-06 (the kill window after a commit) and QA6-07 (Windows only save after a failed rename).
 
 ## Rules for every session and agent
 

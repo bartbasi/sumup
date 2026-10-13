@@ -1,4 +1,4 @@
-# Builds the debug APK: build\numbersgame-debug.apk
+# Builds the debug APK: build\sumup-debug.apk
 #
 # Run from any folder:
 #   powershell -ExecutionPolicy Bypass -File scripts\build.ps1
@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent $PSScriptRoot
 $Godot = if ($env:GODOT) { $env:GODOT } else { 'godot' }
-$Apk = Join-Path $Root 'build\numbersgame-debug.apk'
+$Apk = Join-Path $Root 'build\sumup-debug.apk'
 $IconFiles = @('main_192.png', 'adaptive_foreground_432.png', 'adaptive_background_432.png', 'adaptive_monochrome_432.png')
 $WantVersion = '4.7.2.stable'
 

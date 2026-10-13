@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs build/numbersgame-debug.apk on the Android phone connected by USB.
+# Installs build/sumup-debug.apk on the Android phone connected by USB.
 # An installed copy is replaced and its saved game is kept.
 #
 # Run from any folder, in Git Bash:
@@ -13,7 +13,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 adb="${ADB:-C:/Android/Sdk/platform-tools/adb.exe}"
-apk="$root/build/numbersgame-debug.apk"
+apk="$root/build/sumup-debug.apk"
 
 if [ ! -f "$adb" ]; then
 	echo "adb was not found at $adb. Install Android SDK Platform-Tools there, or set ADB to the full path of adb.exe."
@@ -53,7 +53,7 @@ fi
 
 echo "Installing on $ready..."
 if ! "$adb" -s "$ready" install -r "$apk"; then
-	echo "The install failed. If adb says INSTALL_FAILED_UPDATE_INCOMPATIBLE, the copy on the phone was signed by another computer: uninstall numbersgame on the phone (this deletes its saved game) and run this again."
+	echo "The install failed. If adb says INSTALL_FAILED_UPDATE_INCOMPATIBLE, the copy on the phone was signed by another computer: uninstall SumUp on the phone (this deletes its saved game) and run this again."
 	exit 1
 fi
-echo "Installed. Open numbersgame from the phone's app list."
+echo "Installed. Open SumUp from the phone's app list."

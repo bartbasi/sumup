@@ -1,8 +1,8 @@
-# numbersgame: Kickoff Brief
+# SumUp: Kickoff Brief
 
-This is the kickoff brief from Bart Basi, the project owner, copied into the repo so every agent can read it. Wording is unchanged; only the formatting was turned into Markdown. The Development Manager owns this file. Nobody else edits it.
+This is the kickoff brief from Bart Basi, the project owner, copied into the repo so every agent can read it. Wording is unchanged; only the formatting was turned into Markdown. The one exception: on 2026-10-13 Bart renamed the game from numbersgame to SumUp, and the name was changed here to match. The Development Manager owns this file. Nobody else edits it.
 
-You are the Development Manager for numbersgame, a number-merge puzzle game for Android (later iOS, Windows and Linux). You run the team described below, coordinate their work, integrate it, and report to Bart Basi, who owns the project. Read this whole brief before doing anything.
+You are the Development Manager for SumUp, a number-merge puzzle game for Android (later iOS, Windows and Linux). You run the team described below, coordinate their work, integrate it, and report to Bart Basi, who owns the project. Read this whole brief before doing anything.
 
 If anything here is unclear, conflicts with something else in this brief, or would force you to guess, stop and ask Bart. Do not pick an interpretation silently.
 
@@ -25,7 +25,7 @@ A game with the same core mechanic as the mobile game "2248", rebuilt with our o
 | Renderer | Compatibility renderer, for the widest Android device support. |
 | Platform for v1 | Android, portrait only. Develop and iterate in the Godot editor on Windows. |
 | Dev machine | Windows, Claude Code. |
-| Repo | github.com/bartbasi/numbersgame, private. |
+| Repo | github.com/bartbasi/sumup, private. |
 | Assets | Nothing paid. Every visual and every sound is made in code. No image files, no audio files, no asset store downloads, no third-party addons. |
 | Network | None. No accounts, no ads, no analytics, no leaderboards. Release builds request no Android permissions. |
 | Skins | Built-in only for v1. Player-made skins are a v2 or v3 feature. Do not build import of any kind. |
@@ -116,7 +116,7 @@ Subagents cannot launch other subagents. You, the main session, launch every age
 ## 6. Repo layout and file ownership
 
 ```
-numbersgame/
+sumup/
   CLAUDE.md              standing rules for every session (you)
   README.md              build and run steps (platform-dev)
   project.godot          (platform-dev)
@@ -181,7 +181,7 @@ Tests use a small headless runner we write ourselves (tests/run_tests.gd, extend
 - The senior designer turns the chosen direction into docs/DESIGN_SYSTEM.md and the skin Resources.
 - Verify: both docs exist and every area in section 6 has its interface listed.
 
-**HARD STOP 2 (first push).** Ask Bart before creating the GitHub repo or pushing. When approved: `gh repo create bartbasi/numbersgame --private`, then push.
+**HARD STOP 2 (first push).** Ask Bart before creating the GitHub repo or pushing. When approved: `gh repo create bartbasi/sumup --private`, then push.
 
 ### Phase 3: Build (developers and artists in parallel)
 
@@ -196,8 +196,8 @@ Tests use a small headless runner we write ourselves (tests/run_tests.gd, extend
 
 ### Phase 5: Android
 
-- Platform developer builds a debug APK: `godot --headless --path . --export-debug "Android" build/numbersgame-debug.apk`.
-- Give Bart the steps to enable USB debugging on his phone, then install with `adb install -r build/numbersgame-debug.apk`.
+- Platform developer builds a debug APK: `godot --headless --path . --export-debug "Android" build/sumup-debug.apk`.
+- Give Bart the steps to enable USB debugging on his phone, then install with `adb install -r build/sumup-debug.apk`.
 - Verify: Bart confirms it installs and plays on his phone. Check frame rate, touch feel, safe areas, back button, and resume after the app is swiped away.
 
 ### Phase 6: Functional and security review

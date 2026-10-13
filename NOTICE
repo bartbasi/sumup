@@ -1,0 +1,41 @@
+SumUp
+Copyright 2026 Bart Basi
+
+SumUp is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License, version 3, as published by the Free
+Software Foundation, with the additional terms below.
+
+SumUp is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+SumUp, in the file COPYING. If not, see <https://www.gnu.org/licenses/>.
+
+
+Additional terms under section 7 of the GNU General Public License, version 3
+
+These terms are permitted by section 7(b) and section 7(c) of the license.
+They apply to every copy of SumUp and to every modified version of it.
+
+1. Attribution (section 7(b)). You must keep the author attribution
+   "Copyright 2026 Bart Basi" in the Appropriate Legal Notices shown in the
+   About screen. A modified version, and any work that contains SumUp or a
+   substantial part of it, must show this attribution in its own About
+   screen, or in the place where it shows its Appropriate Legal Notices.
+
+2. Marking modified versions (section 7(c)). A modified version must be
+   marked in reasonable ways as different from the original. Its About
+   screen must say that it is a modified version of SumUp, and it must not
+   suggest that Bart Basi made or endorses the changes.
+
+
+Third party parts
+
+SumUp is built with the Godot Engine, which is under the MIT license, with
+notices for the parts the engine includes. The About screen shows the full
+engine license and every notice, read from the engine itself.
+
+The Gumdrop and Nova skins use the Outfit font, under the SIL Open Font
+License, version 1.1. The license is in src/design/fonts/OFL.txt and in the
+About screen.

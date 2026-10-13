@@ -6,7 +6,7 @@ extends RefCounted
 
 const UiCopy: GDScript = preload("res://src/design/shared/ui_copy.gd")
 
-const WORDMARK: String = "numbersgame"
+const WORDMARK: String = "SumUp"
 const NEW_GAME: String = "New game"
 const SETTINGS: String = "Settings"
 const BEST_SCORE: String = "Best score"

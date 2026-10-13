@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the debug APK: build/numbersgame-debug.apk
+# Builds the debug APK: build/sumup-debug.apk
 #
 # Run from any folder, in Git Bash:
 #   scripts/build.sh
@@ -17,7 +17,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 godot="${GODOT:-godot}"
-apk="$root/build/numbersgame-debug.apk"
+apk="$root/build/sumup-debug.apk"
 want_version="4.7.2.stable"
 
 icons=0

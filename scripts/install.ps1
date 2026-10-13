@@ -1,4 +1,4 @@
-# Installs build\numbersgame-debug.apk on the Android phone connected by USB.
+# Installs build\sumup-debug.apk on the Android phone connected by USB.
 # An installed copy is replaced and its saved game is kept.
 #
 # Run from any folder:
@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent $PSScriptRoot
 $Adb = if ($env:ADB) { $env:ADB } else { 'C:\Android\Sdk\platform-tools\adb.exe' }
-$Apk = Join-Path $Root 'build\numbersgame-debug.apk'
+$Apk = Join-Path $Root 'build\sumup-debug.apk'
 
 if (-not (Test-Path $Adb)) {
     Write-Host "adb was not found at $Adb. Install Android SDK Platform-Tools there, or set ADB to the full path of adb.exe."
@@ -55,8 +55,8 @@ if ($Ready.Count -gt 1) {
 Write-Host "Installing on $($Ready[0].Serial)..."
 & $Adb -s $Ready[0].Serial install -r $Apk
 if ($LASTEXITCODE -ne 0) {
-    Write-Host 'The install failed. If adb says INSTALL_FAILED_UPDATE_INCOMPATIBLE, the copy on the phone was signed by another computer: uninstall numbersgame on the phone (this deletes its saved game) and run this again.'
+    Write-Host 'The install failed. If adb says INSTALL_FAILED_UPDATE_INCOMPATIBLE, the copy on the phone was signed by another computer: uninstall SumUp on the phone (this deletes its saved game) and run this again.'
     exit 1
 }
-Write-Host 'Installed. Open numbersgame from the phone''s app list.'
+Write-Host 'Installed. Open SumUp from the phone''s app list.'
 exit 0

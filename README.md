@@ -1,4 +1,4 @@
-# numbersgame
+# SumUp
 
 A number merge puzzle game for Android, built with Godot 4. Endless mode, boosters paid with score, built in skins, fully offline.
 
@@ -69,10 +69,10 @@ From the repo root:
 The script checks the Godot version, imports the project, then runs:
 
 ```bash
-godot --headless --path . --export-debug "Android" build/numbersgame-debug.apk
+godot --headless --path . --export-debug "Android" build/sumup-debug.apk
 ```
 
-The result is `build/numbersgame-debug.apk`, about 55 MB. Godot prints "Could not find version of build tools that matches Target SDK, using 35.0.1" along the way. That is expected: the export targets Android 16 (SDK 36) and signs with Build-Tools 35.0.1.
+The result is `build/sumup-debug.apk`, about 55 MB. With only Build-Tools 35.0.1 installed, Godot prints "Could not find version of build tools that matches Target SDK, using 35.0.1" along the way. That is expected: the export targets Android 16 (SDK 36) and signs with Build-Tools 35.0.1. If Build-Tools 36 is installed too, Godot signs with that and the message does not appear.
 
 The launcher icon PNGs in `launcher/` are drawn by `tools/launcher_icon.gd` and committed, so a normal build does not redraw them. To redraw them first (after a change to the Gumdrop colors, tile radius, lip or tile font), add `-Icons` (PowerShell) or `--icons` (Git Bash). The icon tool opens a window for a moment and closes by itself. The build also redraws them if one of the four PNGs is missing.
 
@@ -94,16 +94,36 @@ Then, from the repo root:
 The script checks that one phone is connected and ready, then runs:
 
 ```powershell
-C:\Android\Sdk\platform-tools\adb.exe install -r build\numbersgame-debug.apk
+C:\Android\Sdk\platform-tools\adb.exe install -r build\sumup-debug.apk
 ```
 
 `-r` replaces an installed copy and keeps its saved game. The script says what to do when no phone is found, when the phone has not allowed the computer yet, or when more than one device is connected. If Windows does not see the phone at all, install the phone maker's USB driver.
 
-If adb reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, the copy on the phone was signed with another computer's debug keystore. Uninstall numbersgame on the phone first. That deletes its saved game.
+The game was called numbersgame before it was renamed SumUp, and its package name changed from `com.bartbasi.numbersgame` to `com.bartbasi.sumup`. Android treats them as two different apps, so the first SumUp install sits next to the old numbersgame app instead of replacing it, and SumUp starts without the old saved game. Uninstalling numbersgame deletes its saved game, so uninstall it only once its save has been moved.
+
+If adb reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, the copy on the phone was signed with another computer's debug keystore. Uninstall SumUp on the phone first. That deletes its saved game.
 
 ### What the export contains
 
-- The export preset is named `Android` in `export_presets.cfg`: package `com.bartbasi.numbersgame`, version code 1, version name taken from the project version (0.1), portrait, arm64-v8a and armeabi-v7a, Godot's prebuilt template (Gradle build off), launcher icons from `launcher/`.
+- The export preset is named `Android` in `export_presets.cfg`: package `com.bartbasi.sumup`, version code 1, version name taken from the project version (0.1), portrait, arm64-v8a and armeabi-v7a, Godot's prebuilt template (Gradle build off), launcher icons from `launcher/`.
 - It requests no Android permissions, in debug and in release builds.
-- It leaves out `tools/`, `tests/`, `docs/`, `launcher/` (the export turns those PNGs into the Android launcher icons itself) and every review and sandbox scene. It adds the font license `src/design/fonts/OFL.txt`, which has to travel with the font.
+- It leaves out `tools/`, `tests/`, `docs/` and every review and sandbox scene.
+- The export turns the four PNGs in `launcher/` into the Android launcher icons. It also packs `launcher/main_192.png` as a plain file, because `project.godot` uses it as the project icon. The other three PNGs are not packed.
+- It adds three text files that are not Godot resources, so the preset's include filter lists them: `COPYING` and `NOTICE`, which the About screen reads, and the font license `src/design/fonts/OFL.txt`, which has to travel with the font.
 - Debug builds are signed with the debug keystore from Godot's Editor Settings. Release signing is not set up for v1. If keystore paths or passwords are ever typed into the preset, Godot keeps them in `.godot/export_credentials.cfg`, which git ignores. Never put them in `export_presets.cfg`.
+
+## License
+
+Copyright 2026 Bart Basi.
+
+SumUp is free software under the GNU General Public License, version 3, with two additional terms under section 7 of that license:
+
+- 7(b): every copy and every modified version keeps the attribution "Copyright 2026 Bart Basi" in its About screen.
+- 7(c): a modified version must be marked as changed from the original.
+
+The full license text is in [COPYING](COPYING). The additional terms, in their exact wording, are in [NOTICE](NOTICE). Both ship inside the app and can be read in its About screen.
+
+Parts made by others have their own licenses:
+
+- The Outfit font, used by the Gumdrop and Nova skins, is under the SIL Open Font License, version 1.1. Its license is in [src/design/fonts/OFL.txt](src/design/fonts/OFL.txt).
+- The Godot Engine is under the MIT license. The About screen shows the engine's license and the notices for the parts it includes.

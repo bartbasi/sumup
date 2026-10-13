@@ -165,7 +165,7 @@ func test_save_profile_refuses_null() -> void:
 
 func test_a_folder_outside_user_is_refused() -> void:
 	# Each refused folder logs one programming error on purpose.
-	for folder: String in ["res://", "user://../escape", "C:/numbersgame_save_test"]:
+	for folder: String in ["res://", "user://../escape", "C:/sumup_save_test"]:
 		var service: SaveService = SaveService.new(folder)
 		assert_false(service.save_run(F.control_run()), "%s: no run saved" % folder)
 		assert_false(service.save_profile(Settings.new(), Records.new()), "%s: no profile saved" % folder)
@@ -176,7 +176,7 @@ func test_a_folder_outside_user_is_refused() -> void:
 		service.load_profile(settings, Records.new())
 		assert_true(settings.sound_on, "%s: defaults" % folder)
 	assert_false(FileAccess.file_exists("res://run.json"), "nothing written to res://")
-	assert_false(DirAccess.dir_exists_absolute("C:/numbersgame_save_test"), "nothing written outside user://")
+	assert_false(DirAccess.dir_exists_absolute("C:/sumup_save_test"), "nothing written outside user://")
 
 
 func test_saving_creates_a_missing_folder() -> void:

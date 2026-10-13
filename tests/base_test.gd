@@ -1,5 +1,5 @@
 extends RefCounted
-## Base for every numbersgame test file. Start a test file with:
+## Base for every SumUp test file. Start a test file with:
 ##     extends "res://tests/base_test.gd"
 ## The runner calls each method whose name starts with "test_" on a fresh
 ## instance, with before_each() before it and after_each() after it.

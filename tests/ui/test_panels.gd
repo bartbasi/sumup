@@ -276,7 +276,7 @@ func test_main_menu() -> void:
 	menu.new_game_chosen.connect(_record.bind("new game"))
 	menu.settings_chosen.connect(_record.bind("settings"))
 	assert_eq(menu.best_score_text(), "96,520", "Best Score")
-	assert_true(_has_text(menu, "numbersgame"), "the wordmark")
+	assert_true(_has_text(menu, "SumUp"), "the wordmark")
 	assert_eq(_tile_count(menu), 5, "the four decorative tiles, then Best Tile")
 	assert_true(_has_text(menu, "Best tile"), "the Best tile row")
 	(menu.find_child("NewGame", true, false) as Button).pressed.emit()
