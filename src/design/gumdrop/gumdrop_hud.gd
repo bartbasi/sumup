@@ -24,8 +24,9 @@ extends "res://src/design/shared/hud_base.gd"
 ## open alike. It springs in from from_scale, holds, and fades out over out
 ## with the skin's screen_fade curve.
 ##
-## The star moment: a lemon star leaves the notice's star delay after the
-## notice, at from_scale, and flies star_earn on a curve to the counter star,
+## The star moment: a lemon star on a target_edge_width edge in badge_ink
+## leaves the notice's star delay after the notice, at from_scale, and flies
+## star_earn on a curve to the counter star,
 ## growing to full size; there the counter star pops like merge_pop and the
 ## count goes up. A landing on a multiple of 3 shows the star full, sends a
 ## full star to the free pill (shrinking to half, star_convert), pops the free
@@ -197,7 +198,9 @@ func _begin_moment() -> void:
 	var color: Color = _skin.color(&"badge")
 	for i: int in _moment.stars:
 		var flyer: StarFlyer = StarFlyer.new()
-		flyer.setup(_skin, color, side, Color.TRANSPARENT, 0.0)
+		# On a target_edge_width edge in badge_ink, so it shows on the lemon
+		# notice it leaves from (3.6).
+		flyer.setup(_skin, color, side, Color.TRANSPARENT, 0.0, GumdropIcon.STAR, _skin.num(&"target_edge_width"), _skin.color(&"badge_ink"))
 		_add_flyer(flyer)
 		_star_flyers.append(flyer)
 		var converting: StarFlyer = null

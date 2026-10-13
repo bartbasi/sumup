@@ -420,3 +420,47 @@ func test_qa6_08_the_hud_lays_out_inside_a_narrow_column() -> void:
 class ThemeKitLine:
 	static func badge_height(skin: SkinData) -> float:
 		return skin.font(&"label").get_height(skin.font_size(&"label")) + skin.num(&"space_xs") * 2.0
+
+
+func test_the_flying_and_rising_stars_carry_a_badge_ink_edge() -> void:
+	# 2026-10-13 review, DESIGN_SYSTEM.md 3.6: the star is the notice pill's
+	# own color, so it flies (and, while the offer is open, rises) on an edge
+	# in badge_ink: Gumdrop target_edge_width, Nova hairline.
+	var widths: Dictionary[StringName, StringName] = {&"gumdrop": &"target_edge_width", &"nova": &"hairline"}
+	var stars: Dictionary[StringName, GDScript] = {
+		&"gumdrop": preload("res://src/design/gumdrop/gumdrop_icon.gd"),
+		&"nova": preload("res://src/design/nova/nova_icon.gd"),
+	}
+	for skin_id: StringName in widths:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var width: float = skin.num(widths[skin_id])
+		for offer: bool in [false, true]:
+			var hud: SkinHud = _hud(skin_id)
+			hud.set_notice_layer(_layer())
+			hud.visible = not offer
+			hud.show_clear_notice(PackedInt64Array([2]), BOARD, 1)
+			var flyers: Array[Control] = hud.call(&"flying_stars") as Array[Control]
+			var what: String = "%s %s" % [skin_id, "rising star" if offer else "flying star"]
+			assert_eq(flyers.size(), 1, "%s exists" % what)
+			var flyer: Control = flyers[0]
+			assert_eq(flyer.call(&"edge_color"), skin.color(&"badge_ink"), "%s edge in badge_ink" % what)
+			assert_eq(float(flyer.call(&"edge_width")), width, "%s edge %d px" % [what, width])
+			# The edge is the star's outline grown by the width: its top point
+			# sits width above the star's.
+			var edge: PackedVector2Array = flyer.call(&"edge_points") as PackedVector2Array
+			var star: PackedVector2Array = flyer.call(&"star_points", stars[skin_id].get(&"STAR") as Dictionary) as PackedVector2Array
+			var edge_top: float = INF
+			var star_top: float = INF
+			for p: Vector2 in edge:
+				edge_top = minf(edge_top, p.y)
+			for p: Vector2 in star:
+				star_top = minf(star_top, p.y)
+			assert_near(star_top - edge_top, width, 0.5, "%s grown outward by the width" % what)
+			assert_eq(flyer.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s takes no input" % what)
+			# It scales and fades with the star: the edge is drawn by the flyer.
+			hud.call(&"seek_star_moment", 0.2)
+			assert_true(flyer.scale.x < 1.0 or flyer.modulate.a < 1.0, "%s scales or fades as one" % what)
+	# The counter star, the notice's star and Slate (no flight) do not change.
+	var slate: SkinHud = _hud(&"slate")
+	slate.show_clear_notice(PackedInt64Array([2]), BOARD, 1)
+	assert_eq((slate.call(&"flying_stars") as Array[Control]).size(), 0, "slate has no flight")

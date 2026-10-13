@@ -14,11 +14,12 @@ extends Control
 ##     with 1 free and the bar all Free with Undo disabled (normal, then
 ##     targeting); the notice "No more 2s" with "+1" as it shows; and the
 ##     star, chevron and arrow icons in every look.
-##   flight: frames of the star moment half way and three quarters of the
-##     way (Slate: the counter's paper flash), then the same moment three
-##     quarters of the way while the offer hides the HUD (QA6-04): the notice
-##     on the board's top edge and the star rising (Slate: only the notice).
-##     They draw on a notice layer, as the play screen does.
+##   flight: frames of the star moment at 25%, 50% and 75% of the flight,
+##     the star on its badge_ink edge (Slate: the counter's paper flash),
+##     then the same moment at 25% and 75% of the rise while the offer hides
+##     the HUD (QA6-04): the notice on the board's top edge and the star
+##     rising (Slate: only the notice). They draw on a notice layer, as the
+##     play screen does.
 ## Small captions in the skin's CaptionLabel name each sample. Every text,
 ## icon and button rect is kept clear of Nova's star dust.
 ##
@@ -216,9 +217,11 @@ func _flight_page() -> void:
 	# The star leaves at delay and lands delay + star_earn later.
 	var delay: float = float(_skin.motion_spec(&"star_earn").get("delay", 0.0))
 	var flight: float = _skin.duration(&"star_earn")
-	var shares: Array[float] = [0.5, 0.75]
+	var shares: Array[float] = [0.25, 0.5, 0.75]
+	var rises: Array[float] = [0.25, 0.75]
 	if skin_id == &"slate":
 		shares = [0.5]
+		rises = [0.5]
 	for share: float in shares:
 		if skin_id == &"slate":
 			_caption("star moment: the counter's paper flash")
@@ -228,22 +231,26 @@ func _flight_page() -> void:
 		hud.set_scores(41286, 96520)
 		hud.set_stars(2, 0)
 		hud.set_notice_layer(layer)
-		var board: Rect2 = _board_strip(_y + _gap, 1.4)
+		var board: Rect2 = _board_strip(_y + _gap, 1.0)
 		move_child(layer, get_child_count() - 1)
 		hud.show_clear_notice(PackedInt64Array([2]), board, 1)
 		hud.set_stars(3, 1)
 		_hold_moment(hud, delay + flight * share)
 		_y += _gap * 2.0
-	var mid: float = delay + flight * 0.75
-	_caption("while the offer hides the HUD (QA6-04), 75%")
-	var hidden: SkinHud = UiKit.make_hud(_skin)
-	_place(hidden, Vector2(0.0, _y), Vector2(CANVAS.x, hidden.preferred_height()))
-	hidden.set_notice_layer(layer)
-	hidden.visible = false
-	var offer_board: Rect2 = _board_strip(_y + _skin.num(&"notice_height"), 1.4)
-	move_child(layer, get_child_count() - 1)
-	hidden.show_clear_notice(PackedInt64Array([2]), offer_board, 1)
-	_hold_moment(hidden, mid)
+	for rise: float in rises:
+		if skin_id == &"slate":
+			_caption("while the offer hides the HUD (QA6-04)")
+		else:
+			_caption("while the offer hides the HUD (QA6-04), %d%% of the rise" % roundi(rise * 100.0))
+		var hidden: SkinHud = UiKit.make_hud(_skin)
+		_place(hidden, Vector2(0.0, _y), Vector2(CANVAS.x, hidden.preferred_height()))
+		hidden.set_notice_layer(layer)
+		hidden.visible = false
+		var offer_board: Rect2 = _board_strip(_y + _skin.num(&"notice_height"), 1.0)
+		move_child(layer, get_child_count() - 1)
+		hidden.show_clear_notice(PackedInt64Array([2]), offer_board, 1)
+		_hold_moment(hidden, delay + flight * rise)
+		_y += _gap * 2.0
 
 
 ## A full canvas notice layer above everything placed so far.

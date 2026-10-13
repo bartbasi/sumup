@@ -26,8 +26,9 @@ extends "res://src/design/shared/hud_base.gd"
 ## from_offset px (clear_notice), holds, and fades out over out with the
 ## skin's screen_fade curve.
 ##
-## The star moment: a spark (the filled star in accent, star_icon, with its
-## glow) rises out of the notice's star delay after the notice, fading in
+## The star moment: a spark (the filled star in accent, star_icon, on a
+## hairline edge in badge_ink, with its glow) rises out of the notice's star
+## delay after the notice, fading in
 ## from from_alpha over the first quarter of star_earn, and glides on the
 ## curve to the counter star, whose glow blooms to peak_glow and settles over
 ## merge_pop as the count goes up. A landing on a multiple of 3 blooms the
@@ -198,7 +199,9 @@ func _begin_moment() -> void:
 	var glow: Color = Color(accent, _skin.num(&"icon_glow_alpha"))
 	for i: int in _moment.stars:
 		var flyer: StarFlyer = StarFlyer.new()
-		flyer.setup(_skin, accent, side, glow, STAR_GLOW_REACH)
+		# On a hairline edge in badge_ink, between the star and its glow, so
+		# it shows on the accent notice it leaves from (3.6).
+		flyer.setup(_skin, accent, side, glow, STAR_GLOW_REACH, NovaIcon.STAR, _skin.num(&"hairline"), _skin.color(&"badge_ink"))
 		_add_flyer(flyer)
 
 
