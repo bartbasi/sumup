@@ -1,6 +1,6 @@
 # SumUp Design System
 
-Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where.
+Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5).
 
 This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the SkinData resources (src/skins/<id>/<id>.tres) from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
 
@@ -16,7 +16,7 @@ godot --headless --path . --script res://tools/label_check.gd      # labels fit,
 
 The Phase 1 token files `tools/directions/<skin>/tokens.gd` still mirror this document for the prototypes, and the skin tests in tests/skins/ prove that every SkinData resource holds exactly those values.
 
-The 2026-10-13 additions were checked with mockups built from the real Theme, HUD, board views and tile views, rendered to docs/design/additions/<skin>-<page>.png. The values they add live in tools/additions/additions_spec.gd until the SkinData resources hold them:
+The 2026-10-13 additions were checked with mockups built from the real Theme, HUD, board views and tile views, rendered to docs/design/additions/<skin>-<page>.png. The SkinData resources now hold every value they add (the skin tests prove it), so tools/additions/additions_spec.gd only serves the mockups:
 
 ```bash
 godot --path . res://tools/additions/additions_capture.tscn    # 30 PNGs and the measurements quoted below; needs a window
@@ -70,9 +70,10 @@ Every tile number on its fill, and every text color on its background, is at lea
 
 Target 60 fps on a mid range Android phone with a full board.
 - Redraw only when something changes.
-- Build StyleBoxes, gradients and arrays once and reuse them; no allocation inside `_draw()` or `_process()`.
+- Build StyleBoxes, gradients and arrays once and reuse them: at setup, or the first time they are needed at a size, and never again until that size changes. No other allocation inside `_draw()` or `_process()`.
 - No per tile shaders. Glows use one radial gradient texture made once and drawn tinted.
 - No MSAA. Antialias with StyleBoxFlat `anti_aliasing = true` (corner_detail 12 or more for squircles) and `antialiased = true` on `draw_line`, `draw_polyline`, `draw_arc` and `draw_circle`.
+- Count draw calls on a full late board. Where one shape is made of many strokes and each would cost its own call (Gumdrop's candy rim of 16 segments, its shine with two round caps), draw them as one triangle array with a color per point and an antialias feather of its own: a band fading to clear, matched to Godot's own (about 1.25 px, a quarter of it inside the edge and three quarters outside). Built once per size like any array. It must look the same as the antialiased strokes it replaces: QA6-02 measured at most 4 out of 255 difference on any pixel, with draw calls on Bart's late board down from 843 to 265.
 
 ### 1.6 Motion and input
 
@@ -123,7 +124,7 @@ Full spec on 18:9 phones (360 by 720 dp) and taller: tiles at least 56 dp, 4 cha
 
 To get there, Gumdrop's HUD and dock were slimmed (section 8) and Nova's display size and ring buttons trimmed.
 
-**Nova on the Fold5 cover screen (QA6-05, 2026-10-13).** That screen is 344 dp wide, narrower than the 360 dp A-1 assumes, so Nova's board is limited by width there and its orbs measured 55.7 dp. `orb_scale` went from 0.88 to 0.89 (`board_gap` from 24 to 22, the gap that leaves at the base width): the orbs are 1.1% larger on every phone and 56.3 dp on the cover screen. The pitch, the board's size and every layout stay the same; only the orbs grow into their gaps. The dashed targeting orbit (radius times 1.10) still stays inside the cell. The Nova column above was worked out again at 0.89; Gumdrop and Slate on the cover screen are QA's measurements.
+**Nova on the Fold5 cover screen (QA6-05, 2026-10-13).** That screen is 344 dp wide, narrower than the 360 dp A-1 assumes, so Nova's board is limited by width there and its orbs measured 55.7 dp. `orb_scale` went from 0.88 to 0.89 (`board_gap` from 24 to 22, the gap that leaves at the base width): the orbs are 1.1% larger on every phone and 56.3 dp on the cover screen. The pitch, the board's size and every layout stay the same; only the orbs grow into their gaps. The dashed targeting orbit (radius times 1.10) still stays inside the cell, and on the built board the orbits, the joinable ring and the beam read as cleanly as at 0.88 (2026-10-13 review). The Nova column above was worked out again at 0.89; Gumdrop and Slate on the cover screen are QA's measurements.
 
 ### 2.5 Tile labels (GDD D-31)
 
@@ -155,8 +156,8 @@ Every touch target is at least `touch_min` (160 px) on each side, even where the
 - What grows with it: `touch_min` and `button_height` both go from 144 to 160 in every skin (4.5, 5.5, 6.5). Rows that open a screen are at least `touch_min` tall (7.11).
 - Gumdrop's booster buttons take touch on the dock's whole face height, 174 px (52.2 dp at 18:9, 55.5 on the cover screen), and up to the middle of the gaps beside them, while they draw as before (4.7). Slate's columns (192 px) and Nova's ring slots (190 px) were already large enough.
 - Nothing drawn changes size: HUD faces, rings, icons and toggles keep their sizes, and only their touch areas grow. `hud_height` and `bar_height` do not change, so the board and the 2.4 tile sizes do not change.
-- Panels grow by 16 px per button row, and the offer panel by 16 px, under which the board may shrink a little while the offer is open (7.5).
-- On the main menu the brand block's center stays at 36.1 to 36.3% of the screen height (measured in the mockups with 160 px buttons), inside 35 to 42%.
+- Panels grow by 16 px per button row, and the offer panel by 16 px, under which the board may shrink a little while the offer is open (7.5). Measured on the built screens at 1080 x 2400: Pause 914 px (Gumdrop), 963 (Slate), 992 (Nova); Settings 1188, 1264 and 1308.
+- On the main menu the brand block's center stays at 36.1 to 36.3% of the screen height in the mockups with 160 px buttons, and 36.6 to 36.8% on the built first launch screen, inside 35 to 42%.
 
 ### 2.8 The content column on wide screens (QA6-08, 2026-10-13)
 
@@ -171,7 +172,7 @@ On a near square screen (the Fold5 inner screen, 1998 logical px wide) or a tabl
 |---|---|---|
 | 20:9, 1080 px canvas | full width | the same (C = 1080) |
 | 18:9, 1200 px canvas, Gumdrop | 1200 (card 1128, tray 1048) | C = 1120, card = tray = 1048 |
-| Fold5 inner, 1998 px canvas | 1998 | about 1,220 (Gumdrop, Slate), 1,270 (Nova) |
+| Fold5 inner, 1998 px canvas | 1998 | about 1,220 (Gumdrop, Slate), 1,270 (Nova); built: 1,220, 1,221 and 1,269 with no insets |
 
 ---
 
@@ -295,6 +296,7 @@ Each has a duration (seconds; for loops the period), a transition and an ease (G
 - Several stars in one move: one flying star each, `stagger` apart; the count goes up by one at each landing (Slate: one flash with the final count).
 - When a landing makes the count a multiple of 3, `star_convert` plays at once. A star of the same move that comes after it starts its own flight once the conversion ends.
 - The effect is decorative: it never holds input, never blocks the board and plays no sound. It draws on the notice layer (7.1). While the offer has the HUD's place, the star rises and fades instead of flying, and the counter shows the end state when the HUD comes back (7.5).
+- **The flying star has an edge (2026-10-13 review).** In Gumdrop and Nova the star is the reward color and so is the notice pill it starts on (badge in Gumdrop, accent in Nova), so without an edge it is invisible while it crosses the pill: about the first 45% of Gumdrop's flight and 70% of Nova's, and most of the rise while the offer is open. So the flying star, and the rising one, draw on top of an edge in badge_ink: the star's outline grown outward by the edge width, filled, under the star. It scales and fades with the star. On the pill it outlines the star crisply; on the dark backdrop it melts in, like Gumdrop's target_edge outlines and Nova's dark rim on the white hole. Gumdrop: `target_edge_width` (4 px at full size). Nova: `hairline` (2 px), between the star and its glow. Build the grown outline once per size, like the counter's band. Slate has no flight.
 - A new star effect or notice finishes a running one at once: it jumps to its end state, then the new one starts.
 
 **Exits.** `dialog_out` plays `dialog_in`'s extras backwards (back down `from_offset`, back to `from_scale`) and always ends at alpha 0, so an exit never ends visible.
@@ -544,7 +546,7 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 - *Fit:* at the 1080 px canvas, the star pill spans 164 to 308 px and the free pill ends at 482 px ("1 free"), about 540 px with two digit counts (measured in the mockups). The Best pill starts at 764 px for "Best 96,520" and never left of 622 px (a 13 character best score), so the top row never crowds. The HUD's height does not change, so section 2.4 stands.
 
 **Star earned effect (3.6)**
-- A lemon star (the star icon in badge, filled) appears on the notice's star at `from_scale`, `delay` after the notice starts, and flies `star_earn` to the counter star, growing to full size.
+- A lemon star (the star icon in badge, filled, on a `target_edge_width` edge in badge_ink, 3.6) appears on the notice's star at `from_scale`, `delay` after the notice starts, and flies `star_earn` to the counter star, growing to full size.
 - Its path is a quadratic curve from the notice's star to the counter star whose control point is (the counter star's x, the notice star's y): it slides out along the notice, then swings up past the left of the score instead of across it.
 - It draws on the notice layer (7.1), above the board and the notice and below any dialog.
 - On arrival the counter star pops like `merge_pop` (its duration, curve and `peak_scale`) and the count goes up by one.
@@ -569,7 +571,7 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 - Set: hammer, swap, shuffle, double (x2 drawn as strokes), undo, pause, settings, sound on, sound off, close, check, and since 2026-10-13 star, chevron and arrow.
 - *Star:* five points, one up. Center (12, 12.9), outer radius 11, inner radius 0.50 of the outer: a plump candy star. Points rounded with a 1.8 unit radius, valleys with 1.0. The filled star is the icon; the counter draws its outline band, 2.5 units wide, plus the progress fill (counter star above).
 - *Chevron* (rows that open a screen): (9.5, 6) to (15.5, 12) to (9.5, 18), `icon_stroke`, round caps and join.
-- *Arrow* (How to play example rows): a shaft (4, 12) to (15, 12), `icon_stroke`, round caps, and a filled head with its tip at (21, 12) and its back corners at (14.5, 6.5) and (14.5, 17.5), corners rounded by 1 unit.
+- *Arrow* (How to play example rows): a shaft (4, 12) to (15, 12), `icon_stroke`, round caps, and a filled head with its tip at (21, 12) and its back corners at (14.5, 6.5) and (14.5, 17.5), all three corners rounded by 1 unit (the rounded tip ends near 20.5). The shaft's round cap ends inside the head. Approved as built (2026-10-13 review).
 - Colors: ink normally, ink_dark on accent, disabled_ink when disabled. The chevron and arrow draw in ink_muted.
 - Reference: docs/design/additions/gumdrop-icons.png (the star empty, a third, two thirds and full, at 216 px, the counter size and the cost size; the chevron and arrow).
 
@@ -1016,6 +1018,7 @@ A committed chain settles in about 0.65 s; the bloom fades after.
 - *Press feedback (D-43):* a dashed orbit in target, `target_ring` wide, at radius times (1 + `orbit_offset`), `orbit_dashes` dashes, and glow times `target_glow`.
 - *Selected (Swap's first tile):* the dashed orbit turning `orbit_turn` per loop and breathing by `orbit_breath` on `target_pulse`.
 - *Special (32K up):* `ray_count` corona rays from `ray_inner` to `ray_outer` orb radii, `ray_width` wide, in the fill lightened by `ray_lighten`, at `ray_alpha`.
+  - Between two special orbs side by side, the rays that sit 15 degrees off the row (or column) meet in the gap as small crosses. Accepted (2026-10-13 review, also at `orb_scale` 0.89, where they sit a little tighter): they read as a glint between two stars and stay in the gap, far from every number. Turning the rays onto the row would line them up end to end into a dash that reads like a chain, and shortening them until they never meet would leave a corona too short to see.
 
 **Board:** no tray and no grid lines. The orbs float on the backdrop.
 
@@ -1057,7 +1060,7 @@ A committed chain settles in about 0.65 s; the bloom fades after.
 - *Fit:* measured at the 1080 px canvas the line spans 326 to 783 px with "best 412,900" and "1 free". The star reaches 5 px above the letters' cap top, so it keeps 7 px from the score's comma tail. Nothing is placed in the top left: the pause ring keeps the corner to itself, and in the mockups a counter there read as a stray mark.
 
 **Star earned effect (3.6)**
-- A spark (the star icon, filled, in accent, `star_icon` box, with its glow) rises out of the notice's star `delay` after the notice starts. It fades in from `from_alpha` over the first quarter of `star_earn` and glides on the 4.7 curve to the counter star.
+- A spark (the star icon, filled, in accent, `star_icon` box, on a `hairline` edge in badge_ink (3.6), with its glow) rises out of the notice's star `delay` after the notice starts. It fades in from `from_alpha` over the first quarter of `star_earn` and glides on the 4.7 curve to the counter star.
 - On arrival the counter star's glow blooms to `peak_glow` times and settles over `merge_pop`'s duration and curve, and the count goes up by one.
 - *Conversion:* the counter star blooms to `peak_glow` (`star_convert`). "1 free" fades in from alpha 0 while rising `from_offset` px (or, already shown, its number changes in place), and the star's fill fades to empty over `empty`.
 
@@ -1078,6 +1081,7 @@ A committed chain settles in about 0.65 s; the bloom fades after.
 - *Star:* five points, one up, slender: center (12, 12.9), outer radius 11, inner radius 0.40 of the outer, points rounded 0.5 units, valleys 0.3. The filled star is the icon; the counter draws its outline band, `icon_stroke` wide, plus the progress fill. Not fitted to `icon_fit`: the star fills its box like a glyph.
 - *Chevron:* (10, 6.5) to (15.5, 12) to (10, 17.5), round caps and join.
 - *Arrow:* a shaft (5, 12) to (19.5, 12), a chevron head (15.5, 8) to (19.5, 12) to (15.5, 16), round caps, and a spark dot (`icon_spark`) at (2.5, 12), like a tail of light.
+- The chevron and the arrow are fitted to `icon_fit` like every Nova icon; only the star fills its box (approved as built, 2026-10-13 review).
 - The chevron and arrow draw in ink_muted.
 - Reference: docs/design/additions/nova-icons.png.
 
@@ -1145,7 +1149,7 @@ The free height between the settings button's touch area and the records splits 
 **The wordmark "SumUp" (2026-10-13).** "SumUp" is five letters where "numbersgame" was eleven, so fitting it to the screen width like the score would leave it at the display size, a heading sitting over a much wider tile row. It becomes a lockup with the tile row:
 - Set in the display role's font, weight and tracking, in two colors: "Sum" in ink, "Up" in accent. The capital U marks where the second word starts, and "Up" in the accent says the game is about going up. Two labels side by side with no gap; the lost m to U kerning is invisible at this size.
 - Size: the wordmark's advance width equals the tile row's width (4 x 160 + 3 x `space_s`): size = floor(display size x row width / wordmark width at the display size), then 1 px smaller until it fits. Never smaller than the display role. Measured: Gumdrop 211 px (row 712), Slate 208 px (row 700, Segoe UI on Windows; Roboto lands within a few px), Nova 227 px (row 724). Its cap height then about matches the 160 px tiles.
-- Measured on the mockups: the brand block's center sits at 36.1 to 36.3% (36.2 to 36.4% before the 160 px buttons of 2.7) of the screen height, inside the 35 to 42% the screens review asked for.
+- Measured on the mockups: the brand block's center sits at 36.1 to 36.3% (36.2 to 36.4% before the 160 px buttons of 2.7) of the screen height, inside the 35 to 42% the screens review asked for. The built first launch screen measures 36.6 to 36.8%.
 - The same two tone wordmark, at the display size with no fitting, heads the About screen (7.13).
 - Reference: docs/design/additions/<skin>-menu.png.
 
@@ -1178,7 +1182,7 @@ The free height between the settings button's touch area and the records splits 
 - **The clear notice while the offer is open (QA6-04).** A booster used from the offer can clear tiles and earn stars (a Double that raises the floor, GDD CL2). The notice must show then too (D-38, D-45). It draws on the notice layer (7.1), in the same place in every skin: centered on the board's top edge, over the seam between the offer panel and the board.
   - *Gumdrop and Nova:* exactly as in play (4.7, 6.7).
   - *Slate:* its context row is gone with the HUD, so the notice becomes a badge bar sized to its content, `space_s` padding each side, the badge height of 7.8 (the label line plus `space_xs` above and below), square corners, centered on the board's top edge. Its lower half covers about the top 7 px of the top row's labels for the notice's hold, which is accepted for a rare moment.
-  - *The star moment:* the counter is hidden with the HUD, so the star has nowhere to fly. In Gumdrop and Nova it leaves the notice's star as in play, rises `space_l` and fades out over `star_earn` (Gumdrop on its curve, Nova fading from full to 0). Slate shows only the notice. The counter and the free count show the new values when the HUD comes back, with no effect. A free booster earned this way shows at once on the bar, where every cost turns Free.
+  - *The star moment:* the counter is hidden with the HUD, so the star has nowhere to fly. In Gumdrop and Nova it leaves the notice's star as in play, with its badge_ink edge (3.6), rises `space_l` and fades out over `star_earn` (Gumdrop on its curve, Nova fading from full to 0). It spends most of the rise over the pill, which the edge makes visible; rising further would put it over the offer's buttons. Slate shows only the notice. The counter and the free count show the new values when the HUD comes back, with no effect. A free booster earned this way shows at once on the bar, where every cost turns Free.
   - If the move ends the offer (a rescue), the HUD comes back while the notice may still hold: the notice stays where it is until it ends, and never jumps into Slate's context row.
 
 ### 7.6 End of run (D-41)
@@ -1261,6 +1265,7 @@ These numbers are the same in every skin and are not tokens. The components hold
 | License views, titles | "SumUp license", "Godot Engine", "Outfit font" |
 | License views, headings | SumUp: "Notice", "GNU General Public License". Godot: "Godot Engine license", "Third party parts", "License texts". Outfit: none |
 | Godot parts | each copyright line as "Copyright {line}"; each license as "License: {name}" |
+| License view, a file that cannot be read (missing, or not itself) | "This text could not be read in this copy of SumUp. Installing the game again should bring it back." In the reading role, in place of that file's paragraphs; the headings around it stay (approved as built, 2026-10-13 review) |
 
 The About and license wording covers the legal notices the GPL asks for (a copyright notice, no warranty, that the user may share it under the license, and how to read the license). Bart approved it as written on 2026-10-13.
 
@@ -1320,7 +1325,7 @@ One shared full screen frame for everything that is read rather than played. Not
   3. The result: the skin's tile view (SkinTileView) at 112 px, resting. It stands outside the chain's board and after the arrow, which sets it apart (GDD 21.1); in Gumdrop it also sits on the card, outside the tray.
 - The rows are illustrations: nothing in them takes input, and a drag on them scrolls.
 - The longest row (five tiles and the result) is 900 px in Gumdrop, inside its 936 px card; the GDD rows have two or three tiles.
-- Measured on the mockups at 1080 x 2400 with a 120 / 66 px safe area: the content is 1.56 (Gumdrop), 1.41 (Slate) and 1.41 (Nova) screen heights of the scroll area, within the GDD's "at most about two" (21.1). A 360 x 720 dp phone is wider (1200 px canvas), so a little shorter.
+- Measured on the mockups at 1080 x 2400 with a 120 / 66 px safe area: the content is 1.56 (Gumdrop), 1.41 (Slate) and 1.41 (Nova) screen heights of the scroll area, within the GDD's "at most about two" (21.1). The built screens measure the same, 1.41 to 1.56. A 360 x 720 dp phone is wider (1200 px canvas), so a little shorter.
 - Reference: docs/design/additions/<skin>-howto.png and <skin>-howto_end.png.
 
 ### 7.13 About
@@ -1329,6 +1334,7 @@ One shared full screen frame for everything that is read rather than played. Not
 - **Brand block**, on the backdrop in every skin (no card even in Gumdrop: it is the screen's masthead, like the main menu's): the two tone wordmark (7.2) at the display role's size, not fitted; "Version 0.1" in the label role, ink_muted; `space_m`; "Made by Bart Basi" and "Copyright 2026 Bart Basi", each in the body role, ink.
 - **The attribution's weight.** "Copyright 2026 Bart Basi" is a license term (NOTICE, term 1), so it is set like a statement, not like fine print: the body role in ink, the same weight as "Made by Bart Basi", never muted, never in a label role, never cased, never truncated. It sits in the first screenful on every supported phone (about 700 px down a 2400 px screen) and needs no scrolling to find.
 - Then three sections (7.11): "What it is", "Offline, no data" and "Licenses" with the copy of 7.10. The Licenses section ends in three rows that open a screen (7.11), one per license, each with its title and detail line (7.10), split by dividers.
+- *Slate:* the brand block counts as its first section, so a `hairline` divider in line closes it before "What it is", as between its other sections: the masthead ends on a rule, like a magazine page. Approved as built (2026-10-13 review; the mockup shows it too). Gumdrop and Nova put nothing between the brand block and the first section.
 - Reference: docs/design/additions/<skin>-about.png.
 
 ### 7.14 License texts
@@ -1339,8 +1345,13 @@ One reading screen per license, opened from its About row. Title: "SumUp license
 - **SumUp license:** "Notice", then the text of NOTICE (the copyright notice, the additional terms and the third party note); then "GNU General Public License", then the text of COPYING. Both files ship in the app (the export already includes them).
 - **Godot Engine:** "Godot Engine license", then `Engine.get_license_text()`. Then "Third party parts": for each entry of `Engine.get_copyright_info()`, its name in the body role, ink (wrapping), then for each part each copyright line as "Copyright {line}" and its license as "License: {name}", in the reading role. Then "License texts": for each entry of `Engine.get_license_info()`, its name in the body role, ink, then its text. The parts name their licenses (Expat, BSD-3-clause, Zlib and others); the license texts make the names readable in full, which the parts' licenses ask for.
 - **Outfit font:** the text of src/design/fonts/OFL.txt.
-- **Reflowed for the phone.** These texts are hard wrapped near 72 columns for a terminal. At a readable size a phone line holds about 50 characters, so each 72 column line would wrap into a long line and a short stub. So the text is reflowed: a blank line separates paragraphs; inside a paragraph every line break and every run of spaces becomes one space; nothing else changes, not a character. GDD AT-142 asks for "character for character" today; section 10 asks to compare with whitespace normalized.
-- It has to open quickly and scroll at 60 fps: about 37 KB for the SumUp license and more for Godot's. Build it as one label per paragraph, in batches across frames if one frame is not enough, and never as one label of the whole text.
+- **Reflowed for the phone.** These texts are hard wrapped near 72 columns for a terminal. At a readable size a phone line holds about 50 characters, so each 72 column line would wrap into a long line and a short stub. So the text is reflowed: a blank line separates paragraphs; inside a paragraph every line break and every run of spaces becomes one space; nothing else changes, not a character. GDD AT-142 compares each view with its source this way, with whitespace normalized on both sides.
+- **Rule lines (2026-10-13 review; waits for the AT-142 change in 10.5).** A rule line is a line that holds three or more of one character, `-`, `=` or `*`, and nothing else but spaces. The texts use them as separators and as underlines under titles: OFL.txt has 2 (around "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007"), Godot's license texts 37 (29 of dashes, 4 of equals signs, 4 of asterisks), COPYING and NOTICE none. Reflowed as text they join the lines around them, and at the reading size a 59 or 80 character run of dashes is wider than the column, so it wraps into a full line of dashes and a stub (Gumdrop and Nova show a stub of dashes running into `SIL OPEN FONT LICENSE` today). So a rule line ends the paragraph before it, starts a new one after it, and is drawn as the skin's divider (a `hairline` line in line, across the text's width, `space_s` apart from the text like a paragraph) instead of as text. An underlined title such as "Introduction" then stands alone over a rule. Lines that hold other characters too (the asterisk box borders of the MPL text, "*  6. Disclaimer of Warranty  *") stay text.
+- **Building the view (2026-10-13 review).** It has to open quickly and scroll at 60 fps: about 37 KB for the SumUp license and more for Godot's. Build it as one label per paragraph, in batches across frames when one frame is not enough, and never as one label of the whole text. While it builds:
+  - The first screenful (the paragraphs that fill the scroll area's height) is built before the fade in starts, so the view never fades in onto an empty page and nothing pops in during the fade.
+  - The rest builds only after the fade in has ended, so the fade runs at full frame rate.
+  - Every frame stays within 16.7 ms in the desktop window, counted over the whole frame (layout and drawing too, not only the time spent making labels). The whole build may take longer; nobody reads the end of Godot's text in the first seconds.
+  - The page grows below what the player sees and the scroll indicator shrinks as it grows. That is accepted: it never jumps the visible text.
 - Reference: docs/design/additions/<skin>-license.png (Godot's view, whose text needs no file).
 
 ---
@@ -1458,9 +1469,29 @@ No new palette colors: the stars use each skin's reward color, badge (Gumdrop) o
 - About shows the version, so the Settings version line stays (AT-141 compares them).
 - The end of run screen gets no stars row; the lead designer suggested one, and 7.6 gives the reasons.
 
-### 10.4 Open points
+### 10.4 Points that were open (all closed on 2026-10-13)
 
-- **License texts, AT-142.** 7.14 reflows the license texts for the phone (a line break inside a paragraph becomes a space). AT-142 asks that each text equal its source "character for character". The request: compare with whitespace normalized (every run of spaces and line breaks counts as one space, blank lines still split paragraphs). If Bart prefers the exact hard wrapped text, the fallback is to keep every source line break and let long lines wrap, which leaves a short stub after most lines.
-- **Legal wording.** The About and license copy in 7.10 is working copy for the GPL's appropriate legal notices; Bart should confirm it.
-- **Rename.** Done by the DM on 2026-10-13. The one mention of numbersgame left, in the wordmark note of 7.2, is about the old name.
-- **The Fold5 cover screen's camera hole (QA's Q2).** In QA's ps_cover_nova.png, with no top inset, Nova's score starts about 11 px below the screen's top and its middle digits sit where a centered punch hole is; Slate's large score sits under it too, while Gumdrop keeps the top center empty (the hole would fall between the pause button and the Best pill, above the score). The layout is right as long as the phone reports the hole as a top inset: the HUD's top then sits under it (2.2), as QA's 40 dp inset run showed. If immersive mode reports no inset, that is a platform setting (the window's cutout mode), not a layout change.
+- **License texts, AT-142.** Closed: the GDD's AT-142 now compares each view with its sources with whitespace normalized on both sides (every run of spaces and line breaks inside a paragraph counts as one space, blank lines mark paragraph breaks), as 7.14 asked. The rule lines of 7.14 need one more line in AT-142 (10.5).
+- **Legal wording.** Closed: Bart approved the About and license copy in 7.10 as written.
+- **Rename.** Closed: done by the DM. The one mention of numbersgame left, in the wordmark note of 7.2, is about the old name.
+- **The Fold5 cover screen's camera hole (QA's Q2).** Closed: on Bart's Fold5 cover screen the camera hole does not cover the score, so nothing changes. The layout rule stands: the HUD's top sits on the safe area's top (2.2), so a phone that reports its hole as a top inset keeps the score clear of it.
+
+### 10.5 The production review of the builds (2026-10-13)
+
+The full review, page by page, is docs/design/briefs/additions-review.md; the fixes go to the builders in docs/design/briefs/<builder>-additions-review.md. Recorded in this document:
+
+| Point | Decision | Section |
+|---|---|---|
+| Gumdrop's rim and shine as one triangle array each (QA6-02) | Approved; 1.5 reworded to allow it | 1.5 |
+| Nova at `orb_scale` 0.89: orbits and joinable rings | Approved; they still read cleanly between the larger orbs | 2.4 |
+| Nova's corona rays meeting in the gap between two special orbs | Accepted as a glint between two stars | 6.7 |
+| The flying star is invisible on its own pill (Gumdrop lemon on lemon, Nova cyan on cyan) | Fix: an edge in badge_ink | 3.6, 4.7, 6.7, 7.5 |
+| The star and Free samples on their own review pages (stars, flight) | Accepted: the play page had no room | |
+| Gumdrop's arrow head; Nova's chevron and arrow fitted to `icon_fit` | Approved as built | 4.7, 6.7 |
+| Slate's hairline between the About brand block and "What it is" | Approved as built | 7.13 |
+| The copy for a license file that cannot be read | Approved as built | 7.10 |
+| Rule lines of dashes in the license texts wrap into a line and a stub | Fix: drawn as the skin's divider. Needs AT-142 to say so (below) | 7.14 |
+| The Godot license view building over 2.2 to 2.8 s with frames of 29 to 57 ms | The look while it builds is accepted, with three conditions: the first screenful before the fade, the rest after it, frames within 16.7 ms | 7.14 |
+| Measured: content column 1,220, 1,221 and 1,269 px on the Fold5 inner screen; brand center 36.6 to 36.8%; How to play 1.41 to 1.56 screen heights; panel heights | Within the spec; recorded | 2.7, 2.8, 7.12 |
+
+**Requested change to the GDD (AT-142, lead-game-designer through the DM).** Add to the unit comparison: "A rule line (a line of three or more of one character, `-`, `=` or `*`, and nothing else but spaces) splits paragraphs in both the view and the source. The view draws it as a divider; the comparison leaves it out, like the headings the view adds." With that line the completeness check (the same number of paragraphs) still holds, because the view and the source split at the same lines.

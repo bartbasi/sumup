@@ -3,8 +3,8 @@ extends RefCounted
 ## tools/additions/ only. The tokens (the heading and reading roles,
 ## star_icon, reading_line_spacing, scroll_bar) are read from the checked
 ## token files tools/directions/<skin>/tokens.gd, which mirror
-## DESIGN_SYSTEM.md; the shipped code reads them from the SkinData resources
-## once the tile-board-artist has added them there. The star geometry and the
+## DESIGN_SYSTEM.md; the shipped code reads the same values from the SkinData
+## resources, which hold them since the 2026-10-13 build. The star geometry and the
 ## fixed sizes below are drawing facts from DESIGN_SYSTEM.md 4.7, 5.7, 6.7 and
 ## 7.9. If this file and DESIGN_SYSTEM.md disagree, DESIGN_SYSTEM.md wins.
 
@@ -39,8 +39,9 @@ static func tokens(skin: SkinData) -> DirectionTokens:
 
 ## For the mockups only: copies the checked token values (the new tokens, the
 ## QA6-05 touch_min and button_height, and Nova's orb_scale and board_gap)
-## onto the loaded skin in memory, so the real components render the
-## specified layout before the resources hold it. Nothing is saved.
+## onto the loaded skin in memory. The resources now hold the same values, so
+## this changes nothing; it keeps the mockups tied to the token files. Nothing
+## is saved.
 const PREVIEW_NEW: PackedStringArray = ["star_icon", "reading_line_spacing", "scroll_bar"]
 const PREVIEW_CHANGED: PackedStringArray = ["touch_min", "button_height", "orb_scale", "board_gap"]
 

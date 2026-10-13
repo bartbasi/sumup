@@ -1,6 +1,6 @@
 # SumUp Assets Log
 
-Owner: senior-graphic-designer. Last checked: 2026-10-13 (the 2026-10-13 additions).
+Owner: senior-graphic-designer. Last checked: 2026-10-13 (the 2026-10-13 additions, as built).
 
 The rule (CLAUDE.md): nothing paid and nothing third party, and every visual and every sound is made in code. This log lists every visual and every sound the game uses, what makes it, and where that code lives. It also records the exceptions Bart approved: the Outfit font and its license (Hard Stop 1), and the GPL text (2026-10-13).
 
@@ -35,7 +35,7 @@ Godot writes `Outfit[wght].ttf.import` next to the font: its own import settings
 | Visual | Made with | Code lives in (owner) | Status |
 |---|---|---|---|
 | Skin values for Gumdrop, Slate and Nova (colors, tile ramps, type, sizes, motion) | Data from docs/DESIGN_SYSTEM.md, one SkinData resource per skin (src/skins/<id>/<id>.tres) | src/skins/ (tile-board-artist) | In the repo. The contrast, ramp and label checks read these files (see below). |
-| Tiles: fills, Gumdrop lips and shine, Slate slabs, blocks and frames, Nova orbs, rims, glows and corona rays, tile labels | `_draw()`, StyleBoxFlat, one radial GradientTexture2D made in code | src/skins/, scenes/skins/ (tile-board-artist) | Phase 3 |
+| Tiles: fills, Gumdrop lips and shine, Slate slabs, blocks and frames, Nova orbs, rims, glows and corona rays, tile labels | `_draw()`, StyleBoxFlat, one radial GradientTexture2D made in code; Gumdrop's candy rim and shine as one triangle array each, built in code (QA6-02) | src/skins/, scenes/skins/ (tile-board-artist) | Phase 3 |
 | Board: Gumdrop tray, empty cells | `_draw()`, StyleBoxFlat | src/skins/ (tile-board-artist) | Phase 3 |
 | Chain line: rope, ruled line with nodes and label plates, light beam | `_draw()` polylines | src/skins/ (tile-board-artist) | Phase 3 |
 | Tile states: chained, joinable highlight, press feedback, Swap selection, special | `_draw()`, Tweens | src/skins/ (tile-board-artist) | Phase 3 |
@@ -50,15 +50,15 @@ Godot writes `Outfit[wght].ttf.import` next to the font: its own import settings
 | Themes: buttons, chips, panels, sheets, labels, dividers, focus outlines | Theme and StyleBoxFlat built in code | src/design/ (ui-motion-artist) | Phase 3 |
 | Motion helpers and timings | Tweens, values from the Skin | src/design/ (ui-motion-artist) | Phase 3 |
 | Screens: main menu, play screen, pause, new game confirmation, out of moves offer, end of run, settings with live skin preview | Composed from the components above | src/ui/, scenes/ui/ (ui-systems-dev) | Phase 3 |
-| SumUp wordmark: "Sum" in ink and "Up" in accent, fitted to the menu's tile row (DESIGN_SYSTEM.md 7.2) | Two Labels in the skin's display font | src/ui/ (ui-systems-dev) | 2026-10-13, specified |
-| Icons star, chevron and arrow, in all three skins | `_draw()` vector shapes on the 24 unit grid | src/design/ (ui-motion-artist) | 2026-10-13, specified |
-| HUD star counter and free boosters held: Gumdrop's star and free pills, Slate's caption line, Nova's best line; the counter star's progress fill | StyleBoxFlat, `_draw()` (polygon clipped by area), Labels | src/design/ (ui-motion-artist) | 2026-10-13, specified |
-| Star earned effect and the free booster conversion | Tweens, `_draw()`, the shared glow texture (Nova) | src/design/ (ui-motion-artist) | 2026-10-13, specified |
-| Clear notice with "+n" and a star | the clear notice component, extended | src/design/ (ui-motion-artist) | 2026-10-13, specified |
-| Free on the booster costs | `_draw()` in each skin's booster button | src/design/ (ui-motion-artist) | 2026-10-13, specified |
-| Reading screen looks: section cards, headings, reading text, rows that open a screen, the scroll indicator | Theme type variations, StyleBoxFlat | src/design/ (ui-motion-artist) | 2026-10-13, specified |
-| How to play example rows | the skin's own board view as a one row board, its tile view, the arrow icon | src/skins/ (tile-board-artist), placed by src/ui/ | 2026-10-13, specified |
-| Screens: How to play, About, the three license texts | Composed from the components above; license texts read at runtime from COPYING, NOTICE, OFL.txt and Godot's own `Engine` license calls | src/ui/, scenes/ui/ (ui-systems-dev) | 2026-10-13, specified |
+| SumUp wordmark: "Sum" in ink and "Up" in accent, fitted to the menu's tile row (DESIGN_SYSTEM.md 7.2) | Two Labels in the skin's display font | src/ui/ (ui-systems-dev) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| Icons star, chevron and arrow, in all three skins | `_draw()` vector shapes on the 24 unit grid | src/design/ (ui-motion-artist) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| HUD star counter and free boosters held: Gumdrop's star and free pills, Slate's caption line, Nova's best line; the counter star's progress fill | StyleBoxFlat, `_draw()` (polygon clipped by area), Labels | src/design/ (ui-motion-artist) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| Star earned effect and the free booster conversion | Tweens, `_draw()`, the shared glow texture (Nova) | src/design/ (ui-motion-artist) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| Clear notice with "+n" and a star | the clear notice component, extended | src/design/ (ui-motion-artist) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| Free on the booster costs | `_draw()` in each skin's booster button | src/design/ (ui-motion-artist) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| Reading screen looks: section cards, headings, reading text, rows that open a screen, the scroll indicator | Theme type variations, StyleBoxFlat | src/design/ (ui-motion-artist) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| How to play example rows | the skin's own board view as a one row board, its tile view, the arrow icon | src/skins/ (tile-board-artist), placed by src/ui/ | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
+| Screens: How to play, About, the three license texts | Composed from the components above; license texts read at runtime from COPYING, NOTICE, OFL.txt and Godot's own `Engine` license calls | src/ui/, scenes/ui/ (ui-systems-dev) | Built 2026-10-13, reviewed (docs/design/briefs/additions-review.md) |
 | Android launcher icon: launcher/main_192.png (legacy, 192 px), launcher/adaptive_foreground_432.png, launcher/adaptive_background_432.png, launcher/adaptive_monochrome_432.png (432 px each) | Drawn in code by tools/launcher_icon.gd with tools/launcher_icon.tscn (DESIGN_SYSTEM.md section 9): `_draw()` into a SubViewport at 4 times the size, averaged down, background glow worked out per pixel, every color from the Gumdrop SkinData. Regenerate with `godot --path . res://tools/launcher_icon.tscn` from the repo root. Two runs write byte for byte identical files. | tools/launcher_icon.gd (senior-graphic-designer). Only this tool writes to launcher/. | Generated 2026-10-11 |
 
 The launcher icon PNGs are the only image files the shipped game contains. They are generated by code in this repo, not hand made or downloaded. They are committed, so a build never depends on running the tool; rerun it whenever the Gumdrop colors, tile radius, lip or tile font change. Godot writes a `.png.import` file next to each when it imports the folder: engine settings, not a third party file.
@@ -96,3 +96,5 @@ git ls-files | grep -iE '\.(png|jpg|jpeg|webp|svg|bmp|tga|ttf|otf|woff2?|wav|ogg
 That command listed only `docs/design/*.png` and `src/design/fonts/Outfit[wght].ttf`. Once the launcher icon is committed it also lists the four `launcher/*.png` files (section 3). Rerun it at every phase end. Every new hit must be in sections 1, 3 or 5 above.
 
 On 2026-10-13, for the additions: the only new files are COPYING (section 1, approved by Bart), NOTICE (Bart's own text) and the docs/design/additions/*.png mockups (section 5). The additions bring no image, sound or font file into the game: the stars, icons, effects and screens are all specified as code.
+
+On 2026-10-13, after the additions were built (branch `additions`, commit ff167cf): the command lists the 18 `docs/design/*.png`, the 30 `docs/design/additions/*.png`, the four `launcher/*.png` and `src/design/fonts/Outfit[wght].ttf`, nothing else. There is no addons folder. The stars, icons, effects, reading screens and How to play rows are all drawn in code, as section 3 lists.
