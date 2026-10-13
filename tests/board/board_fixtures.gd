@@ -25,6 +25,12 @@ class Rig extends RefCounted:
 	## Every chain_changed: [chain, preview].
 	var chain_events: Array = []
 	var finished: int = 0
+	## How many move_started, and how many effects and set_board calls the
+	## view had logged at each one.
+	var started: int = 0
+	var effects_at_start: Array[int] = []
+	## move_started and animation_finished, in the order they came.
+	var move_signals: PackedStringArray = PackedStringArray()
 
 	func view() -> StubBoardView:
 		return board.stub()
@@ -98,6 +104,9 @@ class Rig extends RefCounted:
 		view().clear_log()
 		chain_events.clear()
 		finished = 0
+		started = 0
+		effects_at_start.clear()
+		move_signals.clear()
 
 	func free_all() -> void:
 		if is_instance_valid(board):
@@ -110,6 +119,12 @@ class Rig extends RefCounted:
 
 	func _on_finished() -> void:
 		finished += 1
+		move_signals.append("finished")
+
+	func _on_started() -> void:
+		started += 1
+		effects_at_start.append(view().effects.size())
+		move_signals.append("started")
 
 
 ## A rig over board and score, resumed and shown, with the generator seeded
@@ -126,6 +141,7 @@ static func rig(board_cells: PackedInt64Array, score: int, durations: Dictionary
 	made.board.setup(made.session, made.skin, made.audio)
 	made.board.chain_changed.connect(made._on_chain_changed)
 	made.board.animation_finished.connect(made._on_finished)
+	made.board.move_started.connect(made._on_started)
 	made.session.resume(RunState.create(board_cells, score))
 	made.session.rng.set_seed(seed_value)
 	made.forget()

@@ -36,6 +36,27 @@ class_name BoardController extends Control
 ## animation_finished. No input is taken meanwhile (D-35). A move whose
 ## effects all take 0 seconds finishes inside the same call.
 ##
+## The show gate (QA6-06, GDD D-33 and 15.1). With a gate set, the board
+## stores each move and starts its effects only once gate.call() returns
+## true. The first check is deferred, because the session emits
+## save_requested after run_started and move_resolved, and the save is only
+## queued then. After that it checks once a frame. Until the gate opens the
+## view keeps the board as it was at the lift (the chain line and the click
+## at the lift are input feedback, not the result) and input stays closed.
+## move_started is emitted once for every move that is shown, gate or not,
+## run_started included, right before its first effect and in the same frame,
+## so always before that move's animation_finished. A gate that is open at
+## the first check (a save that failed is idle too) starts the move then.
+##
+## Cancel paths while a move waits at the gate. cancel_drag() (pause, focus
+## loss) leaves it waiting, and it shows once the gate opens. A skin switch
+## keeps it waiting: the new view shows the board as it was at the lift and
+## plays the move when the gate opens. A new move replaces it, as a new move
+## replaces one still playing: the replaced move gets neither move_started
+## nor animation_finished. setup() finishes it at once, as it does a move
+## still playing, with move_started first. So a move is never lost from the
+## session and never shown twice.
+##
 ## The drag path allocates nothing per pointer event: work that allocates
 ## (step_chain, the preview, the joinable highlight) runs only when the
 ## finger enters a new tile.
@@ -44,6 +65,10 @@ class_name BoardController extends Control
 signal chain_changed(chain: Array[Vector2i], preview_value: int)
 ## After the last effect of a move.
 signal animation_finished()
+## The show gate opened and the move's effects begin, in this frame. Once per
+## move shown, right before its first effect, so always before its
+## animation_finished.
+signal move_started()
 
 const NO_CELL: Vector2i = Vector2i(-1, -1)
 const NO_DRAG: Vector2 = Vector2(-1.0, -1.0)
@@ -90,6 +115,15 @@ var _stage: int = 0
 var _wait: float = 0.0
 ## The part of the merge's length that runs on after the travel (the pop).
 var _merge_tail: float = 0.0
+## A move's effects start only once this returns true. Empty for no gate.
+var _gate: Callable = Callable()
+## The move is stored and waits at the gate.
+var _held: bool = false
+## move_started was emitted for the move being shown.
+var _began: bool = false
+## The board the view was last told to show at rest. A view rebuilt while a
+## move waits at the gate shows this: the board as it was at the lift.
+var _shown: PackedInt64Array = PackedInt64Array()
 
 
 func _init() -> void:
@@ -120,13 +154,15 @@ func setup(session: GameSession, skin: SkinData, audio: AudioService) -> void:
 
 ## Live skin switch: a new board view for the skin, showing the same board,
 ## targeting and chain. A move still playing finishes at once on the new view.
+## A move waiting at the show gate keeps waiting: the new view shows the board
+## as it was at the lift, and the move plays on it once the gate opens.
 func set_skin(skin: SkinData) -> void:
 	if skin == null:
 		push_error("set_skin() needs a skin")
 		return
 	_skin = skin
 	_rebuild_view()
-	if _animating:
+	if _animating and not _held:
 		_finish_move()
 
 
@@ -145,9 +181,25 @@ func preferred_height(width: float) -> float:
 	return _view.preferred_height(width)
 
 
-## True from the start of a move's effects until animation_finished.
+## True from a move's run_started or move_resolved, through any wait at the
+## show gate and its effects, until animation_finished. Input is closed
+## meanwhile (D-35).
 func is_animating() -> bool:
 	return _animating
+
+
+## QA6-06. A move's effects start only once gate.call() returns true: checked
+## deferred after the move arrives, then once a frame. An empty Callable shows
+## every move at once. A gate whose object is gone, or that returns anything
+## but a bool, counts as open, so the game never freezes. A new gate counts
+## from the next check, also for a move already waiting.
+func set_show_gate(gate: Callable) -> void:
+	_gate = gate
+
+
+## TH23: a move waits at the show gate.
+func is_waiting_for_save() -> bool:
+	return _held
 
 
 ## The skin board view for a skin. Tests override it to put in a stub.
@@ -172,6 +224,11 @@ func _notification(what: int) -> void:
 func _process(delta: float) -> void:
 	if not _animating:
 		set_process(false)
+		return
+	if _held:
+		# Once a frame until the gate opens. The first step then starts now
+		# and does not lose this frame's delta.
+		_check_gate()
 		return
 	_wait -= delta
 	if _wait <= 0.0:
@@ -372,6 +429,8 @@ func _on_move_resolved(result: MoveResult) -> void:
 	_show_move(result)
 
 
+## Stores the move, replacing one still waiting or playing, and starts it at
+## once with no gate, or holds it for the gate.
 func _show_move(result: MoveResult) -> void:
 	if result == null:
 		return
@@ -381,7 +440,44 @@ func _show_move(result: MoveResult) -> void:
 	_wait = 0.0
 	_merge_tail = 0.0
 	_animating = true
-	_run_stages()
+	_began = false
+	if _gate.is_null():
+		_held = false
+		_start_move()
+		return
+	# The session emits save_requested right after this signal, so the first
+	# check waits until those handlers have run and the save is queued.
+	_held = true
+	set_process(true)
+	_check_gate.call_deferred()
+
+
+## Starts the move waiting at the gate once the gate is open. Runs deferred
+## after the move arrives, then once a frame from _process.
+func _check_gate() -> void:
+	if _held and _gate_open():
+		_held = false
+		_start_move()
+
+
+func _gate_open() -> bool:
+	if not _gate.is_valid():
+		return true
+	var open: Variant = _gate.call()
+	if open is bool:
+		return open
+	push_error("BoardController: the show gate must return a bool")
+	return true
+
+
+## Tells listeners the move starts, then plays its effects. A move_started
+## listener may replace or finish the move; then this move plays no further.
+func _start_move() -> void:
+	var move: MoveResult = _move
+	_began = true
+	move_started.emit()
+	if _move == move and _animating and not _held:
+		_run_stages()
 
 
 ## Runs effect steps until one needs time, or finishes the move when none is
@@ -473,15 +569,26 @@ func _play_spawn(move: MoveResult) -> float:
 ## listeners hear the animation ended. State is reset before move_shown(),
 ## because the outcome it runs may start another move at once.
 func _finish_move() -> void:
+	if _move != null and not _began:
+		# Only setup() finishes a move still waiting at the gate. Its
+		# move_started still comes first, once.
+		var waiting: MoveResult = _move
+		_began = true
+		move_started.emit()
+		if _move != waiting:
+			return
 	var move: MoveResult = _move
 	_move = null
 	_animating = false
+	_held = false
+	_began = false
 	_stage = 0
 	_wait = 0.0
 	_merge_tail = 0.0
 	set_process(false)
 	if move != null and _view != null and move.cells_after.size() == _cell_count():
 		_view.set_board(move.cells_after)
+		_shown = move.cells_after
 	if _session != null:
 		_session.move_shown()
 	animation_finished.emit()
@@ -497,7 +604,9 @@ static func _length(seconds: float) -> float:
 # The view.
 
 ## Frees the old view and builds the skin's view, showing the session's
-## board, targeting, and any chain or press in progress.
+## board, targeting, and any chain or press in progress. While a move waits
+## at the show gate it shows the board as it was at the lift instead, which
+## is the board the old view showed at rest.
 func _rebuild_view() -> void:
 	if _view != null:
 		remove_child(_view)
@@ -505,6 +614,8 @@ func _rebuild_view() -> void:
 		_view = null
 	var press_shown: Vector2i = _press_shown
 	_press_shown = NO_CELL
+	var lift_board: PackedInt64Array = _shown
+	_shown = PackedInt64Array()
 	if _session == null or _skin == null:
 		return
 	_view = _make_view(_skin)
@@ -514,8 +625,10 @@ func _rebuild_view() -> void:
 	_view.setup(_skin, _session.config.columns, _session.config.rows)
 	add_child(_view)
 	_fit_view()
-	if _session.state.cells.size() == _cell_count():
-		_view.set_board(_session.state.cells)
+	var board_cells: PackedInt64Array = lift_board if _held else _session.state.cells
+	if board_cells.size() == _cell_count():
+		_view.set_board(board_cells)
+		_shown = board_cells
 	_view.set_targeting(_session.targeting_booster())
 	_view.set_swap_selected(_session.swap_first())
 	if _gesture == Gesture.CHAIN and not _chain.is_empty():
