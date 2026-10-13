@@ -303,6 +303,9 @@ Free boosters (D-46):
 - Undo's restore never touches `free_used`.
 - `usability` treats every booster as affordable while one is held, but Undo still needs a snapshot and score minus the snapshot's points of at least the charge (FB4).
 - `outcome` is unchanged in shape: it follows `usability`, so with a free booster held the offer opens instead of the run ending.
+- `usability` checks affordability first, then targets. A booster that is both unaffordable and has nothing to act on reads CANNOT_AFFORD; only hand edited boards can show this.
+- `apply` refuses a NO_TARGET booster, and a Double on a 2^62 tile, with `&"bad_target"`.
+- After a run ends, `stars()`, `free_held()` and `booster_statuses()` still read the ended run.
 - A booster that earns a free booster is charged as normal. `apply` calls `RunRules.update_records` with the config so `stars_earned` and `free_earned` are set.
 
 BoosterStatus and RunSummary, the value objects GameSession hands to the interface, live in core (section 4).
@@ -666,6 +669,7 @@ Two JSON files in `user://`. JSON only, written and read with Godot's JSON class
 - The run file is written as format 2.
 - A format 1 run file (from builds before D-46) has exactly the format 1 keys, without the two new ones. It loads with `free_used` 0, so its stars and free boosters appear on load (GDD 15.1), and with `best_at_start` -1.
 - The profile stays format 1.
+- A state with `best_at_start` -1 is never written: `save_run` and `queue_run` return false and the last good file stays. GameSession sets it in `_init`, `start_new_run()` and `resume()`, so a session's state never holds -1; tests/boosters proves it, because a refused save during play would lose the run.
 
 `user://profile.json`, kept forever:
 
@@ -714,7 +718,7 @@ func queue_run(state: RunState) -> bool
 func queue_profile(settings: Settings, records: Records) -> bool
 func flush() -> void                                        # waits until every queued write is done
 func is_idle() -> bool                                      # QA6-06: no queued write still to land. Never blocks.
-func set_hold(on: bool) -> void                             # TH23, tests only: queued writes wait until released; is_idle() stays false
+func set_hold(on: bool) -> void                             # TH23, tests only: queued writes wait until released; is_idle() stays false. flush() still writes held data.
 ```
 
 Every other SaveService method waits for queued writes first, so nothing interleaves and a deleted run never comes back. Use one SaveService per folder, called from one thread. The App queues the save for each move, and saves synchronously (after a flush) on app pause, focus loss and close.
