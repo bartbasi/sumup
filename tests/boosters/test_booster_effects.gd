@@ -1,7 +1,8 @@
 extends "res://tests/base_test.gd"
 ## Hammer (D-23), Swap (D-24), Shuffle (D-25) and Double (D-26) through
 ## BoosterRules.apply, with small tile clearing (D-38, D-39), records (D-16,
-## D-17, D-41) and the moves the result reports for the view (TH12).
+## D-17, D-41) and the moves the result reports for the view (TH12). Setups
+## hold no free booster unless they say so (GDD section 19).
 
 const F := preload("res://tests/core/core_fixtures.gd")
 const BF := preload("res://tests/boosters/booster_fixtures.gd")
@@ -224,7 +225,7 @@ func test_at_71_shuffle_with_only_one_equal_pair() -> void:
 	board.append(2)
 	assert_false(CoreRules.has_valid_move(board, config), "the setup has no move: the two 2s are far apart")
 	for seed_value: int in range(1, 1001):
-		var state: RunState = F.state(board, 1 << 41)
+		var state: RunState = BF.none_held(F.state(board, 1 << 41))
 		var result: MoveResult = _apply(BoosterRules.SHUFFLE, state, Records.new(), [], F.seeded(seed_value))
 		var pairs: Array[Vector2i] = F.equal_pairs(state.cells)
 		var problem: String = ""
@@ -259,7 +260,7 @@ func test_shuffle_fallback_with_p_in_the_last_column() -> void:
 	var twin: int = board[CoreRules.index_of(Vector2i(4, 0), F.COLUMNS)]
 	board[CoreRules.index_of(Vector2i(2, 5), F.COLUMNS)] = twin
 	assert_false(CoreRules.has_valid_move(board, config), "the forced arrangement has no move")
-	var state: RunState = F.state(board, 1 << 41)
+	var state: RunState = BF.none_held(F.state(board, 1 << 41))
 	var rng: RunRandom = F.seeded(1)
 	rng.force_shuffle(board)
 	_apply(BoosterRules.SHUFFLE, state, Records.new(), [], rng)
@@ -286,7 +287,7 @@ func test_at_73_shuffle_with_no_equal_pair() -> void:
 	var board: PackedInt64Array = PackedInt64Array()
 	for power: int in range(1, 41):
 		board.append(1 << power)
-	var state: RunState = F.state(board, 1 << 41)
+	var state: RunState = BF.none_held(F.state(board, 1 << 41))
 	var rng: RunRandom = F.seeded(73)
 	var result: MoveResult = _apply(BoosterRules.SHUFFLE, state, Records.new(), [], rng)
 	assert_true(result.accepted, "Shuffle still runs")
@@ -339,6 +340,11 @@ func test_at_75_double_on_the_highest_tile() -> void:
 	assert_eq(records.best_tile, 8192, "Best Tile 8192")
 	assert_eq(state.run_highest, 8192, "run highest 8192")
 	assert_true(result.new_best_tile, "a new Best Tile")
+	assert_eq(result.stars_earned, 1, "the 8192 is this run's third star (D-45)")
+	assert_eq(result.free_earned, 1, "so it earns one free booster")
+	assert_eq(CoreRules.free_held(state, config), 1, "which is now held (D-46)")
+	assert_true(BoosterRules.is_free(state, config), "so every booster reads Free")
+	assert_false(result.free_used, "the Double itself was paid")
 	_assert_replays(result, "AT-75")
 
 
@@ -422,13 +428,18 @@ func test_at_43_best_tile_counts_double_and_is_not_lowered_by_hammer() -> void:
 	_commit(state, records, [Vector2i(0, 7), Vector2i(1, 7)], rng)
 	assert_eq(records.best_tile, 8192, "after the commit Best Tile 8192")
 	assert_eq(state.score, 58192, "score 58,192")
+	assert_eq(CoreRules.free_held(state, config), 1, "the 8192 is the third star: one free booster held (D-46)")
 	var doubled: MoveResult = _apply(BoosterRules.DOUBLE, state, records, [BF.find(state.cells, 8192)], rng)
-	assert_eq(doubled.cost, 16384, "Double costs 16,384")
-	assert_eq(state.score, 41808, "score 41,808")
+	assert_true(doubled.accepted, "the Double is accepted")
+	assert_true(doubled.free_used, "and uses the free booster")
+	assert_eq(doubled.cost, 0, "so it charges 0")
+	assert_eq(state.score, 58192, "score stays 58,192")
 	assert_eq(records.best_tile, 16384, "Best Tile 16384 (T2)")
+	assert_eq(CoreRules.free_held(state, config), 0, "no free booster held")
 	var hammered: MoveResult = _apply(BoosterRules.HAMMER, state, records, [BF.find(state.cells, 16384)], rng)
+	assert_false(hammered.free_used, "the Hammer is paid")
 	assert_eq(hammered.cost, 16384, "Hammer costs 16,384")
-	assert_eq(state.score, 25424, "score 25,424")
+	assert_eq(state.score, 41808, "score 41,808")
 	assert_true(state.highest() < 16384, "H is below 16384")
 	assert_eq(records.best_tile, 16384, "Best Tile still 16384 (T3)")
 

@@ -111,12 +111,38 @@ static func board_huge() -> PackedInt64Array:
 	return cells
 
 
+## A run state that can be saved: like RunState.create, but the Best Score
+## when the run began defaults to 0 (known) instead of -1 (unknown), as
+## GameSession sets it for every live run. A state with -1 is never written.
+static func run(cells: PackedInt64Array, score: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0, run_highest: int = 0, free_used: int = 0, best_at_start: int = 0) -> RunState:
+	return RunState.create(cells, score, snapshot_cells, snapshot_points, run_highest, 5, free_used, best_at_start)
+
+
 ## The AT-95 control run: Board D with a 1024 on (2,0), score 41,286, run
-## highest 2048, and an Undo snapshot of Board D worth 96 points.
+## highest 2048, an Undo snapshot of Board D worth 96 points, no free booster
+## used, and a Best Score of 38,500 when the run began.
 static func control_run() -> RunState:
-	return RunState.create(with_cell(board_d(), Vector2i(2, 0), 1024), 41286, board_d(), 96, 2048)
+	return run(with_cell(board_d(), Vector2i(2, 0), 1024), 41286, board_d(), 96, 2048, 0, 38500)
 
 
 ## A run with no snapshot.
 static func plain_run() -> RunState:
-	return RunState.create(with_cell(board_d(), Vector2i(0, 0), 32), 1500)
+	return run(with_cell(board_d(), Vector2i(0, 0), 32), 1500, PackedInt64Array(), 0, 0, 0, 1000)
+
+
+## A run file as a build before D-46 wrote it: format 1, without free_used and
+## best_at_start. Built from state's format 2 data, with ints as from code.
+static func format_1_data(state: RunState) -> Dictionary:
+	var data: Dictionary = SaveCodec.run_to_data(state)
+	data["format"] = 1
+	data.erase("free_used")
+	data.erase("best_at_start")
+	return data
+
+
+## state as it loads from a format 1 file: free_used 0, best_at_start -1.
+static func as_format_1(state: RunState) -> RunState:
+	var loaded: RunState = state.copy()
+	loaded.free_used = 0
+	loaded.best_at_start = -1
+	return loaded

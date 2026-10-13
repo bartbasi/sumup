@@ -146,6 +146,15 @@ func test_at_57_tapping_unaffordable_boosters_does_nothing() -> void:
 	assert_true(session.state.equals(before), "nothing changed")
 	assert_eq(session.phase(), GameSession.Phase.PLAYING, "no targeting")
 	assert_eq(recorder.names, PackedStringArray(), "no signal")
+	var at_128: GameSession = BF.ready_session(F.state(F.board_p(), 128))
+	assert_eq(BF.usable_ids(at_128), [&"hammer", &"swap", &"shuffle"] as Array[StringName], "at 128 Hammer, Swap and Shuffle are enabled")
+	assert_true(null == at_128.press_booster(BoosterRules.DOUBLE), "Double still does nothing")
+	at_128.press_booster(BoosterRules.HAMMER)
+	assert_eq(at_128.targeting_booster(), BoosterRules.HAMMER, "Hammer can be tapped at 128")
+	var at_256: GameSession = BF.ready_session(F.state(F.board_p(), 256))
+	assert_eq(BF.usable_ids(at_256), [&"hammer", &"swap", &"shuffle", &"double"] as Array[StringName], "at 256 Double too")
+	assert_eq(BF.status_of(at_256, BoosterRules.UNDO).reason, BoosterStatus.Usability.NO_SNAPSHOT, "Undo stays disabled: no snapshot")
+	assert_true(BF.free_ids(at_256).is_empty(), "no booster reads Free")
 
 
 func test_at_62_no_chains_while_targeting() -> void:
@@ -271,7 +280,7 @@ func test_a_refused_double_tap_keeps_targeting() -> void:
 	var config: GameConfig = GameConfig.new()
 	config.cost_shift = {&"hammer": 0, &"swap": 0, &"shuffle": 0, &"double": 0, &"undo": -1}
 	var board: PackedInt64Array = F.changed(F.board_p(), {Vector2i(2, 7): 1 << 62})
-	var session: GameSession = BF.ready_session(F.state(board, 1 << 62), null, 1, config)
+	var session: GameSession = BF.ready_session(BF.none_held(F.state(board, 1 << 62), config), null, 1, config)
 	recorder.watch(session)
 	session.press_booster(BoosterRules.DOUBLE)
 	recorder.clear()

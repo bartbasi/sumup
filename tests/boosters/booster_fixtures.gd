@@ -18,6 +18,31 @@ static func snapshot_board() -> PackedInt64Array:
 	return F.changed(F.board_d(), {Vector2i(2, 0): 1024, Vector2i(1, 7): 8})
 
 
+## The GDD section 19 default: every free booster the run's stars have earned
+## counts as used, so none is held (D-46). Changes state and returns it.
+static func none_held(state: RunState, config: GameConfig = null) -> RunState:
+	var rules: GameConfig = config if config != null else GameConfig.new()
+	state.free_used = CoreRules.free_earned(state.run_highest, rules)
+	return state
+
+
+## A state with the given run highest tile that holds held free boosters:
+## free_used is the free boosters earned minus held (D-46).
+static func holding(held: int, board: PackedInt64Array, score: int, run_highest: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0) -> RunState:
+	var state: RunState = RunState.create(board, score, snapshot_cells, snapshot_points, run_highest)
+	state.free_used = CoreRules.free_earned(state.run_highest, GameConfig.new()) - held
+	return state
+
+
+## The ids whose status reads Free, in bar order.
+static func free_ids(session: GameSession) -> Array[StringName]:
+	var ids: Array[StringName] = []
+	for status: BoosterStatus in session.booster_statuses():
+		if status.free:
+			ids.append(status.id)
+	return ids
+
+
 static func targets(cells: Array) -> Array[Vector2i]:
 	var list: Array[Vector2i] = []
 	list.assign(cells)

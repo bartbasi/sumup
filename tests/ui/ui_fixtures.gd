@@ -49,6 +49,9 @@ static func stop_app(app: App) -> void:
 static func save_game(folder: String, state: RunState, best_score: int = 0, best_tile: int = 0, settings: Settings = null) -> void:
 	var service: SaveService = SaveService.new(folder)
 	if state != null:
+		# A real run always knows its starting Best Score (QA6-03); the codec refuses -1.
+		if state.best_at_start < 0:
+			state.best_at_start = best_score
 		service.save_run(state)
 	var records: Records = Records.new()
 	records.best_score = best_score

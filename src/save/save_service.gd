@@ -12,14 +12,24 @@ class_name SaveService extends RefCounted
 ##
 ## Writing. The whole file goes to <name>.tmp, is closed, read back and
 ## compared byte for byte, and only then renamed over the real file. On
-## Windows, Godot's rename deletes the old file before it moves the new one in
-## (measured in Phase 3: a missing source still deletes the target, and a
-## second process sees the target missing between the two steps), so a kill
-## at that moment leaves only <name>.tmp. On Android, Godot uses POSIX rename,
-## which replaces the file in one step. Loading covers both: it uses the real
-## file when it is good,
-## else a good <name>.tmp, which it then renames into place. So a kill at any
-## moment leaves the old save or the new one.
+## Windows, Godot's rename deletes the old file before it moves the new one
+## in, and fails while another program holds the old file open; with the
+## temp file held open, it deletes the old file and then fails. On Android,
+## Godot uses POSIX rename, which replaces the file in one step.
+##
+## The newest complete save wins (QA6-07). Every write rewrites <name>.tmp
+## before its rename, so a temp file that parses and passes SaveCodec's checks
+## is always newer than <name>. Loading uses such a temp file first and
+## renames it into place. A temp file that fails to parse or validate is
+## deleted, and <name> is used. A rename that fails is tried again before the
+## next write and on flush(), and only while the temp file still holds exactly
+## the bytes that were written. So a kill or a held file at any moment leaves
+## the newest complete save, never an older one.
+##
+## Deleting. delete_run removes the temp file first, then the real one. A file
+## Windows will not delete (held open by another program) is emptied instead,
+## so it can never load, and the next load discards it. So a deleted run never
+## comes back.
 ##
 ## Queued writes (QA4-02). queue_run and queue_profile check and encode the
 ## data at once on the calling thread, which is cheap, and leave the file work
@@ -32,6 +42,8 @@ class_name SaveService extends RefCounted
 ##   waits for the task, so nothing ever interleaves and reads see every
 ##   earlier save. flush() waits on its own, for app pause, focus loss and
 ##   close.
+## is_idle() tells, without waiting, whether a queued write is still to land
+## (QA6-06: the board shows a move only once its save is on disk).
 ## Call the service from one thread only (the main thread in the game).
 
 const RUN_FILE: String = "run.json"
@@ -52,10 +64,12 @@ const _BYTE_CLOSE_CURLY: int = 0x7D
 enum _Status { MISSING, UNREADABLE, BROKEN, PARSED }
 
 
-## What reading one file found. data is set only when status is PARSED.
+## What reading one file found. data is set only when status is PARSED, bytes
+## whenever the file was read whole.
 class FileRead extends RefCounted:
 	var status: int = 0    # a _Status value
 	var data: Variant = null
+	var bytes: PackedByteArray = PackedByteArray()
 
 
 var _directory: String = ""
@@ -71,6 +85,9 @@ class WriteQueue extends RefCounted:
 	## The bytes last handed to a write, by file name, dropped when that
 	## write fails. Lets an unchanged file be skipped.
 	var written: Dictionary[String, PackedByteArray] = {}
+	## Files whose rename failed, by file name, with the bytes their temp file
+	## holds. The rename is tried again before the next write and on flush.
+	var stuck: Dictionary[String, PackedByteArray] = {}
 	## True while a writer is draining the queue.
 	var writing: bool = false
 
@@ -78,6 +95,8 @@ class WriteQueue extends RefCounted:
 var _q: WriteQueue = WriteQueue.new()
 ## The writer task started last; only the calling thread touches it.
 var _task_id: int = -1
+## TH23: while true, queued writes wait and is_idle() is false.
+var _hold: bool = false
 
 
 ## directory must be inside user://. Tests pass a temp folder there. Any other
@@ -93,7 +112,8 @@ func _init(directory: String = _ROOT) -> void:
 
 ## Writes the run now, after any queued write. Returns false, and leaves the
 ## last good save in place, when the state would not load back (SaveCodec
-## refuses it) or the write fails.
+## refuses it) or the write fails. When only the rename fails, the new run
+## stays in the temp file, which wins on the next load.
 func save_run(state: RunState) -> bool:
 	flush()
 	var bytes: PackedByteArray = _run_bytes(state)
@@ -114,7 +134,9 @@ func queue_run(state: RunState) -> bool:
 
 
 ## Waits until every queued write is on disk (or has failed and been
-## reported).
+## reported), then tries again any rename that failed. Held writes (set_hold)
+## are written too, so a flush never waits forever and never lets an older
+## save land after a newer one.
 func flush() -> void:
 	_reap()
 	_q.mutex.lock()
@@ -124,50 +146,77 @@ func flush() -> void:
 	_q.mutex.unlock()
 	if left:
 		_drain(_q)
+	_retry_stuck(_q)
 
 
-## The saved run, or null when there is none or it is invalid. A file whose
-## content is invalid is discarded (deleted), so the next game is a new run. A
-## file that exists but cannot be opened is left alone, because the cause may
-## not last.
+## QA6-06. True when no queued write is still to land: nothing waiting and no
+## writer running. A write that failed counts as landed, so a failing disk
+## never freezes the game. Never waits. False while set_hold(true) is on.
+func is_idle() -> bool:
+	if _hold:
+		return false
+	if _task_id >= 0 and WorkerThreadPool.is_task_completed(_task_id):
+		_reap()
+	_q.mutex.lock()
+	var idle: bool = _q.pending.is_empty() and not _q.writing
+	_q.mutex.unlock()
+	return idle
+
+
+## TH23, for tests only. While on, queued writes wait (no writer starts) and
+## is_idle() is false. Turning it off starts the writer for anything waiting.
+## flush() and every call that flushes still write what is waiting, so the
+## hold never blocks a caller or reorders saves.
+func set_hold(on: bool) -> void:
+	_hold = on
+	if not on:
+		_start_writer()
+
+
+## The saved run, or null when there is none or it is invalid. A complete,
+## valid temp file is the newest save and wins: it is renamed into place and
+## used. A temp or real file whose content is invalid is discarded (deleted).
+## A file that exists but cannot be opened is left alone, because the cause
+## may not last.
 func load_run(config: GameConfig) -> RunState:
 	if _directory.is_empty():
 		return null
 	flush()
 	var main_path: String = _path(RUN_FILE)
 	var temp_path: String = main_path + TEMP_SUFFIX
+	var temp: FileRead = _read_json(temp_path)
+	if temp.status == _Status.PARSED:
+		var newest: RunState = SaveCodec.data_to_run(temp.data, config)
+		if newest != null:
+			_promote(RUN_FILE, temp.bytes)
+			return newest
+	if temp.status == _Status.PARSED or temp.status == _Status.BROKEN:
+		_remove(temp_path)
 	var main: FileRead = _read_json(main_path)
 	if main.status == _Status.PARSED:
 		var state: RunState = SaveCodec.data_to_run(main.data, config)
 		if state != null:
-			_remove(temp_path)    # a later write that never finished
 			return state
-	var temp: FileRead = _read_json(temp_path)
-	if temp.status == _Status.PARSED:
-		var recovered: RunState = SaveCodec.data_to_run(temp.data, config)
-		if recovered != null:
-			_promote(temp_path, main_path)
-			return recovered
 	if main.status == _Status.PARSED or main.status == _Status.BROKEN:
 		_remove(main_path)
-	if temp.status == _Status.PARSED or temp.status == _Status.BROKEN:
-		_remove(temp_path)
 	return null
 
 
 ## Deletes the saved run, after any queued write, so a queued run can never
-## land after the delete. The temp file goes first, so a kill between the two
-## steps can never leave a lone temp file that would bring an ended run back.
+## land after the delete. A failed rename waiting to be tried again is
+## dropped. The temp file goes first, so a kill between the two steps can
+## never leave a lone temp file that would bring an ended run back.
 func delete_run() -> void:
 	if _directory.is_empty():
 		return
 	flush()
 	_q.mutex.lock()
 	_q.written.erase(RUN_FILE)
+	_q.stuck.erase(RUN_FILE)
 	_q.mutex.unlock()
 	var main_path: String = _path(RUN_FILE)
-	_remove(main_path + TEMP_SUFFIX)
-	_remove(main_path)
+	_discard(main_path + TEMP_SUFFIX)
+	_discard(main_path)
 
 
 ## True when a run file is on disk, including a temp file that load_run could
@@ -202,27 +251,28 @@ func queue_profile(settings: Settings, records: Records) -> bool:
 	return true
 
 
-## Applies the saved profile to settings and records. Each part that is
-## missing or invalid keeps the value the objects already hold, which is the
-## default for fresh objects (SaveCodec.data_to_profile). A broken profile is
-## not deleted: the next save_profile replaces it.
+## Applies the saved profile to settings and records. A temp file that is a
+## fully valid profile is the newest save and wins: it is renamed into place
+## and used. Otherwise a temp file that parsed or is broken is deleted, and
+## the real file is used: each part that is missing or invalid keeps the
+## value the objects already hold, which is the default for fresh objects
+## (SaveCodec.data_to_profile). A broken real profile is not deleted: the next
+## save_profile replaces it.
 func load_profile(settings: Settings, records: Records) -> void:
 	if _directory.is_empty():
 		return
 	flush()
 	var main_path: String = _path(PROFILE_FILE)
 	var temp_path: String = main_path + TEMP_SUFFIX
-	var data: Variant = null
-	var main: FileRead = _read_json(main_path)
-	if main.status == _Status.PARSED and typeof(main.data) == TYPE_DICTIONARY:
-		data = main.data
+	var temp: FileRead = _read_json(temp_path)
+	if temp.status == _Status.PARSED and SaveCodec.data_to_profile(temp.data, Settings.new(), Records.new()).is_empty():
+		_promote(PROFILE_FILE, temp.bytes)
+		SaveCodec.data_to_profile(temp.data, settings, records)
+		return
+	if temp.status == _Status.PARSED or temp.status == _Status.BROKEN:
 		_remove(temp_path)
-	else:
-		var temp: FileRead = _read_json(temp_path)
-		if temp.status == _Status.PARSED and typeof(temp.data) == TYPE_DICTIONARY:
-			data = temp.data
-			_promote(temp_path, main_path)
-	SaveCodec.data_to_profile(data, settings, records)
+	var main: FileRead = _read_json(main_path)
+	SaveCodec.data_to_profile(main.data if main.status == _Status.PARSED else null, settings, records)
 
 
 func _path(file_name: String) -> String:
@@ -249,6 +299,7 @@ func _read_json(path: String) -> FileRead:
 	if bytes.size() != length:
 		result.status = _Status.UNREADABLE
 		return result
+	result.bytes = bytes
 	result.status = _Status.BROKEN
 	if bytes.has(_BYTE_NUL) or not _nesting_within(bytes, _MAX_NESTING):
 		return result
@@ -311,7 +362,8 @@ static func _encode(data: Dictionary) -> PackedByteArray:
 
 ## Writes on the calling thread (the queue is empty: the caller flushed).
 func _write_now(file_name: String, bytes: PackedByteArray) -> bool:
-	var ok: bool = _write_file(_directory, file_name, bytes)
+	_retry_stuck(_q)
+	var ok: bool = _write_file(_q, file_name, bytes)
 	_q.mutex.lock()
 	if ok:
 		_q.written[file_name] = bytes
@@ -322,14 +374,24 @@ func _write_now(file_name: String, bytes: PackedByteArray) -> bool:
 
 
 ## Queues bytes for file_name, replacing older bytes still waiting, and
-## starts the writer task when none is running.
+## starts the writer task when none is running and no hold is on.
 func _queue(file_name: String, bytes: PackedByteArray) -> void:
 	_q.mutex.lock()
 	if not _q.pending.has(file_name) and _q.written.has(file_name) and _q.written[file_name] == bytes:
 		_q.mutex.unlock()
 		return
 	_q.pending[file_name] = bytes
-	var start: bool = not _q.writing
+	_q.mutex.unlock()
+	_start_writer()
+
+
+## Starts the writer task when something is waiting, none is running and no
+## hold is on.
+func _start_writer() -> void:
+	if _hold:
+		return
+	_q.mutex.lock()
+	var start: bool = not _q.pending.is_empty() and not _q.writing
 	if start:
 		_q.writing = true
 	_q.mutex.unlock()
@@ -353,12 +415,17 @@ static func _drain(queue: WriteQueue) -> void:
 		queue.pending.erase(file_name)
 		queue.written[file_name] = bytes
 		queue.mutex.unlock()
-		if not _write_file(queue.directory, file_name, bytes):
+		_retry_stuck(queue)
+		if not _write_file(queue, file_name, bytes):
 			queue.mutex.lock()
 			if queue.written.has(file_name) and queue.written[file_name] == bytes:
 				queue.written.erase(file_name)
+			var kept: bool = queue.stuck.has(file_name)
 			queue.mutex.unlock()
-			push_warning("SaveService: could not save %s; the last good save stays" % file_name)
+			if kept:
+				push_warning("SaveService: could not move %s into place; the new save stays in its temp file and wins on the next load" % file_name)
+			else:
+				push_warning("SaveService: could not save %s; the last good save stays" % file_name)
 
 
 ## Waits for the writer task started last, which drains the whole queue.
@@ -371,17 +438,21 @@ func _reap() -> void:
 func _notification(what: int) -> void:
 	# A service dropped with writes queued waits for its writer here, so
 	# nothing queued is lost and the task is cleaned up. Inline, because
-	# methods cannot be called on an object being deleted.
+	# methods cannot be called on an object being deleted. Writes still held
+	# by set_hold (tests only) are dropped with the service.
 	if what == NOTIFICATION_PREDELETE and _task_id >= 0:
 		WorkerThreadPool.wait_for_task_completion(_task_id)
 		_task_id = -1
 
 
-## Writes bytes to <file_name>.tmp in directory, checks it, then renames it
-## over the real file. A failed write or check deletes the broken temp file.
-## A failed rename keeps it, because on Windows the real file may already be
-## gone and the temp file is then the newest good copy. Safe on any thread.
-static func _write_file(directory: String, file_name: String, bytes: PackedByteArray) -> bool:
+## Writes bytes to <file_name>.tmp in the queue's folder, checks it, then
+## renames it over the real file. A failed write or check deletes the broken
+## temp file. A failed rename keeps it and marks the file stuck, because the
+## temp file is then the newest good copy (on Windows the real file may
+## already be gone). Safe on any thread; the caller makes sure only one
+## writer runs.
+static func _write_file(queue: WriteQueue, file_name: String, bytes: PackedByteArray) -> bool:
+	var directory: String = queue.directory
 	if directory.is_empty() or bytes.is_empty():
 		return false
 	if not DirAccess.dir_exists_absolute(directory):
@@ -396,12 +467,47 @@ static func _write_file(directory: String, file_name: String, bytes: PackedByteA
 	file.close()
 	if not stored or not _file_holds(temp_path, bytes):
 		_remove(temp_path)
+		queue.mutex.lock()
+		queue.stuck.erase(file_name)
+		queue.mutex.unlock()
 		return false
-	return DirAccess.rename_absolute(temp_path, main_path) == OK
+	var renamed: bool = DirAccess.rename_absolute(temp_path, main_path) == OK
+	queue.mutex.lock()
+	if renamed or not FileAccess.file_exists(temp_path):
+		queue.stuck.erase(file_name)
+	else:
+		queue.stuck[file_name] = bytes
+	queue.mutex.unlock()
+	return renamed
 
 
-## True when the file at path holds exactly bytes.
+## Tries again every rename that failed. A temp file that is gone, or no
+## longer holds exactly the bytes written, is no longer retried (and never
+## renamed, because Godot's rename on Windows deletes the target even when the
+## source is missing); the next load judges what is left.
+static func _retry_stuck(queue: WriteQueue) -> void:
+	queue.mutex.lock()
+	var names: Array = queue.stuck.keys()
+	queue.mutex.unlock()
+	for file_name: String in names:
+		queue.mutex.lock()
+		var bytes: PackedByteArray = queue.stuck.get(file_name, PackedByteArray())
+		queue.mutex.unlock()
+		var main_path: String = queue.directory.path_join(file_name)
+		var temp_path: String = main_path + TEMP_SUFFIX
+		var done: bool = true
+		if _file_holds(temp_path, bytes):
+			done = DirAccess.rename_absolute(temp_path, main_path) == OK or not FileAccess.file_exists(temp_path)
+		if done:
+			queue.mutex.lock()
+			queue.stuck.erase(file_name)
+			queue.mutex.unlock()
+
+
+## True when the file at path holds exactly bytes (and bytes is not empty).
 static func _file_holds(path: String, bytes: PackedByteArray) -> bool:
+	if bytes.is_empty() or not FileAccess.file_exists(path):
+		return false
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return false
@@ -410,12 +516,35 @@ static func _file_holds(path: String, bytes: PackedByteArray) -> bool:
 	return same
 
 
-## Finishes a rename that a kill interrupted. If it fails, the temp file stays
-## and the next load finds it again.
-static func _promote(temp_path: String, main_path: String) -> void:
-	DirAccess.rename_absolute(temp_path, main_path)
+## Finishes the rename of a temp file that load found newest. If it fails,
+## the temp file stays, wins the next load again, and the rename is tried
+## again before the next write and on flush.
+func _promote(file_name: String, bytes: PackedByteArray) -> void:
+	var main_path: String = _path(file_name)
+	var temp_path: String = main_path + TEMP_SUFFIX
+	var renamed: bool = DirAccess.rename_absolute(temp_path, main_path) == OK
+	_q.mutex.lock()
+	if renamed or not FileAccess.file_exists(temp_path):
+		_q.stuck.erase(file_name)
+	else:
+		_q.stuck[file_name] = bytes
+	_q.mutex.unlock()
 
 
 static func _remove(path: String) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
+
+
+## Removes the file at path. When Windows will not (another program holds it
+## open), empties it instead, so it can never load and the next load
+## discards it.
+static func _discard(path: String) -> void:
+	_remove(path)
+	if not FileAccess.file_exists(path):
+		return
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if file != null:
+		file.close()
+	else:
+		push_warning("SaveService: could not delete or empty %s" % path)

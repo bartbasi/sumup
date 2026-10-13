@@ -28,7 +28,7 @@ func _run_path() -> String:
 
 ## A valid run whose score marks which save it was.
 func _state(score: int) -> RunState:
-	return RunState.create(F.board_d(), score)
+	return F.run(F.board_d(), score)
 
 
 ## The run on disk, read with a separate service, so nothing waits for us.
@@ -106,7 +106,7 @@ func test_a_file_that_has_not_changed_is_not_written_again() -> void:
 
 
 func test_queue_refuses_a_run_that_would_not_load_back() -> void:
-	assert_false(_service.queue_run(RunState.create(F.board_d(), -1)), "negative score refused")
+	assert_false(_service.queue_run(F.run(F.board_d(), -1)), "negative score refused")
 	assert_false(_service.queue_run(null), "null refused")
 	_service.flush()
 	assert_false(FileAccess.file_exists(_run_path()), "nothing written")

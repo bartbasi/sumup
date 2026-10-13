@@ -165,6 +165,21 @@ func test_run_huge_and_non_finite_numbers() -> void:
 		var score: Dictionary = _control_data()
 		score["score"] = F.RAW
 		_assert_run_text_refused(F.raw_text(score, raw), "score as a bare number %s" % raw)
+		if raw != "1e-400":    # it parses as exactly 0.0, a valid count of 0
+			var used: Dictionary = _control_data()
+			used["free_used"] = F.RAW
+			_assert_run_text_refused(F.raw_text(used, raw), "free_used %s" % raw)
+		var best: Dictionary = _control_data()
+		best["best_at_start"] = F.RAW
+		_assert_run_text_refused(F.raw_text(best, raw), "best_at_start as a bare number %s" % raw)
+
+
+func test_run_bad_free_used_through_a_file() -> void:
+	# The control run earns no free booster (run highest 2048, 1 star).
+	for raw: String in ["1", "2", "-1", "0.5", "1e-300", "\"0\"", "true", "null", "[0]", "{}"]:
+		var data: Dictionary = _control_data()
+		data["free_used"] = F.RAW
+		_assert_run_text_refused(F.raw_text(data, raw), "free_used %s" % raw)
 
 
 func test_run_negative_and_float_exponents() -> void:
@@ -182,6 +197,9 @@ func test_run_very_long_digit_strings() -> void:
 		var data: Dictionary = _control_data()
 		data["score"] = digits
 		_assert_run_text_refused(F.to_text(data), "score of %d digits" % digits.length())
+		var best: Dictionary = _control_data()
+		best["best_at_start"] = digits
+		_assert_run_text_refused(F.to_text(best), "best_at_start of %d digits" % digits.length())
 
 
 # Run file: keys and types
@@ -190,15 +208,27 @@ func test_run_extra_and_missing_keys() -> void:
 	var extra: Dictionary = _control_data()
 	extra["phase"] = "targeting"
 	_assert_run_text_refused(F.to_text(extra), "extra key")
-	for key: String in ["format", "columns", "rows", "cells", "score", "run_highest", "snapshot"]:
+	for key: String in ["format", "columns", "rows", "cells", "score", "run_highest", "free_used", "best_at_start", "snapshot"]:
 		var data: Dictionary = _control_data()
 		data.erase(key)
 		_assert_run_text_refused(F.to_text(data), "missing %s" % key)
 
 
+func test_run_format_and_keys_that_do_not_match() -> void:
+	var old_keys_new_format: Dictionary = F.format_1_data(F.control_run())
+	old_keys_new_format["format"] = 2
+	_assert_run_text_refused(F.to_text(old_keys_new_format), "format 2 with the format 1 keys")
+	var new_keys_old_format: Dictionary = _control_data()
+	new_keys_old_format["format"] = 1
+	_assert_run_text_refused(F.to_text(new_keys_old_format), "format 1 with the format 2 keys")
+	var future: Dictionary = _control_data()
+	future["format"] = 3
+	_assert_run_text_refused(F.to_text(future), "format 3")
+
+
 func test_run_wrong_types_through_a_file() -> void:
-	var wrong: Dictionary = {"format": "1", "columns": [5], "rows": {}, "cells": "1,2,3", "score": 41286,
-		"run_highest": true, "snapshot": "none"}
+	var wrong: Dictionary = {"format": "2", "columns": [5], "rows": {}, "cells": "1,2,3", "score": 41286,
+		"run_highest": true, "free_used": "0", "best_at_start": 38500, "snapshot": "none"}
 	for key: String in wrong:
 		var data: Dictionary = _control_data()
 		data[key] = wrong[key]

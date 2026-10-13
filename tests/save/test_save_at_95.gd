@@ -72,6 +72,7 @@ func _assert_refused(text: String, label: String) -> void:
 	var rng: RunRandom = RunRandom.new()
 	rng.set_seed(95)
 	var fresh: RunState = RunRules.new_run(rng, records, _config)
+	fresh.best_at_start = records.best_score    # as GameSession.start_new_run does
 	assert_true(_service.save_run(fresh), "%s: the new run saves" % label)
 	var loaded: RunState = SaveService.new(_dir).load_run(_config)
 	assert_true(loaded != null and fresh.equals(loaded), "%s: and resumes" % label)

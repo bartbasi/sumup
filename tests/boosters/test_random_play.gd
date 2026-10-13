@@ -1,8 +1,8 @@
 extends "res://tests/base_test.gd"
 ## Random play. AT-84 on the rules model (D-30: the score never goes below
-## zero, refused calls change nothing, accepted boosters cost exactly their
-## price), and random intents on GameSession checking its flow rules hold at
-## every step.
+## zero, refused calls change nothing, accepted boosters take exactly their
+## charge: the cost, or 0 when they use a free booster, D-46), and random
+## intents on GameSession checking its flow rules hold at every step.
 
 const F := preload("res://tests/core/core_fixtures.gd")
 const BF := preload("res://tests/boosters/booster_fixtures.gd")
@@ -89,9 +89,72 @@ func _board_problem(state: RunState, records: Records) -> String:
 	return ""
 
 
+## One random action on the rules model, checked (AT-84): a chain when valid
+## and the roll allows it, else a booster with random targets whether or not
+## it is usable. Returns the problem found, or "" when every check holds.
+## tally counts "accepted", "refused" and "free" (accepted free boosters).
+## result receives the move's result as its only element.
+func _random_action(state: RunState, records: Records, rng: RunRandom, pick: RandomNumberGenerator, valid: bool, tally: Dictionary[String, int], result: Array[MoveResult]) -> String:
+	var before: RunState = state.copy()
+	var records_before: Records = records.copy()
+	var rng_before: int = rng.get_state()
+	var label: String = ""
+	var moved: MoveResult = null
+	var price: int = 0
+	var was_free: bool = false
+	if valid and pick.randi_range(0, 2) == 0:
+		label = "chain"
+		moved = RunRules.commit_chain(state, records, _random_chain(state.cells, pick), rng, config)
+	else:
+		var id: StringName = BoosterRules.ALL[pick.randi_range(0, BoosterRules.ALL.size() - 1)]
+		label = String(id)
+		price = BoosterRules.charge(id, state, config)
+		was_free = BoosterRules.is_free(state, config)
+		if was_free and price != 0:
+			return "%s would charge %d while free" % [label, price]
+		moved = BoosterRules.apply(id, state, records, _random_targets(id, pick), rng, config)
+	result.clear()
+	result.append(moved)
+	if state.score < 0:
+		return "score %d" % state.score
+	if CoreRules.free_held(state, config) < 0:
+		return "free boosters held %d" % CoreRules.free_held(state, config)
+	if not moved.accepted:
+		tally["refused"] += 1
+		if not state.equals(before) or rng.get_state() != rng_before:
+			return "a refused %s changed the run" % label
+		if records.best_score != records_before.best_score or records.best_tile != records_before.best_tile:
+			return "a refused %s changed the records" % label
+		if moved.cost != 0 or moved.free_used:
+			return "a refused %s reports a charge" % label
+		return ""
+	if label == "chain":
+		if state.score != before.score + moved.points:
+			return "a chain added %d, not its points %d" % [state.score - before.score, moved.points]
+		if state.free_used != before.free_used:
+			return "a chain used a free booster"
+	else:
+		tally["accepted"] += 1
+		var expected: int = before.score - price
+		if label == "undo":
+			expected = before.score - before.snapshot_points - price
+		if moved.cost != price or state.score != expected:
+			return "%s took the score from %d to %d at charge %d" % [label, before.score, state.score, price]
+		var used: int = 1 if was_free else 0
+		if moved.free_used != was_free or state.free_used != before.free_used + used:
+			return "%s used %d free boosters with %d held" % [label, state.free_used - before.free_used, CoreRules.free_held(before, config)]
+		tally["free"] += used
+	return _board_problem(state, records)
+
+
+func _new_tally() -> Dictionary[String, int]:
+	var tally: Dictionary[String, int] = {"accepted": 0, "refused": 0, "free": 0}
+	return tally
+
+
 func test_at_84_random_play_never_goes_below_zero() -> void:
-	var accepted_boosters: int = 0
-	var refused_calls: int = 0
+	var tally: Dictionary[String, int] = _new_tally()
+	var result: Array[MoveResult] = []
 	for seed_value: int in range(1, 21):
 		var rng: RunRandom = F.seeded(seed_value)
 		var pick: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -105,47 +168,47 @@ func test_at_84_random_play_never_goes_below_zero() -> void:
 			if not valid and BoosterRules.outcome(state, config) == BoosterRules.Outcome.END:
 				state = RunRules.new_run(rng, records, config)
 				valid = true
-			var before: RunState = state.copy()
-			var records_before: Records = records.copy()
-			var rng_before: int = rng.get_state()
-			var label: String = ""
-			var result: MoveResult = null
-			var price: int = 0
-			if valid and pick.randi_range(0, 2) == 0:
-				label = "chain"
-				result = RunRules.commit_chain(state, records, _random_chain(state.cells, pick), rng, config)
-			else:
-				var id: StringName = BoosterRules.ALL[pick.randi_range(0, BoosterRules.ALL.size() - 1)]
-				label = String(id)
-				price = BoosterRules.cost(id, state, config)
-				result = BoosterRules.apply(id, state, records, _random_targets(id, pick), rng, config)
-			var problem: String = ""
-			if state.score < 0:
-				problem = "score %d" % state.score
-			elif not result.accepted:
-				refused_calls += 1
-				if not state.equals(before) or rng.get_state() != rng_before:
-					problem = "a refused %s changed the run" % label
-				elif records.best_score != records_before.best_score or records.best_tile != records_before.best_tile:
-					problem = "a refused %s changed the records" % label
-			elif label == "chain":
-				if state.score != before.score + result.points:
-					problem = "a chain added %d, not its points %d" % [state.score - before.score, result.points]
-			else:
-				accepted_boosters += 1
-				var expected: int = before.score - price
-				if label == "undo":
-					expected = before.score - before.snapshot_points - price
-				if result.cost != price or state.score != expected:
-					problem = "%s took the score from %d to %d at price %d" % [label, before.score, state.score, price]
-			if problem.is_empty() and result.accepted:
-				problem = _board_problem(state, records)
+			var problem: String = _random_action(state, records, rng, pick, valid, tally, result)
 			if not problem.is_empty():
 				fail("seed %d, action %d: %s" % [seed_value, action, problem])
 				return
-			valid = result.has_valid_move
-	assert_true(accepted_boosters > 1000, "boosters were really used (%d)" % accepted_boosters)
-	assert_true(refused_calls > 1000, "refusals were really tried (%d)" % refused_calls)
+			valid = result[0].has_valid_move
+	assert_true(tally["accepted"] > 1000, "boosters were really used (%d)" % tally["accepted"])
+	assert_true(tally["refused"] > 1000, "refusals were really tried (%d)" % tally["refused"])
+	assert_true(tally["free"] > 0, "free boosters were really used (%d)" % tally["free"])
+
+
+## AT-84 again from runs that hold free boosters (D-46): tight boards, a
+## run highest tile from 8K to 2^40, a random count already used and a small
+## score, so free boosters, the offer and refusals all come up often.
+func test_random_play_with_free_boosters_held() -> void:
+	var tally: Dictionary[String, int] = _new_tally()
+	var result: Array[MoveResult] = []
+	for seed_value: int in range(1, 41):
+		var rng: RunRandom = F.seeded(seed_value)
+		var pick: RandomNumberGenerator = RandomNumberGenerator.new()
+		pick.seed = seed_value * 6271
+		var records: Records = Records.new()
+		var boards: Array[PackedInt64Array] = [F.board_d(), F.board_e(), BF.board_d1024(), F.board_p()]
+		var board: PackedInt64Array = boards[pick.randi_range(0, boards.size() - 1)]
+		var snapshot: PackedInt64Array = F.board_p() if pick.randi_range(0, 1) == 0 else PackedInt64Array()
+		var run_highest: int = 1 << pick.randi_range(13, 40)
+		var state: RunState = RunState.create(board, pick.randi_range(0, 3000), snapshot, pick.randi_range(4, 64), run_highest)
+		state.free_used = pick.randi_range(0, CoreRules.free_earned(run_highest, config))
+		records.update_from(state)
+		records.best_tile = run_highest
+		var valid: bool = CoreRules.has_valid_move(state.cells, config)
+		for action: int in 400:
+			if not valid and BoosterRules.outcome(state, config) == BoosterRules.Outcome.END:
+				break
+			var problem: String = _random_action(state, records, rng, pick, valid, tally, result)
+			if not problem.is_empty():
+				fail("seed %d, action %d: %s" % [seed_value, action, problem])
+				return
+			valid = result[0].has_valid_move
+	assert_true(tally["free"] > 100, "free boosters were really used (%d)" % tally["free"])
+	assert_true(tally["accepted"] > tally["free"], "paid boosters too (%d)" % (tally["accepted"] - tally["free"]))
+	assert_true(tally["refused"] > 100, "refusals were really tried (%d)" % tally["refused"])
 
 
 ## Random intents on GameSession, checking after each one that the flow state
@@ -196,6 +259,8 @@ func test_random_session_intents_keep_the_flow_rules() -> void:
 				label = "end_run"
 				session.end_run()
 			var problem: String = _session_problem(session, recorder, signal_count, before, result)
+			if problem.is_empty() and label != "restart" and session.state.best_at_start != before.best_at_start:
+				problem = "best_at_start changed from %d to %d without a new run or resume" % [before.best_at_start, session.state.best_at_start]
 			if not problem.is_empty():
 				fail("seed %d, intent %d (%s): %s" % [seed_value, intent, label, problem])
 				return
@@ -210,6 +275,7 @@ func test_random_session_intents_keep_the_flow_rules() -> void:
 ## Starts the next run: half the time a new run, half the time a resumed
 ## tight board (Board D or E with a few cells changed, a small score and
 ## sometimes a snapshot), so the offer and the end of a run come up often.
+## A third of the resumed runs reached 8K, so they hold one free booster.
 func _restart(session: GameSession, pick: RandomNumberGenerator, seed_value: int) -> void:
 	if pick.randi_range(0, 1) == 0:
 		session.start_new_run()
@@ -220,7 +286,8 @@ func _restart(session: GameSession, pick: RandomNumberGenerator, seed_value: int
 			var cell: Vector2i = Vector2i(pick.randi_range(0, config.columns - 1), pick.randi_range(0, config.rows - 1))
 			board[CoreRules.index_of(cell, config.columns)] = values[pick.randi_range(0, values.size() - 1)]
 		var snapshot: PackedInt64Array = F.board_p() if pick.randi_range(0, 1) == 0 else PackedInt64Array()
-		session.resume(RunState.create(board, pick.randi_range(0, 1500), snapshot, pick.randi_range(4, 64)))
+		var run_highest: int = 8192 if pick.randi_range(0, 2) == 0 else 0
+		session.resume(RunState.create(board, pick.randi_range(0, 1500), snapshot, pick.randi_range(4, 64), run_highest))
 	session.rng.set_seed(seed_value)
 
 
@@ -228,6 +295,13 @@ func _session_problem(session: GameSession, recorder: BF.Recorder, signal_count:
 	var phase: GameSession.Phase = session.phase()
 	if session.state.score < 0:
 		return "score %d" % session.state.score
+	if session.free_held() < 0:
+		return "free boosters held %d" % session.free_held()
+	if session.state.best_at_start < 0:
+		return "best_at_start %d, which SaveCodec refuses to write" % session.state.best_at_start
+	for status: BoosterStatus in session.booster_statuses():
+		if status.free != (session.free_held() > 0):
+			return "%s reads free %s with %d held" % [status.id, status.free, session.free_held()]
 	if session.is_run_in_progress() != (phase == GameSession.Phase.PLAYING or phase == GameSession.Phase.TARGETING or phase == GameSession.Phase.OFFER):
 		return "is_run_in_progress disagrees with the phase"
 	if session.is_offer_open() and phase != GameSession.Phase.OFFER and phase != GameSession.Phase.TARGETING:

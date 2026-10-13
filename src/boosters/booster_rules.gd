@@ -1,10 +1,12 @@
 class_name BoosterRules extends RefCounted
-## The five boosters (GDD section 13): costs, usability, targets, the no moves
-## offer's outcome and suggested rescue (12.2), and applying a booster to a
-## RunState. All static and pure: no files, nodes, sounds or timers.
+## The five boosters (GDD section 13): costs, free boosters (13.9), usability,
+## targets, the no moves offer's outcome and suggested rescue (12.2), and
+## applying a booster to a RunState. All static and pure: no files, nodes,
+## sounds or timers.
 ##
 ## A refused booster returns a MoveResult with a refusal and changes nothing:
-## not the state, not the records, not the random generator (D-30, TH11).
+## not the state, not the records, not the random generator, and no free
+## booster is used (D-30, D-46, TH11).
 
 const HAMMER: StringName = &"hammer"
 const SWAP: StringName = &"swap"
@@ -24,17 +26,41 @@ static func cost_basis(cells: PackedInt64Array, config: GameConfig) -> int:
 
 
 ## TH3. The booster's cost on the current board: B shifted by its cost_shift
-## (D-20). Returns 0 for an unknown id, and 0 for a cost that would pass
-## 2^63 minus 1, like CoreRules.merge_result does for a sum that would. Such a
-## booster is never affordable (docs/ARCHITECTURE.md section 3).
+## (D-20). It is the price whether or not a free booster is held (AT-56).
+## Returns 0 for an unknown id, and 0 for a cost that would pass 2^63 minus 1,
+## like CoreRules.merge_result does for a sum that would. Such a booster can
+## never be paid for (docs/ARCHITECTURE.md section 3), only used free.
 static func cost(id: StringName, state: RunState, config: GameConfig) -> int:
 	return maxi(_raw_cost(id, state.cells, config), 0)
 
 
-## TH3, D-28 for Undo. Usable when the score covers the cost. Undo also needs a
-## snapshot, and the score minus the snapshot's points must cover its cost.
+## TH3, D-46. True while at least one free booster is held. A bad state can
+## hold a negative count, so the test is above 0, never "not 0".
+static func is_free(state: RunState, config: GameConfig) -> bool:
+	return CoreRules.free_held(state, config) > 0
+
+
+## D-46. What using the booster would take from the score now: 0 while a free
+## booster is held, else its cost.
+static func charge(id: StringName, state: RunState, config: GameConfig) -> int:
+	if is_free(state, config):
+		return 0
+	return cost(id, state, config)
+
+
+## TH3, D-28 for Undo, measured against charge(). Checked in this order:
+## - Undo needs a snapshot (NO_SNAPSHOT).
+## - The score covers the charge (CANNOT_AFFORD). For Undo it is the score
+##   minus the snapshot's points, even while free (FB4). While a free booster
+##   is held every other booster is affordable, even one whose cost would not
+##   fit in 64 bits.
+## - The booster can act on this board (NO_TARGET, SEC-01): Swap and Shuffle
+##   need two tiles of different value, Double a tile it can double without
+##   passing 2^63 minus 1. Hammer and Undo can always act.
 static func usability(id: StringName, state: RunState, config: GameConfig) -> BoosterStatus.Usability:
-	var price: int = _raw_cost(id, state.cells, config)
+	if not ALL.has(id):
+		return BoosterStatus.Usability.CANNOT_AFFORD
+	var price: int = 0 if is_free(state, config) else _raw_cost(id, state.cells, config)
 	if id == UNDO:
 		if not state.has_snapshot():
 			return BoosterStatus.Usability.NO_SNAPSHOT
@@ -43,6 +69,10 @@ static func usability(id: StringName, state: RunState, config: GameConfig) -> Bo
 		return BoosterStatus.Usability.USABLE
 	if price < 0 or state.score < price:
 		return BoosterStatus.Usability.CANNOT_AFFORD
+	if (id == SWAP or id == SHUFFLE) and not _has_two_values(state.cells):
+		return BoosterStatus.Usability.NO_TARGET
+	if id == DOUBLE and not _has_double_target(state.cells):
+		return BoosterStatus.Usability.NO_TARGET
 	return BoosterStatus.Usability.USABLE
 
 
@@ -74,7 +104,8 @@ static func suggested_rescue(state: RunState, config: GameConfig) -> StringName:
 
 
 ## D-19, the move check: PLAY when the board has a valid move, else OFFER when
-## any booster is usable, else END.
+## any booster is usable, else END. It follows usability(), so while a free
+## booster is held the offer opens instead of the run ending (FB8).
 static func outcome(state: RunState, config: GameConfig) -> Outcome:
 	if CoreRules.has_valid_move(state.cells, config):
 		return Outcome.PLAY
@@ -87,11 +118,15 @@ static func outcome(state: RunState, config: GameConfig) -> Outcome:
 ## TH11. Applies a booster with its targets. Refuses (&"cannot_afford", &"no_snapshot", &"bad_target") and changes nothing when it may not run.
 ## Usability is checked first, then the targets: Hammer and Double need one
 ## tile, Swap two tiles of different value (D-24), Shuffle and Undo none. A
-## Double whose new value would pass 2^63 minus 1 is a bad target. The cost is
-## read from the board before the effect and charged with it (D-21). Hammer,
-## Swap, Shuffle and Double leave the Undo snapshot alone; Undo restores it and
-## clears it (13.7). Every accepted booster ends with records and this run's
-## highest tile (step 7 of D-09, D-41).
+## booster with nothing on the board to act on (NO_TARGET) and a Double on a
+## tile whose double would pass 2^63 minus 1 are bad targets.
+## The charge is read before the effect and taken with it (D-21). While a free
+## booster is held it is 0, and exactly one free booster is used (D-46).
+## Hammer, Swap, Shuffle and Double leave the Undo snapshot alone; Undo
+## restores it and clears it (13.7). Only that one use changes free_used, so
+## Undo never gives a free booster back, and no booster touches best_at_start.
+## Every accepted booster ends with records, this run's highest tile, stars
+## and free boosters earned (step 7 of D-09, D-41, D-45, D-46).
 static func apply(id: StringName, state: RunState, records: Records, targets: Array[Vector2i], rng: RunRandom, config: GameConfig) -> MoveResult:
 	var result: MoveResult = MoveResult.new()
 	result.kind = _kind_of(id)
@@ -105,7 +140,8 @@ static func apply(id: StringName, state: RunState, records: Records, targets: Ar
 		result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
 		return result
 
-	var price: int = cost(id, state, config)
+	var free: bool = is_free(state, config)
+	var price: int = charge(id, state, config)
 	match id:
 		HAMMER:
 			_hammer(state, targets[0], price, result, rng, config)
@@ -117,10 +153,13 @@ static func apply(id: StringName, state: RunState, records: Records, targets: Ar
 			_double(state, targets[0], price, result, rng, config)
 		UNDO:
 			_undo(state, price)
-	RunRules.update_records(state, records, result)
+	if free:
+		state.free_used += 1
+	RunRules.update_records(state, records, result, config)
 
 	result.accepted = true
 	result.cost = price
+	result.free_used = free
 	result.cells_after = state.cells.duplicate()
 	result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
 	return result
@@ -168,12 +207,15 @@ static func _shuffle(state: RunState, price: int, rng: RunRandom, config: GameCo
 
 
 ## The fallback of GDD 13.5. In reading order, P is the first cell whose value
-## appears again later and Q the first later cell with that value. Q's tile
-## swaps with the tile right of P, or below P when P is in the last column, so
-## P and its twin touch. A board with no repeated value is returned unchanged.
+## fits as a pair (2^61 or less, CoreRules.pair_fits) and appears again later,
+## and Q the first later cell with that value. Q's tile swaps with the tile
+## right of P, or below P when P is in the last column, so P and its twin
+## touch. A board with no such value is returned unchanged.
 static func _shuffle_fallback(cells: PackedInt64Array, config: GameConfig) -> PackedInt64Array:
 	var board: PackedInt64Array = cells.duplicate()
 	for p: int in board.size():
+		if not CoreRules.pair_fits(board[p]):
+			continue
 		for q: int in range(p + 1, board.size()):
 			if board[q] != board[p]:
 				continue
@@ -217,26 +259,45 @@ static func _undo(state: RunState, price: int) -> void:
 	state.snapshot_points = 0
 
 
-## The refusal for this booster call, or &"" when it may run.
+## The refusal for this booster call, or &"" when it may run. NO_TARGET is
+## refused as &"bad_target": nothing on the board is a target.
 static func _refusal(id: StringName, state: RunState, targets: Array[Vector2i], config: GameConfig) -> StringName:
 	if not ALL.has(id) or state.columns != config.columns or state.cells.size() != config.cell_count():
 		return &"bad_target"
-	var usable: BoosterStatus.Usability = usability(id, state, config)
-	if usable == BoosterStatus.Usability.NO_SNAPSHOT:
-		return &"no_snapshot"
-	if usable != BoosterStatus.Usability.USABLE:
-		return &"cannot_afford"
+	match usability(id, state, config):
+		BoosterStatus.Usability.NO_SNAPSHOT:
+			return &"no_snapshot"
+		BoosterStatus.Usability.CANNOT_AFFORD:
+			return &"cannot_afford"
+		BoosterStatus.Usability.NO_TARGET:
+			return &"bad_target"
 	if targets.size() != target_count(id):
 		return &"bad_target"
 	if id == HAMMER and state.value_at(targets[0]) <= 0:
 		return &"bad_target"
-	if id == DOUBLE:
-		var value: int = state.value_at(targets[0])
-		if value <= 0 or value > (_INT64_MAX >> 1):
-			return &"bad_target"
+	if id == DOUBLE and not CoreRules.pair_fits(state.value_at(targets[0])):
+		return &"bad_target"
 	if id == SWAP and not can_pick_second(state, targets[0], targets[1]):
 		return &"bad_target"
 	return &""
+
+
+## SEC-01. True when the board holds two tiles of different value, so Swap
+## has a legal pair (D-24) and Shuffle can change the board.
+static func _has_two_values(cells: PackedInt64Array) -> bool:
+	for value: int in cells:
+		if value > 0 and value != cells[0]:
+			return true
+	return false
+
+
+## SEC-01. True when the board holds a tile Double can double: one whose
+## double fits in 64 bits (CoreRules.pair_fits, 2^61 or less).
+static func _has_double_target(cells: PackedInt64Array) -> bool:
+	for value: int in cells:
+		if CoreRules.pair_fits(value):
+			return true
+	return false
 
 
 ## The cost, or -1 for an unknown id or a cost that would pass 2^63 minus 1.

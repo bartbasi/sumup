@@ -12,10 +12,23 @@ class_name SaveCodec extends RefCounted
 ## into objects or code. Every field is checked for type, exact keys and range.
 ## Numbers may arrive as float (from the JSON parser) or int (from code); both
 ## must be whole and in range.
+##
+## Run files are written as format 2. A format 1 run file, from builds before
+## D-46, still loads: it has exactly the format 1 keys, and loads with
+## free_used 0 and best_at_start -1 (unknown). Anything else is invalid.
+##
+## A state whose best_at_start is -1 is never written. run_to_data encodes it
+## as "-1", which data_to_run refuses, so SaveService refuses the save and the
+## last good file stays. In play this never happens: GameSession sets
+## best_at_start when a run starts, and on resume turns -1 into the loaded
+## Best Score (ARCHITECTURE.md section 5), so the next save writes that value.
 
-const FORMAT: int = 1
+const RUN_FORMAT: int = 2              # D-46 added free_used, QA6-03 best_at_start; format 1 run files still load
+const PROFILE_FORMAT: int = 1
 
-const _RUN_KEYS: Array[String] = ["format", "columns", "rows", "cells", "score", "run_highest", "snapshot"]
+const _RUN_FORMAT_1: int = 1
+const _RUN_KEYS: Array[String] = ["format", "columns", "rows", "cells", "score", "run_highest", "free_used", "best_at_start", "snapshot"]
+const _RUN_KEYS_FORMAT_1: Array[String] = ["format", "columns", "rows", "cells", "score", "run_highest", "snapshot"]
 const _SNAPSHOT_KEYS: Array[String] = ["cells", "points"]
 const _PROFILE_KEYS: Array[String] = ["format", "settings", "records"]
 const _SETTINGS_KEYS: Array[String] = ["sound_on", "skin"]
@@ -33,8 +46,9 @@ const _CHAR_Z: int = 122
 const _CHAR_UNDERSCORE: int = 95
 
 
-## The run in the save format. A state that breaks a rule (a value that is not
-## a power of two, a negative score) still encodes, but data_to_run refuses the
+## The run in the save format, always format 2. A state that breaks a rule (a
+## value that is not a power of two, a negative score, free_used above what
+## was earned, best_at_start -1) still encodes, but data_to_run refuses the
 ## result, and SaveService checks that before it writes.
 @warning_ignore("integer_division")
 static func run_to_data(state: RunState) -> Dictionary:
@@ -50,30 +64,43 @@ static func run_to_data(state: RunState) -> Dictionary:
 			"points": str(state.snapshot_points),
 		}
 	return {
-		"format": FORMAT,
+		"format": RUN_FORMAT,
 		"columns": state.columns,
 		"rows": rows,
 		"cells": _exponents_of(state.cells),
 		"score": str(state.score),
 		"run_highest": _exponent_of(state.run_highest),
+		"free_used": state.free_used,
+		"best_at_start": str(state.best_at_start),
 		"snapshot": snapshot,
 	}
 
 
 ## TH18. The run in data, or null when anything about it is invalid. Follows
-## GDD 15.1 exactly: format 1, the board size of config, every value a power of
-## two from 2 to 2^62, a score of 0 or more, a run highest tile at least the
-## highest value on the board and on the snapshot board, and a snapshot that is
-## null or a full board plus points of 4 or more.
+## GDD 15.1 exactly: format 2 with exactly its keys, or format 1 with exactly
+## the format 1 keys; the board size of config; every value a power of two
+## from 2 to 2^62; a score of 0 or more; a run highest tile at least the
+## highest value on the board and on the snapshot board; a snapshot that is
+## null or a full board plus points of 4 or more. Format 2 also needs
+## free_used, a whole number from 0 up to CoreRules.free_earned(run_highest),
+## and best_at_start, a digit string (0 or more, not checked against the
+## records). Format 1 loads with free_used 0 and best_at_start -1.
 static func data_to_run(data: Variant, config: GameConfig) -> RunState:
 	if config == null or config.columns < 1 or config.rows < 1:
 		return null
 	if typeof(data) != TYPE_DICTIONARY:
 		return null
 	var run: Dictionary = data
-	if not _has_exact_keys(run, _RUN_KEYS):
+	if not run.has("format"):
 		return null
-	if _read_whole(run["format"], FORMAT, FORMAT) < 0:
+	var format: int = _read_whole(run["format"], _RUN_FORMAT_1, RUN_FORMAT)
+	if format == RUN_FORMAT:
+		if not _has_exact_keys(run, _RUN_KEYS):
+			return null
+	elif format == _RUN_FORMAT_1:
+		if not _has_exact_keys(run, _RUN_KEYS_FORMAT_1):
+			return null
+	else:
 		return null
 	if _read_whole(run["columns"], config.columns, config.columns) < 0:
 		return null
@@ -106,7 +133,16 @@ static func data_to_run(data: Variant, config: GameConfig) -> RunState:
 			return null
 	if run_highest < CoreRules.highest(cells) or run_highest < CoreRules.highest(snapshot_cells):
 		return null
-	return RunState.create(cells, score, snapshot_cells, snapshot_points, run_highest, config.columns)
+	var free_used: int = 0
+	var best_at_start: int = -1
+	if format == RUN_FORMAT:
+		free_used = _read_whole(run["free_used"], 0, CoreRules.free_earned(run_highest, config))
+		if free_used < 0:
+			return null
+		best_at_start = _read_digits(run["best_at_start"])
+		if best_at_start < 0:
+			return null
+	return RunState.create(cells, score, snapshot_cells, snapshot_points, run_highest, config.columns, free_used, best_at_start)
 
 
 ## The profile in the save format. best_tile is 0 for no tile yet, else an
@@ -118,7 +154,7 @@ static func profile_to_data(settings: Settings, records: Records) -> Dictionary:
 	if source_records.best_tile != 0:
 		best_tile = _exponent_of(source_records.best_tile)
 	return {
-		"format": FORMAT,
+		"format": PROFILE_FORMAT,
 		"settings": {
 			"sound_on": source_settings.sound_on,
 			"skin": String(source_settings.skin_id),
@@ -133,12 +169,12 @@ static func profile_to_data(settings: Settings, records: Records) -> Dictionary:
 ## Applies every valid part of a profile and returns the problems found
 ## (empty when the profile is fully valid).
 ##
-## The data must be an object with format 1, or nothing is applied. After that
-## each of the four fields (settings.sound_on, settings.skin,
-## records.best_score, records.best_tile) is checked on its own: a valid one is
-## applied, a missing or invalid one leaves the value the object already holds
-## (the default for a fresh object). Keys outside the format are reported and
-## never read. Settings change through their setters, so their signals fire
+## The data must be an object with format 1 (PROFILE_FORMAT), or nothing is
+## applied. After that each of the four fields (settings.sound_on,
+## settings.skin, records.best_score, records.best_tile) is checked on its own:
+## a valid one is applied, a missing or invalid one leaves the value the
+## object already holds (the default for a fresh object). Keys outside the
+## format are reported and never read. Settings change through their setters, so their signals fire
 ## only for values that really change.
 static func data_to_profile(data: Variant, settings: Settings, records: Records) -> PackedStringArray:
 	var problems: PackedStringArray = PackedStringArray()
@@ -146,8 +182,8 @@ static func data_to_profile(data: Variant, settings: Settings, records: Records)
 		problems.append("profile is not an object")
 		return problems
 	var profile: Dictionary = data
-	if not profile.has("format") or _read_whole(profile["format"], FORMAT, FORMAT) < 0:
-		problems.append("profile format is not %d" % FORMAT)
+	if not profile.has("format") or _read_whole(profile["format"], PROFILE_FORMAT, PROFILE_FORMAT) < 0:
+		problems.append("profile format is not %d" % PROFILE_FORMAT)
 		return problems
 	_report_unknown_keys(profile, _PROFILE_KEYS, "profile", problems)
 	var settings_data: Dictionary = _read_part(profile, "settings", _SETTINGS_KEYS, problems)

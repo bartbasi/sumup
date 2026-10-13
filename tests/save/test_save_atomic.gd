@@ -6,7 +6,7 @@ extends "res://tests/base_test.gd"
 ## kill can leave any of these on disk: the old file; the old file plus a
 ## partial or complete temp file; only the complete temp file; the new file.
 ## These tests build each state by hand and check that loading always gives
-## the old save or the new one, never a broken or missing one.
+## the newest complete save (QA6-07), never a broken or missing one.
 
 const F := preload("res://tests/save/save_fixtures.gd")
 
@@ -106,7 +106,7 @@ func test_run_kill_at_every_step_leaves_the_old_or_the_new_save() -> void:
 	var steps: Array = [
 		["before the write", a, null, "old"],
 		["part way through writing the temp file", a, _half(b), "old"],
-		["temp file written, rename not started", a, b, "old"],
+		["temp file written, rename not started (QA6-07: the newest complete save wins)", a, b, "new"],
 		["Windows: old file deleted, temp not yet moved", null, b, "new"],
 		["after the rename", b, null, "new"],
 	]
@@ -131,7 +131,7 @@ func test_profile_kill_at_every_step_leaves_the_old_or_the_new_save() -> void:
 	var steps: Array = [
 		["before the write", a, null, 1000],
 		["part way through writing the temp file", a, _half(b), 1000],
-		["temp file written, rename not started", a, b, 1000],
+		["temp file written, rename not started (QA6-07: the newest complete save wins)", a, b, 2000],
 		["Windows: old file deleted, temp not yet moved", null, b, 2000],
 		["after the rename", b, null, 2000],
 	]
@@ -149,11 +149,21 @@ func test_profile_kill_at_every_step_leaves_the_old_or_the_new_save() -> void:
 
 # Recovery paths one by one
 
-func test_leftover_temp_next_to_a_good_run_is_removed() -> void:
+func test_complete_temp_next_to_a_good_run_wins() -> void:
+	# QA6-07. Every write rewrites the temp file before its rename, so a temp
+	# file that passes every check is newer than the real file.
 	F.write_text(_run_path(), _text_of(_old_run()))
 	F.write_text(_run_temp(), _text_of(_new_run()))
-	assert_true(_old_run().equals(_service.load_run(_config)), "the real file wins")
-	assert_false(FileAccess.file_exists(_run_temp()), "the leftover is removed")
+	assert_true(_new_run().equals(_service.load_run(_config)), "the newer temp file wins")
+	assert_false(FileAccess.file_exists(_run_temp()), "it is renamed into place")
+	assert_eq(F.read_text(_run_path()), _text_of(_new_run()), "and replaces the old file")
+
+
+func test_broken_temp_next_to_a_good_run_is_removed() -> void:
+	F.write_text(_run_path(), _text_of(_old_run()))
+	F.write_text(_run_temp(), _half(_text_of(_new_run())))
+	assert_true(_old_run().equals(_service.load_run(_config)), "the real file is used")
+	assert_false(FileAccess.file_exists(_run_temp()), "the broken temp file is removed")
 	assert_eq(F.read_text(_run_path()), _text_of(_old_run()), "the real file is unchanged")
 
 
@@ -212,11 +222,24 @@ func test_profile_temp_with_no_real_file_is_recovered() -> void:
 	assert_false(FileAccess.file_exists(_profile_temp()), "no temp file left")
 
 
-func test_profile_leftover_temp_next_to_a_good_file_is_removed() -> void:
+func test_profile_complete_temp_next_to_a_good_file_wins() -> void:
 	F.write_text(_profile_path(), _profile_text(1000))
 	F.write_text(_profile_temp(), _profile_text(2000))
-	assert_eq(_loaded_best_score(), 1000, "the real file wins")
-	assert_false(FileAccess.file_exists(_profile_temp()), "the leftover is removed")
+	assert_eq(_loaded_best_score(), 2000, "the newer temp file wins (QA6-07)")
+	assert_false(FileAccess.file_exists(_profile_temp()), "it is renamed into place")
+	assert_eq(F.read_text(_profile_path()), _profile_text(2000), "and replaces the old file")
+
+
+func test_profile_temp_with_a_bad_part_next_to_a_good_file_is_removed() -> void:
+	# A temp file is only ever written whole and valid, so one with a bad part
+	# is not a save of ours: it is deleted, and the real file is used.
+	F.write_text(_profile_path(), _profile_text(1000))
+	F.write_text(_profile_temp(), _profile_text(2000).replace("\"gumdrop\"", "\"NOPE\""))
+	assert_eq(_loaded_best_score(), 1000, "the real file is used")
+	assert_false(FileAccess.file_exists(_profile_temp()), "the temp file is removed")
+	F.write_text(_profile_temp(), _half(_profile_text(2000)))
+	assert_eq(_loaded_best_score(), 1000, "a broken temp file: the real file is used")
+	assert_false(FileAccess.file_exists(_profile_temp()), "and the temp file is removed")
 
 
 func test_profile_good_temp_next_to_a_broken_file_is_used() -> void:

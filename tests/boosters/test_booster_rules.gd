@@ -2,7 +2,8 @@ extends "res://tests/base_test.gd"
 ## BoosterRules queries: costs (D-20, D-21), usability (13.1, D-28, D-30),
 ## targets (D-24), the suggested rescue (D-42), the move check outcome (D-19),
 ## refusals that change nothing (TH11) and the 64 bit guards
-## (docs/ARCHITECTURE.md section 3).
+## (docs/ARCHITECTURE.md section 3). Setups hold no free booster unless they
+## say so (GDD section 19); free boosters are in test_free_boosters.gd.
 
 const F := preload("res://tests/core/core_fixtures.gd")
 const BF := preload("res://tests/boosters/booster_fixtures.gd")
@@ -134,8 +135,11 @@ func test_price_changes_during_a_run() -> void:
 
 # Usability (13.1, D-28, D-30)
 
+## Board P since 2026-10-13 (QA Q1): it has a valid move, so the bar can be
+## tapped at every score. The costs are the same as on Board D.
 func test_at_57_unaffordable_boosters_are_disabled() -> void:
-	var state: RunState = F.state(F.board_d(), 127)
+	var state: RunState = F.state(F.board_p(), 127)
+	assert_eq(BoosterRules.outcome(state, config), BoosterRules.Outcome.PLAY, "Board P has a valid move")
 	assert_eq(_usabilities(state), [CANNOT_AFFORD, CANNOT_AFFORD, CANNOT_AFFORD, CANNOT_AFFORD, NO_SNAPSHOT] as Array[BoosterStatus.Usability], "at 127 all five are disabled")
 	state.score = 128
 	assert_eq(_usabilities(state), [USABLE, USABLE, USABLE, CANNOT_AFFORD, NO_SNAPSHOT] as Array[BoosterStatus.Usability], "at 128 Hammer, Swap and Shuffle")
@@ -302,7 +306,7 @@ func test_can_pick_second() -> void:
 # 64 bit guards (docs/ARCHITECTURE.md section 3)
 
 func test_a_cost_past_the_64_bit_limit_is_not_affordable() -> void:
-	var state: RunState = F.state(F.changed(F.board_d(), {Vector2i(2, 0): 1 << 62}), INT64_MAX)
+	var state: RunState = BF.none_held(F.state(F.changed(F.board_d(), {Vector2i(2, 0): 1 << 62}), INT64_MAX))
 	var before: RunState = state.copy()
 	assert_eq(BoosterRules.cost(BoosterRules.HAMMER, state, config), 1 << 62, "Hammer still fits")
 	assert_eq(BoosterRules.cost(BoosterRules.UNDO, state, config), 1 << 61, "Undo still fits")
@@ -314,7 +318,7 @@ func test_a_cost_past_the_64_bit_limit_is_not_affordable() -> void:
 	assert_true(state.equals(before), "nothing changed")
 
 	config.cost_shift = {&"hammer": 2, &"swap": 63, &"shuffle": 0, &"double": 1, &"undo": -1}
-	var high: RunState = F.state(F.changed(F.board_d(), {Vector2i(2, 0): 1 << 61}), INT64_MAX)
+	var high: RunState = BF.none_held(F.state(F.changed(F.board_d(), {Vector2i(2, 0): 1 << 61}), INT64_MAX), config)
 	assert_eq(BoosterRules.usability(BoosterRules.HAMMER, high, config), CANNOT_AFFORD, "4B = 2^63 does not fit")
 	assert_eq(BoosterRules.usability(BoosterRules.SWAP, high, config), CANNOT_AFFORD, "a shift of 63 never fits")
 	assert_eq(BoosterRules.usability(BoosterRules.DOUBLE, high, config), USABLE, "2B = 2^62 fits")
@@ -322,7 +326,7 @@ func test_a_cost_past_the_64_bit_limit_is_not_affordable() -> void:
 
 func test_a_double_past_the_64_bit_limit_is_a_bad_target() -> void:
 	config.cost_shift = {&"hammer": 0, &"swap": 0, &"shuffle": 0, &"double": 0, &"undo": -1}
-	var state: RunState = F.state(F.changed(F.board_d(), {Vector2i(2, 0): 1 << 62}), 1 << 62)
+	var state: RunState = BF.none_held(F.state(F.changed(F.board_d(), {Vector2i(2, 0): 1 << 62}), 1 << 62), config)
 	var before: RunState = state.copy()
 	var records: Records = F.records(0, 1 << 62)
 	var rng: RunRandom = F.seeded(63)

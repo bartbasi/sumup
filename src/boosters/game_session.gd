@@ -13,7 +13,7 @@ enum Phase { NONE, PLAYING, TARGETING, OFFER, ENDED }
 
 signal run_started(result: MoveResult)                  # a new run's board exists (kind NEW_RUN)
 signal move_resolved(result: MoveResult)                # a chain or booster was applied; the view animates it
-signal status_changed()                                 # score, records, costs, usability or phase changed: re-read
+signal status_changed()                                 # score, records, costs, usability, stars, free boosters or phase changed: re-read
 signal targeting_changed(booster_id: StringName, swap_first: Vector2i)   # &"" when targeting ends
 signal offer_changed(is_open: bool, suggested: StringName)
 signal run_ended(summary: RunSummary)
@@ -32,11 +32,12 @@ var _dragging: bool = false
 var _offer_open: bool = false
 var _targeting: StringName = &""
 var _swap_first: Vector2i = _NO_CELL
-var _best_score_at_start: int = 0
 
 
 ## Missing services are created here. Until a run starts, state is an empty
-## board with score 0, so every query is safe.
+## board with score 0, so every query is safe. Like every state the session
+## holds, it never has best_at_start -1, which SaveCodec refuses to write
+## (docs/ARCHITECTURE.md section 10).
 @warning_ignore("shadowed_variable")
 func _init(config: GameConfig = null, rng: RunRandom = null, records: Records = null) -> void:
 	self.config = config if config != null else GameConfig.new()
@@ -44,16 +45,21 @@ func _init(config: GameConfig = null, rng: RunRandom = null, records: Records = 
 	self.records = records if records != null else Records.new()
 	state = RunState.new()
 	state.columns = self.config.columns
+	state.best_at_start = self.records.best_score
 
 
 ## D-14 with a fresh random seed. Emits run_started (spawn_cells holds all 40
 ## cells), status_changed and save_requested, and waits for move_shown().
+## The run keeps the Best Score from before it began (QA6-03, GDD 12.3), so
+## the New best badge survives a restart. The new run has no stars and no
+## free boosters (D-45, D-46).
 func start_new_run() -> void:
 	_leave_flow(Phase.PLAYING)
 	rng.use_random_seed()
-	_best_score_at_start = records.best_score
+	var best_score_before: int = records.best_score
 	var best_tile_before: int = records.best_tile
 	state = RunRules.new_run(rng, records, config)
+	state.best_at_start = best_score_before
 	var result: MoveResult = MoveResult.new()
 	result.kind = MoveResult.Kind.NEW_RUN
 	result.cells_before = state.cells.duplicate()
@@ -71,19 +77,24 @@ func start_new_run() -> void:
 ## from the board, and emits run_started with no spawn cells, then
 ## status_changed and save_requested. move_shown() then runs the move check,
 ## which opens the offer again if the board has no valid move (GO7).
+## The saved Best Score from when the run began is kept. A run saved without
+## one (-1) takes the Best Score loaded with it instead, the old behaviour
+## (GDD 15.1). Loading earns no star (D-45): the saved run highest tile
+## already counts them.
 func resume(saved: RunState) -> void:
 	if saved == null:
 		push_error("GameSession.resume: no saved run")
 		return
 	_leave_flow(Phase.PLAYING)
 	rng.use_random_seed()
-	_best_score_at_start = records.best_score
 	state = saved.copy()
+	if state.best_at_start < 0:
+		state.best_at_start = records.best_score
 	var result: MoveResult = MoveResult.new()
 	result.kind = MoveResult.Kind.NEW_RUN
 	result.cells_before = state.cells.duplicate()
 	result.cells_after = state.cells.duplicate()
-	RunRules.update_records(state, records, result)
+	RunRules.update_records(state, records, result, config)
 	_begin(result)
 
 
@@ -275,9 +286,11 @@ func move_shown() -> void:
 
 
 ## Every booster in bar order, fresh every call. The suggested rescue (D-42)
-## is marked only while the offer is open.
+## is marked only while the offer is open. While a free booster is held every
+## status is free, usable or not, and cost still holds the price (D-46).
 func booster_statuses() -> Array[BoosterStatus]:
 	var suggested: StringName = BoosterRules.suggested_rescue(state, config) if _offer_open else &""
+	var free: bool = BoosterRules.is_free(state, config)
 	var statuses: Array[BoosterStatus] = []
 	for id: StringName in BoosterRules.ALL:
 		var status: BoosterStatus = BoosterStatus.new()
@@ -287,6 +300,7 @@ func booster_statuses() -> Array[BoosterStatus]:
 		status.usable = status.reason == BoosterStatus.Usability.USABLE
 		status.active = _phase == Phase.TARGETING and _targeting == id
 		status.suggested = suggested != &"" and id == suggested
+		status.free = free
 		statuses.append(status)
 	return statuses
 
@@ -299,6 +313,18 @@ func targeting_booster() -> StringName:
 ## Swap's selected first tile, or (-1, -1).
 func swap_first() -> Vector2i:
 	return _swap_first
+
+
+## D-45. This run's stars, from its run highest tile. 0 before any run, whose
+## state is an empty board. status_changed tells the HUD when to read it again.
+func stars() -> int:
+	return CoreRules.stars(state.run_highest, config)
+
+
+## D-46. This run's free boosters held: earned minus used. 0 before any run.
+## Never below 0 for a run the save code accepts (GDD 15.1).
+func free_held() -> int:
+	return CoreRules.free_held(state, config)
 
 
 ## Booster and tile taps count only in a run, with no drag open and no move
@@ -361,7 +387,9 @@ func _leave_flow(next_phase: Phase) -> void:
 
 
 ## The run ends (12.3). Closes targeting and the offer, then emits
-## status_changed and run_ended. Never save_requested.
+## status_changed and run_ended. Never save_requested. The New best badge
+## shows when the Best Score now is above the Best Score when this run began;
+## equalling the old record is not enough.
 func _finish(no_moves_left: bool) -> void:
 	_leave_flow(Phase.ENDED)
 	status_changed.emit()
@@ -370,6 +398,7 @@ func _finish(no_moves_left: bool) -> void:
 	summary.best_score = records.best_score
 	summary.best_tile = records.best_tile
 	summary.run_highest = state.run_highest
-	summary.new_best_score = records.best_score > _best_score_at_start
+	summary.stars = stars()
+	summary.new_best_score = records.best_score > state.best_at_start
 	summary.no_moves_left = no_moves_left
 	run_ended.emit(summary)

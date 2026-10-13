@@ -154,7 +154,7 @@ func test_resume_emits_run_started_without_spawns_then_the_move_check() -> void:
 
 
 func test_resume_copies_the_saved_state_and_updates_records() -> void:
-	var saved: RunState = RunState.create(BF.board_d1024(), 7000, BF.snapshot_board(), 40, 2048)
+	var saved: RunState = RunState.create(BF.board_d1024(), 7000, BF.snapshot_board(), 40, 2048, 5, 0, 50)
 	var records: Records = F.records(100, 16)
 	var session: GameSession = GameSession.new(null, null, records)
 	session.resume(saved)

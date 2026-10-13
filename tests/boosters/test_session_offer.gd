@@ -264,7 +264,7 @@ func test_at_73_shuffle_with_no_equal_pair_opens_the_offer_again() -> void:
 	var board: PackedInt64Array = PackedInt64Array()
 	for power: int in range(1, 41):
 		board.append(1 << power)
-	var session: GameSession = _session(F.state(board, 1 << 41), 73)
+	var session: GameSession = _session(BF.none_held(F.state(board, 1 << 41)), 73)
 	assert_eq(session.phase(), GameSession.Phase.OFFER, "no move: the offer is open")
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
 	assert_eq(session.state.score, 1 << 40, "score 2^40")

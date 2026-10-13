@@ -46,7 +46,7 @@ func test_save_and_load_run() -> void:
 
 func test_round_trip_values_up_to_2_62() -> void:
 	var board: PackedInt64Array = F.board_huge()
-	var state: RunState = RunState.create(board, 9223372036854775807, board, 9223372036854775807, 1 << 62)
+	var state: RunState = F.run(board, 9223372036854775807, board, 9223372036854775807, 1 << 62, 17, 9223372036854775807)
 	assert_true(_service.save_run(state), "saved")
 	var loaded: RunState = _reopened().load_run(_config)
 	assert_true(loaded != null and state.equals(loaded), "every 64 bit value exact through the file")
@@ -57,8 +57,10 @@ func test_run_file_is_plain_json_in_the_documented_format() -> void:
 	assert_eq(DirAccess.get_files_at(_dir), PackedStringArray(["run.json"]), "only run.json, in the folder given")
 	var data: Variant = JSON.parse_string(F.read_text(_run_path()))
 	assert_eq(typeof(data), TYPE_DICTIONARY, "a JSON object")
-	assert_eq((data as Dictionary).keys(), ["format", "columns", "rows", "cells", "score", "run_highest", "snapshot"], "exact keys")
+	assert_eq((data as Dictionary).keys(), ["format", "columns", "rows", "cells", "score", "run_highest", "free_used", "best_at_start", "snapshot"], "exact keys")
+	assert_eq((data as Dictionary)["format"], 2, "format 2")
 	assert_eq(typeof((data as Dictionary)["score"]), TYPE_STRING, "score is a digit string")
+	assert_eq(typeof((data as Dictionary)["best_at_start"]), TYPE_STRING, "best_at_start is a digit string")
 
 
 func test_load_run_with_no_file_is_null() -> void:
@@ -91,19 +93,23 @@ func test_save_run_refuses_invalid_states_and_keeps_the_last_save() -> void:
 	var short_board: PackedInt64Array = board.duplicate()
 	short_board.resize(39)
 	var bad: Dictionary = {
-		"negative score": RunState.create(board, -1),
-		"a value that is not a power of two": RunState.create(F.with_cell(board, Vector2i(1, 1), 12), 0),
-		"a value of 1": RunState.create(F.with_cell(board, Vector2i(1, 1), 1), 0),
-		"an empty cell": RunState.create(F.with_cell(board, Vector2i(1, 1), 0), 0),
-		"a negative value": RunState.create(F.with_cell(board, Vector2i(1, 1), -2), 0),
-		"run highest below the board": RunState.create(board, 0, PackedInt64Array(), 0, 8),
-		"39 cells": RunState.create(short_board, 0),
-		"no cells": RunState.create(PackedInt64Array(), 0),
-		"zero columns": RunState.create(board, 0, PackedInt64Array(), 0, 0, 0),
-		"negative columns": RunState.create(board, 0, PackedInt64Array(), 0, 0, -5),
-		"snapshot points 2": RunState.create(board, 10, board, 2),
-		"a short snapshot": RunState.create(board, 10, short_board, 40),
-		"negative snapshot points": RunState.create(board, 10, board, -40),
+		"negative score": F.run(board, -1),
+		"a value that is not a power of two": F.run(F.with_cell(board, Vector2i(1, 1), 12), 0),
+		"a value of 1": F.run(F.with_cell(board, Vector2i(1, 1), 1), 0),
+		"an empty cell": F.run(F.with_cell(board, Vector2i(1, 1), 0), 0),
+		"a negative value": F.run(F.with_cell(board, Vector2i(1, 1), -2), 0),
+		"run highest below the board": F.run(board, 0, PackedInt64Array(), 0, 8),
+		"39 cells": F.run(short_board, 0),
+		"no cells": F.run(PackedInt64Array(), 0),
+		"zero columns": RunState.create(board, 0, PackedInt64Array(), 0, 0, 0, 0, 0),
+		"negative columns": RunState.create(board, 0, PackedInt64Array(), 0, 0, -5, 0, 0),
+		"snapshot points 2": F.run(board, 10, board, 2),
+		"a short snapshot": F.run(board, 10, short_board, 40),
+		"negative snapshot points": F.run(board, 10, board, -40),
+		"a free booster used with none earned": F.run(board, 10, PackedInt64Array(), 0, 0, 1),
+		"negative free boosters used": F.run(board, 10, PackedInt64Array(), 0, 0, -1),
+		"an unknown starting Best Score": RunState.create(board, 10),
+		"a negative starting Best Score": F.run(board, 10, PackedInt64Array(), 0, 0, 0, -5),
 	}
 	for label: String in bad:
 		assert_false(_service.save_run(bad[label]), "refused: %s" % label)
@@ -192,7 +198,7 @@ func test_at_55_offer_board_survives_a_restart() -> void:
 	# Board D1024 has no valid move, so GameSession.resume opens the offer
 	# again once it has this exact board and score back.
 	var snapshot: PackedInt64Array = F.with_cell(F.board_d(), Vector2i(1, 7), 8)    # has a valid move
-	var state: RunState = RunState.create(F.with_cell(F.board_d(), Vector2i(2, 0), 1024), 5000, snapshot, 40)
+	var state: RunState = F.run(F.with_cell(F.board_d(), Vector2i(2, 0), 1024), 5000, snapshot, 40)
 	assert_false(CoreRules.has_valid_move(state.cells, _config), "no valid move before closing")
 	_service.save_run(state)
 	var loaded: RunState = _reopened().load_run(_config)
@@ -206,7 +212,7 @@ func test_at_65_and_at_93_only_the_run_itself_is_saved() -> void:
 	var state: RunState = F.plain_run()
 	_service.save_run(state)
 	var data: Dictionary = JSON.parse_string(F.read_text(_run_path()))
-	assert_eq(data.size(), 7, "seven fields, none for targeting or a drag")
+	assert_eq(data.size(), 9, "nine fields, none for targeting or a drag")
 	var loaded: RunState = _reopened().load_run(_config)
 	assert_true(state.equals(loaded), "board and score as before")
 
@@ -214,7 +220,7 @@ func test_at_65_and_at_93_only_the_run_itself_is_saved() -> void:
 func test_at_83_undo_snapshot_survives_a_restart() -> void:
 	# AT-76 right after its chain: the 512 is on the snapshot board, so the
 	# run highest tile is at least 512.
-	var state: RunState = RunState.create(F.board_d(), 1032, F.with_cell(F.board_d(), Vector2i(2, 0), 512), 32, 512)
+	var state: RunState = F.run(F.board_d(), 1032, F.with_cell(F.board_d(), Vector2i(2, 0), 512), 32, 512)
 	assert_true(_service.save_run(state), "saved")
 	var loaded: RunState = _reopened().load_run(_config)
 	assert_true(loaded != null and loaded.has_snapshot(), "Undo still has its snapshot")
@@ -250,7 +256,7 @@ func test_at_92_a_chain_is_saved_as_soon_as_it_resolves() -> void:
 	# The App saves on save_requested, which GameSession emits before any
 	# animation. Here the save follows the commit directly, and a restart
 	# finds the chain's result and points.
-	var state: RunState = RunState.create(F.with_cell(F.board_d(), Vector2i(0, 0), 8), 1000)
+	var state: RunState = F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 8), 1000)
 	var records: Records = Records.new()
 	var rng: RunRandom = RunRandom.new()
 	rng.set_seed(7)
