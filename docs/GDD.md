@@ -1549,7 +1549,7 @@ Expected:
 - The rules model reports 20 cleared tiles: twelve 2s and eight 4s.
 - 23 new tiles, each 8, 16, 32 or 64. No tile below 8 is left on the board.
 
-**AT-101. A Double clears small tiles and rescues (example CL2).** Type: Both. Setup: Board E with (0,3) = 2 and (2,0) = 1024. Score 5,000. Scripted spawn 8. The no moves offer is open. Action: Double on (2,0). Expected:
+**AT-101. A Double clears small tiles and rescues (example CL2).** Type: Both. Setup: Board E with (0,3) = 2 and (2,0) = 1024. Score 5,000. Scripted spawn 8. The no moves offer is open. In the App the spawn is random, so the new tile on (0,0) may not be 8. Everything else below still holds. Action: Double on (2,0). Expected:
 - Score 2,952. (2,0) = 2048, and the 2 on (0,3) was cleared.
 - (0,0) = 8, and (0,3) and (0,4) are both 4.
 - The board has a valid move and the offer closes.
@@ -1630,7 +1630,7 @@ Play setups that need stars or free boosters can use a run file written by hand 
 
 **AT-119. Two stars in one move (example SC3).** Type: Unit. Setup: as AT-100. Action: commit (0,7), (1,7), (2,7), (3,7). Expected: everything in AT-100, plus: stars 0 before and 2 after. The move result reports 2 stars earned. The notice values (TH12) are 2 and 4.
 
-**AT-120. Hammer, then a chain back to the same level, earns no star (examples SC4 and SC5).** Type: Both. Setup: as AT-38 (run highest tile 2048, so 1 star). Action: as AT-38. Expected: everything in AT-38, plus:
+**AT-120. Hammer, then a chain back to the same level, earns no star (examples SC4 and SC5).** Type: Both. Setup: as AT-38 (run highest tile 2048, so 1 star). In the App the spawn is random, so the new tile on (2,0) after the Hammer may not be a 2. If it is not, place a 2 on the board after the Hammer, for example on (0,3), so the chain has a 2 to clear. Action: as AT-38. Expected: everything in AT-38, plus:
 - After the Hammer: 1 star, 0 earned. No notice.
 - After the chain: 1 star, 0 earned. The move result still reports the 2 on (2,0) as cleared, and the notice values are 2.
 - Play: the clear notice shows "No more 2s" with no star. The HUD star count stays at 1.
@@ -1642,7 +1642,7 @@ Play setups that need stars or free boosters can use a run file written by hand 
 
 **AT-122. A Double that raises the floor earns a star (example SC8).** Type: Unit. Setup: as AT-101. Action: Double on (2,0). Expected: everything in AT-101, plus: stars 0 before and 1 after, and the move result reports 1 star earned.
 
-**AT-123. A floor rise that removes no tile still earns its star (example SC7).** Type: Both. Setup: Board E with (4,6) = 1024 and (4,7) = 1024. Score 10,000. Scripted spawn 4. Action: commit (4,6), (4,7). Expected:
+**AT-123. A floor rise that removes no tile still earns its star (example SC7).** Type: Both. Setup: Board E with (4,6) = 1024 and (4,7) = 1024. Score 10,000. Scripted spawn 4. In the App the spawn is random, so the new tile on (4,0) may not be 4. Then the board may have no valid move and the no moves offer may open. The Play check is only the clear notice. Action: commit (4,6), (4,7). Expected:
 - Score 12,048. (4,7) = 2048. (4,0) = 4, so (4,0) and (4,1) are both 4 and the board has a valid move.
 - The window floor rose from 2 to 4. The move result reports no cleared tiles, 1 star earned and notice values 2.
 - Stars 1.
