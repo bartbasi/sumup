@@ -25,7 +25,7 @@ The additions look like the mockups at production quality in all three skins. Th
 
 ## 1. tile-board-artist
 
-Evidence: `C:\Users\BARTBA~1\AppData\Local\Temp\sumup_qa602\shots\` and `...\howto_new\`.
+Evidence: `%TEMP%\sumup_qa602\shots\` and `...\howto_new\`.
 
 ### 1.1 QA6-02: Gumdrop's rim and shine as one triangle array each
 
