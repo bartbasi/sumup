@@ -10,8 +10,8 @@ class_name SaveService extends RefCounted
 ## Godot's JSON class parses the text into plain values and SaveCodec checks
 ## every field. Nothing here can turn file data into an object or code.
 ##
-## Writing. The whole file goes to <name>.tmp, is closed, read back and
-## compared byte for byte, and only then renamed over the real file. On
+## Writing. The whole file goes to <name>.tmp, is flushed, closed, read back
+## and compared byte for byte, and only then renamed over the real file. On
 ## Windows, Godot's rename deletes the old file before it moves the new one
 ## in, and fails while another program holds the old file open; with the
 ## temp file held open, it deletes the old file and then fails. On Android,
@@ -26,7 +26,18 @@ class_name SaveService extends RefCounted
 ## the bytes that were written. So a kill or a held file at any moment leaves
 ## the newest complete save, never an older one.
 ##
-## Deleting. delete_run removes the temp file first, then the real one. A file
+## The last good copy (SEC-02). Godot has no call that forces a file to
+## storage, so after a power cut or OS crash a file renamed moments earlier can
+## come back empty or cut short. So before a save replaces <name>, the current
+## <name> becomes <name>.bak, but only when it holds exactly the bytes of a
+## save that passed every check (one this service wrote or loaded). It is a
+## rename, so the .bak keeps data written a save ago, which has very likely
+## reached storage. Loading uses the .bak only when neither a valid temp file
+## nor a valid <name> exists, and checks it exactly as strictly. A run from
+## the .bak is one save behind.
+##
+## Deleting. delete_run removes the temp file first, then the .bak, then the
+## real one, so a kill between steps leaves at most the newest file. A file
 ## Windows will not delete (held open by another program) is emptied instead,
 ## so it can never load, and the next load discards it. So a deleted run never
 ## comes back.
@@ -49,6 +60,7 @@ class_name SaveService extends RefCounted
 const RUN_FILE: String = "run.json"
 const PROFILE_FILE: String = "profile.json"
 const TEMP_SUFFIX: String = ".tmp"
+const BACKUP_SUFFIX: String = ".bak"
 const MAX_BYTES: int = 65536
 
 const _MAX_NESTING: int = 16    # our files nest 3 deep; a wrong typed field may add a little
@@ -88,6 +100,10 @@ class WriteQueue extends RefCounted:
 	## Files whose rename failed, by file name, with the bytes their temp file
 	## holds. The rename is tried again before the next write and on flush.
 	var stuck: Dictionary[String, PackedByteArray] = {}
+	## SEC-02. Bytes that passed every check and that the real file was last
+	## known to hold, by file name: set by a rename into place and by a load
+	## that found the real file valid. Only such a file becomes the .bak.
+	var good: Dictionary[String, PackedByteArray] = {}
 	## True while a writer is draining the queue.
 	var writing: bool = false
 
@@ -175,9 +191,10 @@ func set_hold(on: bool) -> void:
 
 ## The saved run, or null when there is none or it is invalid. A complete,
 ## valid temp file is the newest save and wins: it is renamed into place and
-## used. A temp or real file whose content is invalid is discarded (deleted).
-## A file that exists but cannot be opened is left alone, because the cause
-## may not last.
+## used. Next comes the real file, then the .bak (SEC-02), each checked the
+## same way. A temp, real or .bak file whose content is invalid is discarded
+## (deleted). A file that exists but cannot be opened is left alone, because
+## the cause may not last.
 func load_run(config: GameConfig) -> RunState:
 	if _directory.is_empty():
 		return null
@@ -196,16 +213,27 @@ func load_run(config: GameConfig) -> RunState:
 	if main.status == _Status.PARSED:
 		var state: RunState = SaveCodec.data_to_run(main.data, config)
 		if state != null:
+			_set_good(RUN_FILE, main.bytes)
 			return state
 	if main.status == _Status.PARSED or main.status == _Status.BROKEN:
 		_remove(main_path)
+	var backup_path: String = main_path + BACKUP_SUFFIX
+	var backup: FileRead = _read_json(backup_path)
+	if backup.status == _Status.PARSED:
+		var older: RunState = SaveCodec.data_to_run(backup.data, config)
+		if older != null:
+			push_warning("SaveService: %s was damaged or missing; using the last good copy" % RUN_FILE)
+			return older
+	if backup.status == _Status.PARSED or backup.status == _Status.BROKEN:
+		_remove(backup_path)
 	return null
 
 
 ## Deletes the saved run, after any queued write, so a queued run can never
 ## land after the delete. A failed rename waiting to be tried again is
-## dropped. The temp file goes first, so a kill between the two steps can
-## never leave a lone temp file that would bring an ended run back.
+## dropped. The temp file goes first and the real file last, so a kill
+## between the steps can never leave a lone temp or .bak file that would bring
+## an ended run back.
 func delete_run() -> void:
 	if _directory.is_empty():
 		return
@@ -213,20 +241,22 @@ func delete_run() -> void:
 	_q.mutex.lock()
 	_q.written.erase(RUN_FILE)
 	_q.stuck.erase(RUN_FILE)
+	_q.good.erase(RUN_FILE)
 	_q.mutex.unlock()
 	var main_path: String = _path(RUN_FILE)
 	_discard(main_path + TEMP_SUFFIX)
+	_discard(main_path + BACKUP_SUFFIX)
 	_discard(main_path)
 
 
-## True when a run file is on disk, including a temp file that load_run could
-## recover. load_run decides whether it is valid.
+## True when a run file is on disk, including a temp or .bak file that
+## load_run could recover. load_run decides whether it is valid.
 func has_run() -> bool:
 	if _directory.is_empty():
 		return false
 	flush()
 	var main_path: String = _path(RUN_FILE)
-	return FileAccess.file_exists(main_path) or FileAccess.file_exists(main_path + TEMP_SUFFIX)
+	return FileAccess.file_exists(main_path) or FileAccess.file_exists(main_path + TEMP_SUFFIX) or FileAccess.file_exists(main_path + BACKUP_SUFFIX)
 
 
 ## Writes the profile now, after any queued write.
@@ -253,11 +283,12 @@ func queue_profile(settings: Settings, records: Records) -> bool:
 
 ## Applies the saved profile to settings and records. A temp file that is a
 ## fully valid profile is the newest save and wins: it is renamed into place
-## and used. Otherwise a temp file that parsed or is broken is deleted, and
-## the real file is used: each part that is missing or invalid keeps the
+## and used. Otherwise a temp file that parsed or is broken is deleted. Then
+## a fully valid real file is used, else a fully valid .bak (SEC-02), else
+## the real file as it is: each part that is missing or invalid keeps the
 ## value the objects already hold, which is the default for fresh objects
 ## (SaveCodec.data_to_profile). A broken real profile is not deleted: the next
-## save_profile replaces it.
+## save_profile replaces it. A .bak that is not fully valid is deleted.
 func load_profile(settings: Settings, records: Records) -> void:
 	if _directory.is_empty():
 		return
@@ -265,14 +296,38 @@ func load_profile(settings: Settings, records: Records) -> void:
 	var main_path: String = _path(PROFILE_FILE)
 	var temp_path: String = main_path + TEMP_SUFFIX
 	var temp: FileRead = _read_json(temp_path)
-	if temp.status == _Status.PARSED and SaveCodec.data_to_profile(temp.data, Settings.new(), Records.new()).is_empty():
+	if _is_valid_profile(temp):
 		_promote(PROFILE_FILE, temp.bytes)
 		SaveCodec.data_to_profile(temp.data, settings, records)
 		return
 	if temp.status == _Status.PARSED or temp.status == _Status.BROKEN:
 		_remove(temp_path)
 	var main: FileRead = _read_json(main_path)
+	if _is_valid_profile(main):
+		_set_good(PROFILE_FILE, main.bytes)
+		SaveCodec.data_to_profile(main.data, settings, records)
+		return
+	var backup_path: String = main_path + BACKUP_SUFFIX
+	var backup: FileRead = _read_json(backup_path)
+	if _is_valid_profile(backup):
+		push_warning("SaveService: %s was damaged or missing; using the last good copy" % PROFILE_FILE)
+		SaveCodec.data_to_profile(backup.data, settings, records)
+		return
+	if backup.status == _Status.PARSED or backup.status == _Status.BROKEN:
+		_remove(backup_path)
 	SaveCodec.data_to_profile(main.data if main.status == _Status.PARSED else null, settings, records)
+
+
+## True when read parsed and every part of it is a valid profile.
+static func _is_valid_profile(read: FileRead) -> bool:
+	return read.status == _Status.PARSED and SaveCodec.data_to_profile(read.data, Settings.new(), Records.new()).is_empty()
+
+
+## Records bytes, which passed every check, as what the real file holds.
+func _set_good(file_name: String, bytes: PackedByteArray) -> void:
+	_q.mutex.lock()
+	_q.good[file_name] = bytes
+	_q.mutex.unlock()
 
 
 func _path(file_name: String) -> String:
@@ -446,11 +501,9 @@ func _notification(what: int) -> void:
 
 
 ## Writes bytes to <file_name>.tmp in the queue's folder, checks it, then
-## renames it over the real file. A failed write or check deletes the broken
-## temp file. A failed rename keeps it and marks the file stuck, because the
-## temp file is then the newest good copy (on Windows the real file may
-## already be gone). Safe on any thread; the caller makes sure only one
-## writer runs.
+## moves it into place (_move_into_place). A failed write or check deletes the
+## broken temp file. Safe on any thread; the caller makes sure only one writer
+## runs.
 static func _write_file(queue: WriteQueue, file_name: String, bytes: PackedByteArray) -> bool:
 	var directory: String = queue.directory
 	if directory.is_empty() or bytes.is_empty():
@@ -464,6 +517,12 @@ static func _write_file(queue: WriteQueue, file_name: String, bytes: PackedByteA
 	if file == null:
 		return false
 	var stored: bool = file.store_buffer(bytes)
+	# flush() hands Godot's and the C library's buffers to the OS. It is not an
+	# fsync: Godot exposes none, so the OS may keep the data in memory for a
+	# while before it reaches storage. A killed app loses nothing (the OS still
+	# writes it); a power cut or OS crash can, which is why the last good copy
+	# is kept as <name>.bak.
+	file.flush()
 	file.close()
 	if not stored or not _file_holds(temp_path, bytes):
 		_remove(temp_path)
@@ -471,8 +530,30 @@ static func _write_file(queue: WriteQueue, file_name: String, bytes: PackedByteA
 		queue.stuck.erase(file_name)
 		queue.mutex.unlock()
 		return false
+	return _move_into_place(queue, file_name, bytes)
+
+
+## Renames <file_name>.tmp, which holds bytes, over the real file. First, when
+## the real file holds exactly the last good bytes, it is renamed to
+## <file_name>.bak (SEC-02); when that rename fails, the save goes on without
+## a new .bak. A kill between the two renames leaves the valid temp file,
+## which wins the next load. A failed rename of the temp file keeps it and
+## marks the file stuck, because the temp file is then the newest good copy
+## (on Windows the real file may already be gone).
+static func _move_into_place(queue: WriteQueue, file_name: String, bytes: PackedByteArray) -> bool:
+	var main_path: String = queue.directory.path_join(file_name)
+	var temp_path: String = main_path + TEMP_SUFFIX
+	queue.mutex.lock()
+	var good: PackedByteArray = queue.good.get(file_name, PackedByteArray())
+	queue.mutex.unlock()
+	if _file_holds(main_path, good):
+		DirAccess.rename_absolute(main_path, main_path + BACKUP_SUFFIX)
 	var renamed: bool = DirAccess.rename_absolute(temp_path, main_path) == OK
 	queue.mutex.lock()
+	if renamed:
+		queue.good[file_name] = bytes
+	else:
+		queue.good.erase(file_name)
 	if renamed or not FileAccess.file_exists(temp_path):
 		queue.stuck.erase(file_name)
 	else:
@@ -493,12 +574,10 @@ static func _retry_stuck(queue: WriteQueue) -> void:
 		queue.mutex.lock()
 		var bytes: PackedByteArray = queue.stuck.get(file_name, PackedByteArray())
 		queue.mutex.unlock()
-		var main_path: String = queue.directory.path_join(file_name)
-		var temp_path: String = main_path + TEMP_SUFFIX
-		var done: bool = true
+		var temp_path: String = queue.directory.path_join(file_name) + TEMP_SUFFIX
 		if _file_holds(temp_path, bytes):
-			done = DirAccess.rename_absolute(temp_path, main_path) == OK or not FileAccess.file_exists(temp_path)
-		if done:
+			_move_into_place(queue, file_name, bytes)
+		else:
 			queue.mutex.lock()
 			queue.stuck.erase(file_name)
 			queue.mutex.unlock()
@@ -520,15 +599,7 @@ static func _file_holds(path: String, bytes: PackedByteArray) -> bool:
 ## the temp file stays, wins the next load again, and the rename is tried
 ## again before the next write and on flush.
 func _promote(file_name: String, bytes: PackedByteArray) -> void:
-	var main_path: String = _path(file_name)
-	var temp_path: String = main_path + TEMP_SUFFIX
-	var renamed: bool = DirAccess.rename_absolute(temp_path, main_path) == OK
-	_q.mutex.lock()
-	if renamed or not FileAccess.file_exists(temp_path):
-		_q.stuck.erase(file_name)
-	else:
-		_q.stuck[file_name] = bytes
-	_q.mutex.unlock()
+	_move_into_place(_q, file_name, bytes)
 
 
 static func _remove(path: String) -> void:
