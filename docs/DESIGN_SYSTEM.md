@@ -135,7 +135,7 @@ To get there, Gumdrop's HUD and dock were slimmed (section 8) and Nova's display
 
 ### 2.6 The score fits
 
-The score must fit 13 characters (GDD 14.2: 9,999,999,999). It is set in the display role. When it is too wide for its slot, its size shrinks until it fits, never below `display_fit_min`. Counting up (`score_count`) uses the final value's size for the whole count, so the number never jumps in size while it runs.
+The score must fit 13 characters (GDD 14.2: 9,999,999,999). It is set in the display role. When it is too wide for its slot, its size shrinks until it fits, never below `display_fit_min`. Only a hand edited save can hold a longer score (up to 25 characters, 9,223,372,036,854,775,807). Past 13 characters the score keeps shrinking until it fits its slot, even below `display_fit_min`, and no panel that shows it (end of run screen, out of moves offer) is ever wider than the screen column. Up to 13 characters nothing changes. Counting up (`score_count`) uses the final value's size for the whole count, so the number never jumps in size while it runs.
 
 ### 2.7 Touch
 
@@ -224,7 +224,7 @@ Every skin defines every shared name below. Anything else a skin needs is an **e
 | type roles | display (score), title, body (buttons, rows), label (small labels, costs), tile (numbers), heading (section headings on reading screens, 7.11), reading (paragraphs and long text, 7.11). Each has size (px; not for tile), weight (100 to 900), tracking (px between glyphs) and case (none, upper, lower) |
 | tile_number_scale[4] | tile label size as a fraction of the tile side, for 1, 2, 3 and 4 characters |
 | label_fit | widest label, fraction of the tile side |
-| display_fit_min | smallest size the score may shrink to |
+| display_fit_min | smallest size a score of up to 13 characters may shrink to (a longer score goes below it, see 2.6) |
 
 **Names keep their capitals.** A case rule never touches the wordmark "SumUp", a person's name, or a product or license name: "Made by Bart Basi" and "Copyright 2026 Bart Basi" sit in the body role (as written in every skin), and where a name sits in a lowercase label role (Nova's About rows) it is shown as written. Capitals (Slate) keep every letter and may apply.
 

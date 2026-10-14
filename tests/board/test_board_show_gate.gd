@@ -44,6 +44,8 @@ var rig: BF.Rig = null
 ## The stub gate's answer, and how often the board asked.
 var _open: bool = false
 var _gate_calls: int = 0
+## How many boards the view had each time the offer opened.
+var _boards_at_offer: Array[int] = []
 
 
 func after_each() -> void:
@@ -54,6 +56,11 @@ func after_each() -> void:
 func _gate() -> bool:
 	_gate_calls += 1
 	return _open
+
+
+func _on_offer_changed(is_open: bool, _suggested: StringName) -> void:
+	if is_open:
+		_boards_at_offer.append(rig.view().boards.size())
 
 
 func _effects() -> PackedStringArray:
@@ -229,11 +236,9 @@ func test_at_146_a_held_save_keeps_the_move_off_the_board() -> void:
 
 func test_move_shown_reaches_the_session_only_after_the_view() -> void:
 	_gated_rig(F.board_p(), 0)
-	var boards_at_offer: Array[int] = []
-	var on_offer: Callable = func(is_open: bool, _suggested: StringName) -> void:
-		if is_open:
-			boards_at_offer.append(rig.view().boards.size())
-	rig.session.offer_changed.connect(on_offer)
+	# A method, not a lambda: a lambda that reads rig holds this test, and the
+	# session's connection would then keep the test and the rig alive (QA6-09).
+	rig.session.offer_changed.connect(_on_offer_changed)
 	rig.session.resume(RunState.create(_dead_board(), 5000))
 	_deferred_check()
 	_frames(3)
@@ -242,7 +247,7 @@ func test_move_shown_reaches_the_session_only_after_the_view() -> void:
 	_open = true
 	rig.advance(FRAME)
 	assert_true(rig.session.is_offer_open(), "move_shown() ran the move check (GO7)")
-	assert_eq(boards_at_offer, [1] as Array[int], "after the view was set to the saved board")
+	assert_eq(_boards_at_offer, [1] as Array[int], "after the view was set to the saved board")
 	assert_eq(rig.view().boards, [_dead_board()] as Array[PackedInt64Array], "the saved board")
 	_assert_shown_once("resume")
 

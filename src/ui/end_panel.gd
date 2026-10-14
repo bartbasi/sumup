@@ -21,6 +21,8 @@ var _summary: RunSummary = null
 var _score_label: Label = null
 var _badge: Control = null
 var _reason: Label = null
+var _best_caption: Label = null
+var _best_number: Label = null
 
 
 func setup(skin: SkinData) -> void:
@@ -81,8 +83,6 @@ func _fill(skin: SkinData, summary: RunSummary) -> void:
 		_content.add_child(_reason)
 	_score_label = UiParts.label(skin, &"DisplayLabel", NumberFormat.score(summary.final_score), align)
 	_score_label.name = "FinalScore"
-	if is_inside_tree():
-		_score_label.add_theme_font_size_override(&"font_size", skin.score_font_size(_score_label.text, _text_width(skin)))
 	_content.add_child(_score_label)
 
 	var rows: VBoxContainer = UiParts.vbox(0.0)
@@ -98,8 +98,12 @@ func _fill(skin: SkinData, summary: RunSummary) -> void:
 		_badge.name = "NewBest"
 		_badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		best.add_child(_badge)
-	best.add_child(UiParts.label(skin, &"BodyLabel", NumberFormat.score(summary.best_score)))
-	rows.add_child(UiParts.record_row(skin, Copy.BEST_SCORE, best))
+	_best_number = UiParts.label(skin, &"BodyLabel", NumberFormat.score(summary.best_score))
+	_best_number.name = "Number"
+	best.add_child(_best_number)
+	var best_row: HBoxContainer = UiParts.record_row(skin, Copy.BEST_SCORE, best)
+	_best_caption = best_row.get_child(0) as Label
+	rows.add_child(best_row)
 	rows.add_child(UiParts.divider())
 	rows.add_child(UiParts.record_row(skin, Copy.BEST_TILE, UiParts.tile(skin, summary.best_tile, MINI_TILE)))
 	rows.add_child(UiParts.divider())
@@ -118,12 +122,37 @@ func _fill(skin: SkinData, summary: RunSummary) -> void:
 	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu.pressed.connect(_on_main_menu)
 	buttons.add_child(menu)
+	_layout()
 
 
-## The width the score may take: the content column less the panel's margins
-## and padding.
-func _text_width(skin: SkinData) -> float:
-	return SafeArea.content_column(get_viewport(), skin).size.x - 2.0 * (skin.num(&"board_margin") + skin.num(&"space_m"))
+## Places the panel (dialog_base.gd), then fits the numbers to its width.
+func layout_in(screen: Rect2, column: Rect2, floats: bool) -> void:
+	super.layout_in(screen, column, floats)
+	if _panel != null and _skin != null:
+		var panel_width: float = screen.size.x - _panel.offset_left + _panel.offset_right
+		_fit_numbers(column.size.x, panel_width - UiParts.panel_padding(_panel, &"CardPanel"))
+
+
+## Fits the final score and the Best score number, so the panel never grows
+## past the column (QA6-10). width is the panel's content width. The score's
+## slot is the column less the panel's margins and padding, as it has always
+## been; it keeps its display_fit_min rule (DESIGN_SYSTEM.md 2.6) and shrinks
+## further only when even that does not fit. The Best score number shares its
+## row with the caption and the New best badge.
+func _fit_numbers(column_width: float, width: float) -> void:
+	var skin: SkinData = _skin
+	if _score_label != null:
+		var slot: float = column_width - 2.0 * (skin.num(&"board_margin") + skin.num(&"space_m"))
+		UiParts.fit_label(skin, _score_label, width, skin.score_font_size(_score_label.text, minf(slot, width)))
+	if _best_number == null or _best_caption == null:
+		return
+	var gap: float = float(roundi(skin.num(&"space_s")))
+	var room: float = width - gap - UiParts.text_width(skin, _best_caption.theme_type_variation, _best_caption.text, skin.font_size(UiParts.role(skin, _best_caption.theme_type_variation)))
+	if _badge != null:
+		var badge_label: Label = _badge.get_child(0) as Label
+		var badge_width: float = UiParts.text_width(skin, badge_label.theme_type_variation, badge_label.text, skin.font_size(UiParts.role(skin, badge_label.theme_type_variation)))
+		room -= badge_width + UiParts.panel_padding(_badge, &"BadgePanel") + gap
+	UiParts.fit_label(skin, _best_number, room, skin.font_size(UiParts.role(skin, _best_number.theme_type_variation)))
 
 
 func _on_new_game() -> void:

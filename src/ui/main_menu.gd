@@ -165,6 +165,18 @@ func layout_in(screen: Rect2, column: Rect2) -> void:
 		return
 	_layout_root.position = column.position - screen.position
 	_layout_root.size = column.size
+	_fit_best_score(column.size.x - 2.0 * float(roundi(_skin.num(&"board_margin"))))
+
+
+## Fits the Best score number to its row, width wide less the caption, so the
+## menu never grows past the column however long the number (QA6-10).
+func _fit_best_score(width: float) -> void:
+	if _best_score == null:
+		return
+	var caption: Label = _best_score.get_parent().get_child(0) as Label
+	var room: float = width - float(roundi(_skin.num(&"space_s")))
+	room -= UiParts.text_width(_skin, caption.theme_type_variation, caption.text, _skin.font_size(UiParts.role(_skin, caption.theme_type_variation)))
+	UiParts.fit_label(_skin, _best_score, room, _skin.font_size(UiParts.role(_skin, _best_score.theme_type_variation)))
 
 
 ## Keeps the backdrop's decoration clear of the brand block, the records and

@@ -384,6 +384,7 @@ func layout_in(screen: Rect2, column: Rect2) -> void:
 	var top: float = inner.position.y
 	if _offer.visible:
 		_offer.position = Vector2(inner.position.x + margin, inner.position.y)
+		_offer.fit_width(inner.size.x - margin * 2.0)
 		_offer.size = Vector2(inner.size.x - margin * 2.0, 0.0)
 		top = inner.position.y + _offer.get_combined_minimum_size().y
 	var hud_height: float = _hud.preferred_height()

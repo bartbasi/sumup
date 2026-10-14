@@ -330,9 +330,7 @@ func _layout() -> void:
 	# The score, centered in a slot clear of the ring on both sides.
 	var clear: float = margin + ring + _skin.num(&"space_xs")
 	var slot_width: float = size.x - clear * 2.0
-	var fitted: int = _skin.font_size(&"display")
-	if slot_width > 0.0:
-		fitted = _skin.score_font_size(_score_text, slot_width)
+	var fitted: int = _fit_score_size(_score_text, slot_width)
 	_score.add_theme_font_size_override(&"font_size", fitted)
 	var display: Font = _skin.font(&"display")
 	_score.position = Vector2(clear, baseline - display.get_ascent(fitted))

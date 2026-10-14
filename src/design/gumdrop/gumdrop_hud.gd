@@ -361,9 +361,7 @@ func _layout() -> void:
 	# ends space_xs above the top of the clear notice, which is centered on the
 	# board's top edge space_s under the HUD; it stays put with or without one.
 	var width: float = size.x - margin * 2.0
-	var fitted: int = _skin.font_size(&"display")
-	if width > 0.0:
-		fitted = _skin.score_font_size(_score_text, width)
+	var fitted: int = _fit_score_size(_score_text, width)
 	_score.add_theme_font_size_override(&"font_size", fitted)
 	var display: Font = _skin.font(&"display")
 	var notice_top: float = _skin.num(&"hud_height") + _skin.num(&"space_s") - _skin.num(&"notice_height") * 0.5

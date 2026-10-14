@@ -28,6 +28,9 @@ var _buy: Button = null
 var _end: Button = null
 var _body: Label = null
 var _score_label: Label = null
+var _title: Label = null
+## The width GameScreen gives the offer, or negative before it has one.
+var _width: float = -1.0
 
 
 func _init() -> void:
@@ -76,6 +79,24 @@ func score_text() -> String:
 	return _score_label.text if _score_label != null else ""
 
 
+## Fits the score to width, the offer's width in the content column, so the
+## offer never grows past the column however long the score (QA6-10). Safe
+## to call on every layout.
+func fit_width(width: float) -> void:
+	_width = width
+	_fit()
+
+
+func _fit() -> void:
+	if _width < 0.0 or _skin == null or _score_label == null or _title == null:
+		return
+	var skin: SkinData = _skin
+	var padding_type: StringName = theme_type_variation if theme_type_variation != &"" else &"PanelContainer"
+	var room: float = _width - UiParts.panel_padding(self, padding_type) - float(roundi(skin.num(&"space_s")))
+	room -= UiParts.text_width(skin, _title.theme_type_variation, _title.text, skin.font_size(UiParts.role(skin, _title.theme_type_variation)))
+	UiParts.fit_label(skin, _score_label, room, skin.font_size(UiParts.role(skin, _score_label.theme_type_variation)))
+
+
 ## What the offer shows, so it rebuilds only when that changes: the score
 ## and the suggested booster with its cost, usability and free state.
 func _key(suggested: BoosterStatus) -> String:
@@ -101,9 +122,9 @@ func _rebuild() -> void:
 
 	var top: HBoxContainer = UiParts.hbox(skin.num(&"space_s"))
 	content.add_child(top)
-	var title: Label = UiParts.label(skin, &"SignalLabel", Copy.OUT_OF_MOVES)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(title)
+	_title = UiParts.label(skin, &"SignalLabel", Copy.OUT_OF_MOVES)
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(_title)
 	var score_box: VBoxContainer = UiParts.vbox(0.0)
 	score_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.add_child(score_box)
@@ -131,6 +152,7 @@ func _rebuild() -> void:
 	_end.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_end.pressed.connect(_on_end_run)
 	buttons.add_child(_end)
+	_fit()
 
 
 func _on_buy(booster_id: StringName) -> void:

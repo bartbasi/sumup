@@ -149,6 +149,60 @@ static func wordmark_width(display: Font, font_px: int) -> float:
 	return total
 
 
+## text's advance width in the font of variation's role at font_px, rounded
+## up to whole px as a Label's minimum width is.
+static func text_width(skin: SkinData, variation: StringName, text: String, font_px: int) -> float:
+	var face: Font = skin.font(role(skin, variation))
+	return ceilf(face.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_px).x)
+
+
+## The largest font size, from start_px down, at which text in variation is
+## no wider than width. A number shrinks as far as it must, so its panel never
+## grows past the content column (QA6-10); 1 px is only the loop's end.
+static func fit_size(skin: SkinData, variation: StringName, text: String, width: float, start_px: int) -> int:
+	var size: int = start_px
+	var at_start: float = text_width(skin, variation, text, size)
+	if at_start <= width or size <= 1:
+		return size
+	size = clampi(floori(float(size) * maxf(width, 0.0) / at_start), 1, size)
+	while size > 1 and text_width(skin, variation, text, size) > width:
+		size -= 1
+	return size
+
+
+## Sets label's font size to the largest, from start_px down, at which its
+## text fits width. At the role's own size it carries no override.
+static func fit_label(skin: SkinData, label: Label, width: float, start_px: int) -> void:
+	var size: int = fit_size(skin, label.theme_type_variation, label.text, width, start_px)
+	if size == skin.font_size(role(skin, label.theme_type_variation)):
+		label.remove_theme_font_size_override(&"font_size")
+	else:
+		label.add_theme_font_size_override(&"font_size", size)
+
+
+## The panel stylebox of a type variation, from the Theme resource of the
+## nearest ancestor that has one, so it can be read before the panel enters
+## the tree (headless tests). Inside the tree with no such ancestor, the
+## usual lookup. Null when there is none.
+static func panel_style(context: Control, type: StringName) -> StyleBox:
+	var node: Node = context
+	while node != null:
+		if node is Control:
+			var own: Theme = (node as Control).theme
+			if own != null and own.has_stylebox(&"panel", type):
+				return own.get_stylebox(&"panel", type)
+		node = node.get_parent()
+	if context.is_inside_tree():
+		return context.get_theme_stylebox(&"panel", type)
+	return null
+
+
+## The width a panel's padding takes: its stylebox's minimum width, or 0.
+static func panel_padding(context: Control, type: StringName) -> float:
+	var style: StyleBox = panel_style(context, type)
+	return style.get_minimum_size().x if style != null else 0.0
+
+
 ## An empty Control height px tall (and width px wide).
 static func spacer(height: float, width: float = 0.0) -> Control:
 	var gap: Control = Control.new()

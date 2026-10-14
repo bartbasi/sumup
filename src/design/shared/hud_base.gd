@@ -155,6 +155,28 @@ func _render_moment(_t: float) -> void:
 
 # Shared helpers for the skins.
 
+## The score's font size for a slot this wide: score_font_size (2.6), which
+## stops at display_fit_min. A score longer than the 13 characters that floor
+## is made for (only from a hand edited save, QA6-10) keeps shrinking below it
+## until it fits, so it never runs into the parts beside its slot. When the
+## score fits at score_font_size's size, that size is kept unchanged.
+func _fit_score_size(text: String, slot_width: float) -> int:
+	var fitted: int = _skin.font_size(&"display")
+	if slot_width <= 0.0:
+		return fitted
+	fitted = _skin.score_font_size(text, slot_width)
+	var display: Font = _skin.font(&"display")
+	var width: float = display.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	if width <= slot_width:
+		return fitted
+	fitted = maxi(floori(float(fitted) * slot_width / width), 1)
+	width = display.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	while width > slot_width and fitted > 1:
+		fitted -= 1
+		width = display.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	return fitted
+
+
 ## Where the notice and the flying stars live.
 func _effect_parent() -> Control:
 	return _layer if _layer != null else self

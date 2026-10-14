@@ -334,9 +334,7 @@ func _layout() -> void:
 	# The score fits the width left of the BEST column.
 	var column: float = maxf(best_width, best_caption_width)
 	var slot_width: float = size.x - margin * 2.0 - column - _skin.num(&"space_s")
-	var fitted: int = display_size
-	if slot_width > 0.0:
-		fitted = _skin.score_font_size(_score_text, slot_width)
+	var fitted: int = _fit_score_size(_score_text, slot_width)
 	_score.add_theme_font_size_override(&"font_size", fitted)
 	var display: Font = _skin.font(&"display")
 	_score.position = Vector2(margin, _score_baseline - display.get_ascent(fitted))
