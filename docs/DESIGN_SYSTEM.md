@@ -684,7 +684,7 @@ The disabled pair also covers disabled buttons and chips: they have no fill, so 
 
 Slate's section heading is an editorial kicker, the HUD's "SCORE" caption made bold: small capitals in ink over the paragraph.
 
-`label_fit` 0.84. `display_fit_min` 96. The display and title tracking eased from -6 and -2 to -4 and -1: Roboto sits slightly tighter than the Segoe UI of the Phase 1 renders.
+`label_fit` 0.78 (was 0.84): 1 minus twice `number_inset`, so the label keeps the same 0.11 margin on the right as on the left and never reaches the special frame at `special_inset` 0.06. Up to 2^49 only 128M, 256M and 512M shrink (to about 93%, digits 12.1 dp on the 59.6 dp tile at 18:9). `display_fit_min` 96. The display and title tracking eased from -6 and -2 to -4 and -1: Roboto sits slightly tighter than the Segoe UI of the Phase 1 renders.
 
 ### 5.5 Shape and sizes
 

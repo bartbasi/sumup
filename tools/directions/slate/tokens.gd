@@ -107,7 +107,7 @@ func _init() -> void:
 		"board_gap": 10.0,
 		"board_padding": 0.0,
 		"tile_radius": 0.032,        # fraction of the tile side, 6 px at 190 px
-		"label_fit": 0.84,
+		"label_fit": 0.78,
 		"display_fit_min": 96.0,
 		"preview_scale": 0.59,       # preview tile in the header, fraction of the board tile
 		"special_from": 32768.0,

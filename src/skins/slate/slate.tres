@@ -176,7 +176,7 @@ numbers = Dictionary[StringName, float]({
 &"icon_stroke": 2.0,
 &"joinable_node_stroke": 3.0,
 &"joinable_ring": 2.0,
-&"label_fit": 0.84,
+&"label_fit": 0.78,
 &"line_edge": 3.0,
 &"node_size": 24.0,
 &"notice_height": 112.0,
