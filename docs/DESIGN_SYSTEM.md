@@ -1,6 +1,6 @@
 # SumUp Design System
 
-Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5).
+Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5). The 2026-10-14 splash screen, the Info guide that replaces How to play, and the source code line on About are specified in place too; section 11 lists where.
 
 This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the SkinData resources (src/skins/<id>/<id>.tres) from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
 
@@ -36,6 +36,7 @@ If this document and a token file or a SkinData resource disagree, this document
 8. Hard Stop 1 review fixes
 9. Launcher icon
 10. The 2026-10-13 additions
+11. The 2026-10-14 splash screen and Info
 
 ---
 
@@ -157,14 +158,14 @@ Every touch target is at least `touch_min` (160 px) on each side, even where the
 - Gumdrop's booster buttons take touch on the dock's whole face height, 174 px (52.2 dp at 18:9, 55.5 on the cover screen), and up to the middle of the gaps beside them, while they draw as before (4.7). Slate's columns (192 px) and Nova's ring slots (190 px) were already large enough.
 - Nothing drawn changes size: HUD faces, rings, icons and toggles keep their sizes, and only their touch areas grow. `hud_height` and `bar_height` do not change, so the board and the 2.4 tile sizes do not change.
 - Panels grow by 16 px per button row, and the offer panel by 16 px, under which the board may shrink a little while the offer is open (7.5). Measured on the built screens at 1080 x 2400: Pause 914 px (Gumdrop), 963 (Slate), 992 (Nova); Settings 1188, 1264 and 1308.
-- On the main menu the brand block's center stays at 36.1 to 36.3% of the screen height in the mockups with 160 px buttons, and 36.6 to 36.8% on the built first launch screen, inside 35 to 42%.
+- On the old main menu the brand block's center stayed at 36.1 to 36.3% of the screen height in the mockups with 160 px buttons, and 36.6 to 36.8% on the built first launch screen, inside 35 to 42%. The splash that replaces it keeps the same range (7.2).
 
 ### 2.8 The content column on wide screens (QA6-08, 2026-10-13)
 
 On a near square screen (the Fold5 inner screen, 1998 logical px wide) or a tablet, the board is limited by height and sits narrow in the middle, while panels and buttons stretched edge to edge (buttons about 1,850 px wide, record rows with their label and value at opposite screen edges). Everything now lives in one centered **content column**:
 - *Width:* C = the smaller of the safe area's width and B + 2 x `board_margin`, where B is the width the board takes on the play screen for this screen and safe area (2.3). On phones the board is limited by width, so C is the whole width and nothing changes. On a wide screen C is the board plus its margins: on the Fold5 inner screen about 1,220 px for Gumdrop and Slate and 1,270 px for Nova (worked out from QA's measured tile sizes there).
-- *Worked out once per screen size and skin,* from the HUD's height (never the offer panel's), so it does not jump when the offer opens or closes. Screens without a board (the main menu, How to play, About) use the same C, so every screen shares one width. B can be found from the skin's board view: `preferred_height(width)` is linear in the width, so two samples give the width whose height fills the space between HUD and bar.
-- *Inside the column:* the HUD, the booster bar, the offer panel, every dialog panel (Pause, Settings, the confirmation, the end of run), the main menu, and the reading screens with their header and scroll area. A Gumdrop card sits `board_margin` inside the column, so it lines up with the tray exactly. Slate's and Nova's sheets span the column (their open edge, hairline or rounded corners, ends at the column's sides) and still reach the screen's bottom edge.
+- *Worked out once per screen size and skin,* from the HUD's height (never the offer panel's), so it does not jump when the offer opens or closes. Screens without a board (the splash, Info, About) use the same C, so every screen shares one width. B can be found from the skin's board view: `preferred_height(width)` is linear in the width, so two samples give the width whose height fills the space between HUD and bar.
+- *Inside the column:* the HUD, the booster bar, the offer panel, every dialog panel (Pause, Settings, the confirmation, the end of run), the splash, and the reading screens with their header and scroll area. A Gumdrop card sits `board_margin` inside the column, so it lines up with the tray exactly. Slate's and Nova's sheets span the column (their open edge, hairline or rounded corners, ends at the column's sides) and still reach the screen's bottom edge.
 - *Outside it:* the backdrop, the scrim and the cross-fade still fill the screen. Nova's star dust stays outside the column's text rects as before.
 - This also lines the dock up with the tray on 18:9 phones, where the board is already a little narrower than the screen.
 
@@ -409,6 +410,8 @@ Closest pairs (ramp check): neighbors 0.206, times 4 0.141, times 8 0.210.
 | Free cost and its star on a booster face, normal and pressed | badge on surface_raised | 9.38 |
 | Star counter star on the star pill | badge on surface | 11.99 |
 | Wordmark "Up" on the backdrop | accent on bg | 7.06 |
+| **2026-10-14 splash** | | |
+| Wordmark faces (7.2): ink on bg and accent on bg, the pairs above. Its lips sit under the faces and carry no text | | |
 
 The additions also use these existing pairs: the star pill count (ink on surface), the free pill, the notice's "+n" and star (badge_ink on badge), headings and reading text on section cards (ink and ink_muted on surface), license text and the About brand block on the backdrop (ink and ink_muted on bg), pressed rows (ink and ink_muted on surface_raised), the arrow and chevron (ink_muted on surface or bg).
 
@@ -571,7 +574,7 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 - Set: hammer, swap, shuffle, double (x2 drawn as strokes), undo, pause, settings, sound on, sound off, close, check, and since 2026-10-13 star, chevron and arrow.
 - *Star:* five points, one up. Center (12, 12.9), outer radius 11, inner radius 0.50 of the outer: a plump candy star. Points rounded with a 1.8 unit radius, valleys with 1.0. The filled star is the icon; the counter draws its outline band, 2.5 units wide, plus the progress fill (counter star above).
 - *Chevron* (rows that open a screen): (9.5, 6) to (15.5, 12) to (9.5, 18), `icon_stroke`, round caps and join.
-- *Arrow* (How to play example rows): a shaft (4, 12) to (15, 12), `icon_stroke`, round caps, and a filled head with its tip at (21, 12) and its back corners at (14.5, 6.5) and (14.5, 17.5), all three corners rounded by 1 unit (the rounded tip ends near 20.5). The shaft's round cap ends inside the head. Approved as built (2026-10-13 review).
+- *Arrow* (Info example rows and the splash's sum row): a shaft (4, 12) to (15, 12), `icon_stroke`, round caps, and a filled head with its tip at (21, 12) and its back corners at (14.5, 6.5) and (14.5, 17.5), all three corners rounded by 1 unit (the rounded tip ends near 20.5). The shaft's round cap ends inside the head. Approved as built (2026-10-13 review).
 - Colors: ink normally, ink_dark on accent, disabled_ink when disabled. The chevron and arrow draw in ink_muted.
 - Reference: docs/design/additions/gumdrop-icons.png (the star empty, a third, two thirds and full, at 216 px, the counter size and the cost size; the chevron and arrow).
 
@@ -919,6 +922,9 @@ Closest pairs (ramp check): neighbors 0.194, times 4 0.169, times 8 0.258.
 | Labels on rows and chips | ink_muted on surface_raised | 7.35 |
 | Text over the scrim (worst case over a white hole) | ink on scrim | 13.45 |
 | Labels over the scrim (worst case) | ink_muted on scrim | 7.06 |
+| **2026-10-14 splash** | | |
+| Wordmark "Up" on its own glow (7.2), worst case: bg_glow mixed with accent at 0.25 (#244D6E) | accent on the glow | 6.05 |
+| Wordmark "Sum" where the glow reaches it, same worst case | ink on the glow | 8.42 |
 
 The 2026-10-13 additions need no new pair. They use: the counter star, the free count, the Free cost and the wordmark "Up" (accent on bg_glow), the star count and reading text (ink_muted on bg_glow), headings, the About brand block and license text (ink on bg_glow), the notice's "+n" and star (badge_ink on badge), the disabled Free cost (disabled_ink on bg_glow), pressed rows (ink and ink_muted on surface_raised), the About row in Settings (ink and ink_muted on surface).
 
@@ -1132,32 +1138,72 @@ The copy below is the design's working copy. Where the GDD fixes wording, the GD
 - The merge preview appears per skin.
 - No other overlay ever covers the board during play.
 
-### 7.2 Main menu
+### 7.2 Splash screen (2026-10-14)
 
-Shown only at first launch (no valid saved run) and after a run ends. Reopening the app with a saved run goes straight back into play (ARCHITECTURE.md section 11), so the main menu never offers Continue.
+The splash replaces the main menu. It shows every time the app opens, and after a run ends (the end of run screen's second button goes here, 7.6). It is the game's front door, so it gets a real arrival: the "SumUp" wordmark drawn in each skin's own style, and under it a chain of the skin's own tiles that sums up: 2, 2, 4 and 8 make 16.
 
-Over the backdrop, in the safe area and the content column (2.8), top to bottom:
-1. The settings icon button, top right.
-2. The brand block, centered (Slate: left aligned, the wordmark and the tile row both):
-   - the wordmark (below), then `space_m`;
-   - a decorative row of four tiles (2, 4, 8, 16) drawn by the skin's tile component at the menu tile size (7.9), `space_s` apart.
-3. The records, `space_l` above the buttons: "Best score" with the number, then a divider and "Best tile" with a mini tile once a best tile exists.
-4. **New game** (primary), then `space_s` and **How to play** (secondary), both full width less `board_margin` each side; How to play sits on the bottom of the safe area. Primary first and secondary under it, as in Pause.
+**Arrangement.** Over the backdrop, in the safe area and the content column (2.8), top to bottom:
+1. The settings icon button, top right, as before (its face on `board_margin`).
+2. The brand block, centered (Slate: left aligned, every part of it):
+   - the wordmark (below);
+   - Slate only: `space_s`, then the skin's divider (a `hairline` line in line) from margin to margin, a masthead rule;
+   - `space_m`, then the **sum row** (below).
+3. The records, `space_l` above the buttons, as on the old menu: "Best score" with the number, then a divider and "Best tile" with a mini tile (7.9) once a best tile exists. The Best score number fits its row (QA6-10, as built).
+4. The buttons:
+   - **Play** (primary), the full width less `board_margin` each side, `button_height` tall;
+   - `space_s`;
+   - **Info** and **About** (secondary) side by side in one row, sharing that width with `space_s` between them, each `button_height` tall. This row sits on the bottom of the safe area.
+   - Play is the one big target, with the two look-up screens under it in the thumb zone. Each half is about 490 px wide (163 dp at 20:9), far above `touch_min`. Slate left aligns the text in all three, as every Slate button (section 7, Alignment).
 
-The free height between the settings button's touch area and the records splits 2 to 3 above and below the brand block. So the brand sits near the upper golden section rather than low in the middle. The records and the buttons form one group in the thumb zone. The backdrop's clear rects cover the brand block, the records and all three buttons.
+The free height between the settings button's touch area and the records still splits 2 to 3 above and below the brand block, so the brand sits near the upper golden section. Worked out at 1080 x 2400 with a 120 / 66 px safe area, the brand block's center lands at about 37% of the screen height (Gumdrop; the others within a point), inside the 35 to 42% of the 2026-10-13 screens review. The build is measured against that range. The backdrop's clear rects cover the brand block, the records, the three buttons and the settings button.
 
-**The wordmark "SumUp" (2026-10-13).** "SumUp" is five letters where "numbersgame" was eleven, so fitting it to the screen width like the score would leave it at the display size, a heading sitting over a much wider tile row. It becomes a lockup with the tile row:
-- Set in the display role's font, weight and tracking, in two colors: "Sum" in ink, "Up" in accent. The capital U marks where the second word starts, and "Up" in the accent says the game is about going up. Two labels side by side with no gap; the lost m to U kerning is invisible at this size.
-- Size: the wordmark's advance width equals the tile row's width (4 x 160 + 3 x `space_s`): size = floor(display size x row width / wordmark width at the display size), then 1 px smaller until it fits. Never smaller than the display role. Measured: Gumdrop 211 px (row 712), Slate 208 px (row 700, Segoe UI on Windows; Roboto lands within a few px), Nova 227 px (row 724). Its cap height then about matches the 160 px tiles.
-- Measured on the mockups: the brand block's center sits at 36.1 to 36.3% (36.2 to 36.4% before the 160 px buttons of 2.7) of the screen height, inside the 35 to 42% the screens review asked for. The built first launch screen measures 36.6 to 36.8%.
-- The same two tone wordmark, at the display size with no fitting, heads the About screen (7.13).
-- Reference: docs/design/additions/<skin>-menu.png.
+**Fit on every screen (2.4, 2.8).**
+- *Width:* the canvas is never narrower than 1080 px (a narrower phone, such as the Fold5 cover screen, makes it taller instead), so the content inside the margins is at least 1008 px (Gumdrop) or 992 px (Slate, Nova), and the sum row (902 to 951 px) always fits at its full size. On the Fold5 inner screen and on 16:9 phones the column is wider, and the brand keeps its phone size, centered (Slate: on the column's left margin).
+- *Height:* the splash content is about 1,450 to 1,600 px tall, and the shortest supported safe area (16:9 with a 48 dp button bar) is about 2,130 px, so about 500 px stay free for the two spacers. The Fold5 cover screen is taller than 20:9 and has more room.
+- *Fallback:* should the free height ever reach zero (a phone outside the 2.4 list), the sum row's tile side shrinks, never below 112 px, and the wordmark follows it, since it is fitted to the row. The records and the buttons never shrink.
+
+**The sum row.** The Info chain row (7.12) at a larger size: one line, everything vertically centered on it:
+1. The chain 2, 2, 4, 8, drawn by the skin's own board view as a one row board, all four cells chained in order, no preview and no highlight (`SkinCatalog.make_board_view(skin)`, `setup(skin, 4, 1)`, `set_board`, `set_chain(cells, Vector2(-1, -1))`). So it shows the skin's real chained look and chain line: Gumdrop's rope in its little tray, Slate's ruled line with nodes and label plates, Nova's beam. Tiles 144 px (7.9): width 4 x 144 + 3 x `board_gap` + 2 x `board_padding` (Nova: 4 x 144 / `orb_scale`), height its `preferred_height(width)`.
+2. `space_m`, the arrow icon (72 px box, 7.9, ink_muted), `space_m`.
+3. The result 16: the skin's tile view (SkinTileView) at 144 px, resting.
+
+Measured with the built board views: the row is 948 px wide in Gumdrop (tray 660 x 180), 902 in Slate (606 x 144) and 951 in Nova (647 x 162). Nothing in it takes input. 2 + 2 + 4 + 8 = 16 exactly, so the row is a true move and it says what the name says.
+
+**The wordmark "SumUp".** One drawn control, the same wherever it appears (the splash and the About screen, 7.13). It replaces the two labels of the 2026-10-13 build.
+- *Letters:* "Sum" and "Up", set with no gap in the display role's font, weight and tracking, drawn with `draw_string`. "Sum" in ink, "Up" in accent: the capital U marks the second word, and "Up" in the accent says the game is about going up. Never cased (3.4).
+- *Size on the splash:* fitted so the wordmark's drawn width (per skin, below) equals the sum row's width: size = floor(display size x row width / drawn width at the display size), then 1 px smaller until it fits; never below the display size. With the measured rows that is 281 px (Gumdrop), 266 px (Slate, measured in Segoe UI on Windows; Roboto lands within a few px) and 280 px (Nova, counting its star). The cap height, about 0.70 of the size, then stands about 1.3 times the row's tiles.
+- *Size on About:* the display role's size, not fitted (7.13).
+- *Height:* the font's ascent plus descent at that size, plus Gumdrop's lip.
+- *Drawn per skin,* each with an effect built from tokens it already has. None changes a text pair: the faces are ink and accent on the backdrop, pairs every skin lists (4.3, 5.3, 6.3), and Nova's glow has its own pair (6.3).
+
+| Skin | Look |
+|---|---|
+| Gumdrop | Candy letters with a lip, like its tiles and buttons. Under each face a lip: the same text drawn again at every whole px offset from 1 to d below the face, then the face on top. d = round(0.06 x size): 17 px at 281, 7 px at the About size (120). Lip colors: "Sum" in ink_muted darkened by `lip_darken` (#8B7D97), "Up" in accent_lip (#A9246E). "Up" steps up: its baseline sits round(0.06 x size) above the baseline of "Sum", like a tile lifted for the joinable highlight. The drawn width is the two advances. |
+| Slate | Flat and exact: the two words on one baseline, no effect at all. The masthead rule under it belongs to the splash's brand block, not to the wordmark (About already closes its brand block with a rule, 7.13). The drawn width is the two advances. |
+| Nova | Light rising from "Up". Behind "Up", the shared glow texture (the one the orbs use, made once) drawn tinted accent, alpha 0.25 at its center, into Up's box (its advance width by the cap height, on the baseline) grown by 0.30 x size on every side. A star after it: the star icon, filled, in accent, its box 0.18 x size, its left edge 0.03 x size after Up's advance, its center on the cap top line (0.70 x size above the baseline), inside the glow, with no glow of its own. The drawn width is the two advances plus 0.21 x size for the star. |
+
+- Built once per size; redrawn only when the skin or size changes (1.5).
+- The drawn box includes Gumdrop's lip and Nova's star, so layout and the backdrop's clear rect see the whole wordmark.
+
+**Arrival (entrance).** No new motion: the splash reuses each skin's tokens. It plays each time the splash is shown anew: when the app opens and after a run ends. It does not play when an overlay over the splash closes (Settings, Info, About). On a skin switch the splash is rebuilt at rest, without it (the `skin_switch` cross-fade carries that change).
+1. At 0: the brand block (wordmark, Slate's rule, sum row) plays the skin's `dialog_in` with its extras (Motion.dialog_in): Gumdrop rises 240 px with its back ease, so the name springs up; Slate slides up 32 px from alpha 0; Nova fades in from 0.96 scale.
+2. The sum row's board view starts empty (every cell 0): Gumdrop's tray shows its slots, Slate its hairline cell frames, Nova nothing. The arrow and the result tile start at alpha 0.
+3. At half of `dialog_in`'s duration: the board view's `play_spawn` brings in 2, 2, 4 and 8, in chain order, with the skin's `spawn` and its `stagger`.
+4. When `play_spawn` ends: `set_chain` with all four cells, at once (the chain line appears whole), and the arrow and the result fade in together over `screen_fade` (Motion.fade).
+
+That ends near 0.76 s in Gumdrop, 0.38 s in Slate and 1.04 s in Nova. It is decoration: the records and the three buttons show and take input from the first frame, and a tap on Play during it leaves at once (the entrance stops with the splash). The backdrop's clear rects use the brand block's final rect, not its moving one.
+
+**Copy.** Bart's PLAY, INFO and ABOUT, cased like every other button: the copy is "Play", "Info" and "About", set in the body role, which is as written in every skin. Slate sets capitals only in its label and heading roles (5.4), so its buttons read "Play" like its "New game" and "Resume", and Nova's read "Play", not lowercase. The same holds for Info in Pause and Home on the end of run screen.
+
+Android back on the splash quits after saving, as it did on the main menu.
+
+- Reference: no mockup (Bart reviews the build on his phone). The 2026-10-13 menu mockups, docs/design/additions/<skin>-menu.png, show the old menu this replaces.
 
 ### 7.3 Pause
 
 - Opened by the HUD's pause button or Android back during play.
-- A panel with "Paused" (title), **Resume** (primary), **New game** (secondary), **How to play** (secondary), **Settings** (secondary). Back resumes.
-- How to play sits with Settings, the two that look things up, under the two that play. Settings stays last, where it was. How to play opens over Pause (7.11), so the run stays paused (GDD 21.1).
+- A panel with "Paused" (title), **Resume** (primary), **New game** (secondary), **Info** (secondary), **Settings** (secondary). Back resumes.
+- Info (2026-10-14, in How to play's place) sits with Settings, the two that look things up, under the two that play. Settings stays last, where it was. Info opens over Pause (7.11), so the run stays paused. The panel's height does not change.
 - Reference: docs/design/additions/<skin>-pause.png.
 
 ### 7.4 New game confirmation (D-34)
@@ -1193,7 +1239,7 @@ The free height between the settings button's touch area and the records splits 
   - The final score (display, auto fitting).
   - A **New best** badge if this run set the Best Score.
   - Rows, split by the skin's divider: "Best score" with the number, "Best tile" with a mini tile, "This run's highest tile" with a mini tile.
-  - **New game** (primary) and **Main menu** (secondary).
+  - **New game** (primary) and **Home** (secondary), which goes to the splash (7.2, GDD D-47). Home replaces Main menu (2026-10-14); same button, same place.
 - No stars row (2026-10-13). The star count is worked out from this run's highest tile (GDD D-45: 128K is always 7 stars), so a stars row would repeat the row above it in another unit. A fourth row would also make the panel taller over the dimmed board on 16:9 phones. The stars stay a play time signal; the highest tile is the run's record.
 
 ### 7.7 Settings
@@ -1225,14 +1271,18 @@ These numbers are the same in every skin and are not tokens. The components hold
 
 | Constant | Value | Where |
 |---|---|---|
-| Main menu decorative tiles | 160 px side | 7.2 |
-| Record row mini tiles (main menu and end of run) | 72 px side | 7.2, 7.6 |
+| Splash sum row tiles (the old menu's decorative tiles were 160) | 144 px side, shrinking to 112 only if a screen has no room | 7.2 |
+| Splash sum row arrow | 72 px icon box | 7.2 |
+| Record row mini tiles (splash and end of run) | 72 px side | 7.2, 7.6 |
 | Skin choice preview tiles | 72 px side | 7.7 |
 | Skin choice swatch padding | 0.22 of the preview tile side | 7.7 |
 | Skin choice swatch hairline edge | 2 px | 7.7 |
 | Icon design grid | 24 units, scaled to the icon box | 4.7, 5.7, 6.7 |
-| How to play example tiles | 112 px side | 7.12 |
-| How to play example arrow | 56 px icon box | 7.12 |
+| Info example tiles | 112 px side | 7.12 |
+| Info example arrow | 56 px icon box | 7.12 |
+| Wordmark: Gumdrop lip depth and the step of "Up" | 0.06 of the wordmark size each, rounded | 7.2 |
+| Wordmark: Nova glow | alpha 0.25; Up's box grown by 0.30 of the size | 7.2 |
+| Wordmark: Nova star | box 0.18, gap 0.03, drawn width added 0.21 of the size; center on the cap top, 0.70 of the size above the baseline | 7.2 |
 | Star in the notice and in a Free cost | box = the text role's font size; gap 0.25 of it | 4.7 |
 | Reading screen scroll deadzone | 24 px (8 dp, Android's touch slop) | 7.11 |
 | Scroll indicator, shortest | 96 px | 7.11 |
@@ -1247,15 +1297,19 @@ These numbers are the same in every skin and are not tokens. The components hold
 | Targeting hints | "Tap a tile to smash it" (Hammer), "Tap two tiles to swap them" (Swap), "Tap a tile to double it" (Double) |
 | Swap after the first tap | "Now tap the tile to swap with" |
 | **2026-10-13 additions** | |
-| Main menu and Pause button | "How to play" |
-| Main menu wordmark | "SumUp" ("Sum" in ink, "Up" in accent; never cased) |
+| Pause button (was "How to play", 2026-10-14) | "Info" |
+| Wordmark (splash and About) | "SumUp" ("Sum" in ink, "Up" in accent; never cased) |
 | Settings row | "About" |
 | Clear notice, stars earned | "+{n}" followed by the star icon, after the notice copy (Slate and Nova cased like the copy; digits are not affected) |
 | HUD star counter | the count as a number; Slate's caption "Stars" (capitals: "STARS") |
 | HUD free boosters held | "{n} free" (Slate "1 FREE", Nova "1 free") |
 | Booster cost while a free booster is held | "Free" after the star icon (Slate "FREE", Nova "free"), GDD D-46 |
 | Offer buy button while a free booster is held | "{Booster} for free", for example "Shuffle for free" (GDD 13.9) |
-| How to play | screen title "How to play"; the seven section titles and texts are GDD 21.2 (HP1 to HP7), word for word |
+| **2026-10-14 splash and Info** | |
+| Splash buttons | "Play", "Info", "About" (body role, as written in every skin) |
+| End of run, second button | "Home" (was "Main menu") |
+| Info | screen title "Info"; the sixteen section titles and texts are GDD 21.2 (IN1 to IN16), word for word |
+| About, source code line | "Source code: github.com/bartbasi/sumup" (plain text, not a link; never cased) |
 | About, header | "About" |
 | About, brand block | "SumUp"; "Version {version}" from `application/config/version` (the line is left out when no version is set); "Made by Bart Basi"; "Copyright 2026 Bart Basi" (exactly, never cased) |
 | About, section "What it is" | "SumUp is a number merge puzzle. Join touching tiles of the same number into bigger ones and see how high you can go." |
@@ -1269,13 +1323,13 @@ These numbers are the same in every skin and are not tokens. The components hold
 
 The About and license wording covers the legal notices the GPL asks for (a copyright notice, no warranty, that the user may share it under the license, and how to read the license). Bart approved it as written on 2026-10-13.
 
-### 7.11 Reading screens (How to play, About, license texts)
+### 7.11 Reading screens (Info, About, license texts)
 
 One shared full screen frame for everything that is read rather than played. Not a dialog panel: the content is longer than a sheet, so it gets the whole screen and scrolls.
 
 **Frame**
 - Full screen and opaque: the skin's backdrop fills the screen. Nova keeps its glow but shows no star dust here: the clear rect is the whole screen, because dust between lines of text reads as specks.
-- It opens over whatever opened it: How to play over the main menu or over Pause, About over Settings, a license text over About. What is underneath stays exactly as it was, and closing returns to it.
+- It opens over whatever opened it: Info over the splash or over Pause, About over the splash or over Settings, a license text over About. What is underneath stays exactly as it was, and closing returns to it.
 - The header and the scroll area sit in the content column (2.8): on a wide screen the page is a centered column with the backdrop on both sides, and the scroll indicator sits in the column's right margin.
 - It comes and goes with `screen_fade` (alpha 0 to 1 and back), never `dialog_in`: a full screen springing up from below would be heavy.
 - Android back closes the top reading screen first (before Pause or Settings underneath). The close button does the same.
@@ -1283,7 +1337,7 @@ One shared full screen frame for everything that is read rather than played. Not
 **Header** (fixed, does not scroll)
 - Inside the safe area, `touch_min` tall.
 - The title in the title role, ink, left aligned at `board_margin` (it shares its row with a button, section 7 Alignment), vertically centered.
-- The close icon button on the right, inset like the main menu's settings button (its face on `board_margin`).
+- The close icon button on the right, inset like the splash's settings button (its face on `board_margin`).
 - Slate: a `hairline` divider in line under the header, from margin to margin, like its HUD.
 
 **Scroll area**
@@ -1315,23 +1369,41 @@ One shared full screen frame for everything that is read rather than played. Not
 
 **Theme variations** (every skin, built by UiKit.build_theme): HeadingLabel (heading role, ink), ReadingLabel (reading role, ink_muted, `line_spacing` = `reading_line_spacing`), SectionPanel (the section box above), RowButton, RowDetailLabel, and the ScrollContainer and VScrollBar looks. The heading and reading case rules are applied by the screens, like every case rule (section 7, ARCHITECTURE.md section 7).
 
-### 7.12 How to play (GDD D-44)
+### 7.12 Info (GDD D-44, rewritten 2026-10-14)
 
-- Opened only by its button on the main menu or in Pause (GDD 21.1). Title "How to play".
-- Seven sections, HP1 to HP7 of GDD 21.2 in order, each title and text word for word, in the 7.11 section layout. HP1, HP2 and HP5 end in an example row.
-- **Example row**, under the text after `space_m`, left aligned, one line, everything vertically centered on it:
-  1. The chain, drawn by the skin's own board view as a one row board, so the tiles show the skin's real chained look and its real chain line (the rope in Gumdrop's little tray, Slate's ruled line with nodes and label plates, Nova's beam): `SkinCatalog.make_board_view(skin)`, `setup(skin, n, 1)`, `set_board(values)`, `set_chain(all n cells in drag order, Vector2(-1, -1))`, no preview and no highlight. Sized so its tiles are 112 px (7.9): width n x 112 + (n - 1) x `board_gap` + 2 x `board_padding` (Nova: n x 112 / `orb_scale`), height its `preferred_height(width)`.
-  2. `space_m`, the arrow icon (56 px box, ink_muted), `space_m`.
-  3. The result: the skin's tile view (SkinTileView) at 112 px, resting. It stands outside the chain's board and after the arrow, which sets it apart (GDD 21.1); in Gumdrop it also sits on the card, outside the tray.
+Info replaces How to play everywhere: one full guide to the game, in the reading screen frame of 7.11.
+
+- Opened only by **Info** on the splash (7.2) or in Pause (7.3). Title "Info", in the title role as written in every skin (titles are not cased; Slate's capitals are its label and heading roles).
+- Sixteen sections, IN1 to IN16 of GDD 21.2, in order, each title and text word for word, in the 7.11 section layout. The words are the GDD's; this section gives the look.
+- It always opens scrolled to the top.
+
+**Example rows.** Two kinds, both under the text after `space_m`, left aligned, one line, everything vertically centered on it. Tiles 112 px and the arrow 56 px (7.9).
+- *Chain row* (a chain and its result): as before. The chain drawn by the skin's own board view as a one row board, so the tiles show the skin's real chained look and chain line: `SkinCatalog.make_board_view(skin)`, `setup(skin, n, 1)`, `set_board(values)`, `set_chain(all n cells in drag order, Vector2(-1, -1))`, no preview and no highlight. Width n x 112 + (n - 1) x `board_gap` + 2 x `board_padding` (Nova: n x 112 / `orb_scale`), height its `preferred_height(width)`. Then `space_m`, the arrow icon (ink_muted), `space_m`, and the result: the skin's tile view (SkinTileView) at 112 px, resting. It stands outside the chain's board and after the arrow, which sets it apart; in Gumdrop it also sits on the card, outside the tray.
+- *Change row* (one tile that a booster changes, such as Double's 8 then 16): no board view and no chain. The tile before, the skin's tile view at 112 px, resting; `space_m`, the arrow, `space_m`; the tile after, the same way. With no chain line both tiles read as plain tiles, which is right: a booster acts on one tile, it does not chain it.
+- The GDD gives the rows: IN1 (2, 2, 4 then 8), IN2 (2, 2, 2 then 4) and IN6 (1024, 1024 then 2K) are chain rows; IN12 (8 then 16, a Double) is a change row. A row with one tile before the arrow is always a change row.
 - The rows are illustrations: nothing in them takes input, and a drag on them scrolls.
-- The longest row (five tiles and the result) is 900 px in Gumdrop, inside its 936 px card; the GDD rows have two or three tiles.
-- Measured on the mockups at 1080 x 2400 with a 120 / 66 px safe area: the content is 1.56 (Gumdrop), 1.41 (Slate) and 1.41 (Nova) screen heights of the scroll area, within the GDD's "at most about two" (21.1). The built screens measure the same, 1.41 to 1.56. A 360 x 720 dp phone is wider (1200 px canvas), so a little shorter.
-- Reference: docs/design/additions/<skin>-howto.png and <skin>-howto_end.png.
+- The longest chain row the GDD uses (three tiles and the result) is 644 px in Gumdrop, far inside its 936 px card. A chain row may hold up to five tiles (900 px in Gumdrop).
+
+**Booster sections.** A section about one booster leads with that booster's icon, so the player can match the text to the button on the bar:
+- The section's content becomes two columns: on the left the booster icon (the bar's own icon for that booster, Hammer, Swap, Shuffle, Double or Undo), in an `icon_hud` box (Gumdrop 64, Slate 72, Nova 72), drawn in ink, with no button face, ring or glow; `space_s`; on the right the heading, the text and any example row, as in 7.11.
+- The icon is vertically centered on the heading's first line.
+- It is the icon in its normal look: Gumdrop's chunky candy strokes, Slate's signage strokes, Nova's thin strokes fitted to `icon_fit`. Ink on the section's background is a pair every skin lists (Gumdrop ink on surface, Slate ink on bg, Nova ink on bg_glow), and an icon carries no text.
+- The text column is narrower by the icon and the gap (88 px in Gumdrop, 92 in Slate, 100 in Nova), about 43 to 49 characters a line: still a comfortable measure.
+- Which sections: IN9 Hammer, IN10 Swap, IN11 Shuffle, IN12 Double and IN13 Undo, each with its own booster's icon. IN8 (Boosters, the overview) and every other section have no icon. IN12 has both its icon and its change row: the row sits in the right column under the text, like the text.
+
+**A long page.** Info is several screen heights long (sixteen short sections, 469 words, four with a row: by a rough count about three screen heights at 1080 x 2400). The 7.11 frame holds for that length as it is:
+- The ScrollContainer scrolls any length; the scroll indicator shrinks with the page (never under 96 px), so it shows how long the guide is.
+- Build it whole before the fade in starts (it is a few dozen labels and four rows, nothing like a license text), and check that the fade runs within 16.7 ms a frame in the desktop window. If it ever does not, build it as 7.14 does: the first screenful before the fade, the rest after it.
+- No contents list, no section links and no back-to-top control: the sections follow the order the player meets the rules, and a fling covers the page.
+- No GDD length limit applies any more (the old "at most about two screens" was for How to play).
+
+- Reference: no mockup for Info (Bart reviews the build). It looks like docs/design/additions/<skin>-howto.png, with the new title, more sections and the booster icons.
 
 ### 7.13 About
 
-- Opened by the About row in Settings. Title "About". It shows (GDD AT-141): what the game is, the version, who made it, that it is offline and collects no data, the attribution, and the licenses.
-- **Brand block**, on the backdrop in every skin (no card even in Gumdrop: it is the screen's masthead, like the main menu's): the two tone wordmark (7.2) at the display role's size, not fitted; "Version 0.1" in the label role, ink_muted; `space_m`; "Made by Bart Basi" and "Copyright 2026 Bart Basi", each in the body role, ink.
+- Opened by **About** on the splash (7.2) or by the About row in Settings. Title "About". It shows (GDD AT-141): what the game is, the version, who made it, that it is offline and collects no data, the attribution, and the licenses.
+- **Brand block**, on the backdrop in every skin (no card even in Gumdrop: it is the screen's masthead, like the splash's): the wordmark (7.2), drawn in the skin's style (Gumdrop's lip and step, Nova's glow and star) at the display role's size, not fitted; "Version 0.1" in the label role, ink_muted; `space_m`; "Made by Bart Basi" and "Copyright 2026 Bart Basi", each in the body role, ink; then the source code line (below).
+- **Source code line (2026-10-14).** Right under "Copyright 2026 Bart Basi", `space_m` below it, the last line of the brand block: "Source code: github.com/bartbasi/sumup" in the body role, ink_muted, aligned like the rest of the block (centered; Slate left). Plain text: no underline, no accent, no touch, not a link (the game has no network). Never cased, so Slate never sets the address in capitals and Nova never lowers "Source". On one line it measures 866 px (Gumdrop), 830 (Slate, Segoe UI) and 801 (Nova), inside the 1008 and 992 px text width, so it fits a 1080 px canvas. If it ever wraps, it breaks only at the space after "Source code:", never inside the address. Its pair is listed in every skin (ink_muted on bg; Nova on bg_glow). Nothing else in 7.10's approved About wording changes.
 - **The attribution's weight.** "Copyright 2026 Bart Basi" is a license term (NOTICE, term 1), so it is set like a statement, not like fine print: the body role in ink, the same weight as "Made by Bart Basi", never muted, never in a label role, never cased, never truncated. It sits in the first screenful on every supported phone (about 700 px down a 2400 px screen) and needs no scrolling to find.
 - Then three sections (7.11): "What it is", "Offline, no data" and "Licenses" with the copy of 7.10. The Licenses section ends in three rows that open a screen (7.11), one per license, each with its title and detail line (7.10), split by dividers.
 - *Slate:* the brand block counts as its first section, so a `hairline` divider in line closes it before "What it is", as between its other sections: the masthead ends on a rule, like a magazine page. Approved as built (2026-10-13 review; the mockup shows it too). Gumdrop and Nova put nothing between the brand block and the first section.
@@ -1495,3 +1567,32 @@ The full review, page by page, is docs/design/briefs/additions-review.md; the fi
 | Measured: content column 1,220, 1,221 and 1,269 px on the Fold5 inner screen; brand center 36.6 to 36.8%; How to play 1.41 to 1.56 screen heights; panel heights | Within the spec; recorded | 2.7, 2.8, 7.12 |
 
 **Requested change to the GDD (AT-142, lead-game-designer through the DM).** Add to the unit comparison: "A rule line (a line of three or more of one character, `-`, `=` or `*`, and nothing else but spaces) splits paragraphs in both the view and the source. The view draws it as a divider; the comparison leaves it out, like the headings the view adds." With that line the completeness check (the same number of paragraphs) still holds, because the view and the source split at the same lines.
+
+---
+
+## 11. The 2026-10-14 splash screen and Info
+
+Bart replaced the main menu with a splash screen on 2026-10-14 (GDD D-47), replaced How to play with the Info guide (D-44, rewritten), and added the source code line to About. No mockup round: Bart reviews the build on his phone.
+
+### 11.1 Where it is specified
+
+| Change | Sections |
+|---|---|
+| Splash: arrangement, fit, sum row, entrance | 7.2 |
+| The wordmark drawn in each skin's style (splash and About) | 7.2, 7.13 |
+| Nova's wordmark glow pair | 6.3 |
+| Pause: Info in place of How to play | 7.3 |
+| End of run: Home | 7.6 |
+| Sizes | 7.9 |
+| Copy | 7.10 |
+| Info: example rows, booster icons, a long page | 7.11, 7.12 |
+| About: the source code line | 7.13 |
+
+No new tokens, colors, icons or motion names. The SkinData resources do not change. The wordmark uses existing tokens (display role, ink, ink_muted, accent, accent_lip, `lip_darken`, the glow texture, the star icon) and fixed shares of its own size, held as named constants like 7.9.
+
+### 11.2 Who builds what
+
+- **ui-motion-artist (src/design/):** the wordmark as one drawn control with its three skin looks and its fit (7.2), made by UiKit; it replaces the two label wordmark in src/ui/ui_parts.gd. No new icons, no Theme change: the splash and Info use the existing buttons, icons, divider, reading variations and Motion helpers.
+- **ui-systems-dev (src/ui/, scenes/ui/):** the splash screen (layout, records, buttons, the entrance sequence with Motion.dialog_in, the board view's `play_spawn` and `set_chain`, and Motion.fade), its wiring in the App, Info (renamed from How to play, with change rows and the booster section icons), the About line, Pause's Info button, the end of run screen's Home button, and the copy.
+- **tile-board-artist:** nothing. The board view and tile view are used through their existing API.
+- **senior-graphic-designer:** the contrast check gains Nova's glow pair (6.3), and the review of the build.

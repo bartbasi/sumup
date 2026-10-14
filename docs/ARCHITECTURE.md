@@ -1,6 +1,6 @@
 # SumUp: Architecture
 
-Owner: Development Manager. Status: Phase 2 contract, 2026-10-11. Extended 2026-10-13 for stars and free boosters (GDD D-45, D-46), the save format 2 run file, How to play (D-44), About, and the SEC-01 move check.
+Owner: Development Manager. Status: Phase 2 contract, 2026-10-11. Extended 2026-10-13 for stars and free boosters (GDD D-45, D-46), the save format 2 run file, How to play (D-44), About, and the SEC-01 move check. Extended 2026-10-14 for the splash screen and Info (GDD D-47, D-44).
 
 This is the contract every agent builds against in Phase 3. It names every class each area exposes, every public method and signal with its arguments, the data model, the save format, and how skins and the theme are read. If you need something here changed, stop and ask the Development Manager. Do not change another area's code, and do not invent a public method another area must call.
 
@@ -500,6 +500,7 @@ static func make_icon(skin: SkinData) -> SkinIcon
 static func make_toggle(skin: SkinData) -> SkinToggle
 static func make_backdrop(skin: SkinData) -> SkinBackdrop
 static func make_icon_button(skin: SkinData, icon_name: StringName) -> BaseButton   # a touch_min square button with the skin icon drawn on its face; emits pressed exactly once per tap, touch or mouse (QA6-01)
+static func make_wordmark(skin: SkinData) -> SkinWordmark                # DESIGN_SYSTEM.md 7.2, 7.13: the drawn "SumUp" wordmark in the skin's look
 ```
 
 The HUD, the booster bar and every panel lay out from their own rect only. On wide screens that rect is the content column (QA6-08, section 11), which can be narrower than the screen.
@@ -507,6 +508,13 @@ The HUD, the booster bar and every panel lay out from their own rect only. On wi
 **Theme.** `build_theme` sets the default font to the body role and defines these type variations in every skin: DisplayLabel, TitleLabel, BodyLabel, MutedLabel, CaptionLabel, PrimaryButton, SecondaryButton, ChipButton, CardPanel, PillPanel, HintPanel, Hairline, IconButton, BadgePanel, BadgeLabel, SignalLabel, HintLabel, and for the reading screens (DESIGN_SYSTEM.md 7.11) HeadingLabel, ReadingLabel, SectionPanel, RowButton, RowDetailLabel, plus the skin's ScrollContainer and VScrollBar looks. SignalLabel takes the title role case, except Slate, where it takes the label role. A Theme cannot set text case or alignment, so screens apply `skin.cased()` themselves and left align Slate's primary buttons. UiKit factories return components already set up. Buttons have normal, hover, pressed, disabled and focus styles. The App sets the theme on its root Control, so every screen and panel inherits it.
 
 ```gdscript
+## DESIGN_SYSTEM.md 7.2 and 7.13 (2026-10-14). The drawn wordmark, one control per skin, in src/design/.
+## It replaces the two label wordmark in src/ui/ui_parts.gd. Never blocks input.
+class_name SkinWordmark extends Control
+func setup(skin: SkinData) -> void
+func fit_width(width: float) -> void                      # largest size whose drawn width fits, as 7.2 says
+func set_masthead(on: bool) -> void                       # Slate's rule under the wordmark on the splash; other skins ignore it
+
 class_name SkinHud extends Control
 signal pause_pressed()                                    # the HUD's pause button
 func setup(skin: SkinData) -> void
@@ -730,7 +738,7 @@ Every other SaveService method waits for queued writes first, so nothing interle
 
 - `scenes/main.tscn` (DM): the project's main scene. It only instances `scenes/ui/app.tscn`.
 - `scenes/ui/app.tscn`: App, the root. Everything else is created under it.
-- `scenes/ui/game_screen.tscn`, `main_menu.tscn`, `pause_panel.tscn`, `settings_panel.tscn`, `offer_panel.tscn`, `end_panel.tscn`, `confirm_dialog.tscn`, `how_to_play_panel.tscn`, `about_panel.tscn`.
+- `scenes/ui/game_screen.tscn`, `splash_screen.tscn`, `pause_panel.tscn`, `settings_panel.tscn`, `offer_panel.tscn`, `end_panel.tscn`, `confirm_dialog.tscn`, `info_panel.tscn`, `about_panel.tscn`.
 - `scenes/board/board.tscn`: BoardController.
 
 ### Classes
@@ -747,17 +755,19 @@ func apply_skin(skin: SkinData) -> void                          # live switch: 
 func board() -> BoardController
 signal pause_requested()                                     # HUD pause button
 
-class_name MainMenu extends Control
-signal new_game_chosen()
+class_name SplashScreen extends Control                      # D-47, GDD 15.4, DESIGN_SYSTEM.md 7.2 (replaces MainMenu)
+signal play_chosen()
+signal info_chosen()
+signal about_chosen()
 signal settings_chosen()
-signal how_to_play_chosen()                                  # D-44
 func setup(skin: SkinData, records: Records) -> void
+func apply_skin(skin: SkinData) -> void
 
 class_name PausePanel extends Control
 signal resume_chosen()
 signal new_game_chosen()
 signal settings_chosen()
-signal how_to_play_chosen()                                  # D-44
+signal info_chosen()                                         # D-44
 func setup(skin: SkinData) -> void
 
 class_name SettingsPanel extends Control
@@ -765,12 +775,14 @@ signal closed()
 signal about_chosen()
 func setup(skin: SkinData, settings: Settings) -> void           # sound toggle, skin picker with live preview chips, About row
 
-class_name HowToPlayPanel extends Control                    # D-44, GDD section 21
+class_name InfoPanel extends Control                         # D-44, GDD section 21 (replaces HowToPlayPanel)
 signal closed()
 func setup(skin: SkinData) -> void
 func apply_skin(skin: SkinData) -> void
-## TH21. One Dictionary per section, in order: {"title": String, "text": String,
-## "example": PackedInt64Array (the joined tiles, empty for none), "result": int (0 for none)}.
+## TH21. One Dictionary per section IN1 to IN16, in order: {"title": String, "text": String,
+## "example": PackedInt64Array (the joined tiles, or the one changed tile for a change row; empty for none),
+## "result": int (0 for none), "row": StringName (&"chain", &"change" or &"" for none),
+## "icon": StringName (the booster icon name for IN9 to IN13, &"" for none)}.
 func content() -> Array[Dictionary]
 
 class_name AboutPanel extends Control
@@ -790,7 +802,7 @@ func show_offer(statuses: Array[BoosterStatus], score: int) -> void   # D-19, su
 
 class_name EndPanel extends Control
 signal new_game_chosen()
-signal main_menu_chosen()
+signal home_chosen()                                         # D-41, GDD 12.3: goes to the splash
 func setup(skin: SkinData) -> void
 func show_summary(summary: RunSummary) -> void               # final score, Best Score, Best Tile, this run's highest tile, New game
 
@@ -803,14 +815,14 @@ class_name SafeArea extends RefCounted
 static func viewport_safe_rect(viewport: Viewport) -> Rect2  # display safe area mapped into viewport coordinates
 ## QA6-08, DESIGN_SYSTEM.md 2.8. The content column inside the safe area: as wide as the smaller of the safe width
 ## and the play screen board's width plus 2 x board_margin, centered. GameScreen (HUD, bar, offer, board), the dialog
-## base (every panel), MainMenu and the reading screens lay out inside it. It follows live resizes (fold and unfold).
+## base (every panel), SplashScreen and the reading screens lay out inside it. It follows live resizes (fold and unfold).
 static func content_column(viewport: Viewport, skin: SkinData) -> Rect2
 ```
 
 ### Flow
 
-1. **Start (Bart's decision).** App loads the profile and sets the theme for `settings.skin_id`. If a valid run is saved, it goes straight to GameScreen and calls `session.resume(saved)`. Otherwise it shows MainMenu. MainMenu also follows a finished run (EndPanel's Main menu), so it never sees a saved run.
-2. **New game** calls `session.start_new_run()`. From Pause, while a run is in progress, it asks through ConfirmDialog first (D-34).
+1. **Start (Bart's decision of 2026-10-14, D-47, GDD 15.1 and 15.4).** At every launch the App loads the profile, sets the theme for `settings.skin_id`, then loads and checks the saved run and folds it into the records (GDD 15.1) before anything shows. A run that fails the check is deleted. Then it shows SplashScreen with the records. It holds the valid saved run, if any, until PLAY. A return from the background is not a launch: the App shows whatever it showed before.
+2. **PLAY** (SplashScreen `play_chosen`): with a held saved run, GameScreen shows and the App calls `session.resume(saved)`; without one, `session.start_new_run()`. **New game** (EndPanel, or Pause while a run is in progress after ConfirmDialog, D-34) calls `session.start_new_run()`. The splash has no New game. EndPanel's Home (`home_chosen`) shows SplashScreen, which then holds no saved run.
 3. **Play.** GameScreen shows Backdrop, HUD, BoardController and BoosterBar for the current skin, laid out inside the safe area as DESIGN_SYSTEM.md arranges it. It re-reads `session.booster_statuses()` on `status_changed`, mirrors scores into the HUD, and passes `chain_changed` to the HUD context row and preview slot for skins that use them.
 4. **Clear notice and stars.**
    - When a `move_resolved` result has `stars_earned > 0` or a non empty `cleared_small` (section 4, D-45), GameScreen calls `hud.show_clear_notice(result.notice_values, board_rect, result.stars_earned)` (AT-104).
@@ -820,12 +832,12 @@ static func content_column(viewport: Viewport, skin: SkinData) -> Rect2
    - The HUD calls are in section 7.
 5. **Offer.** While `session.is_offer_open()`, OfferPanel takes the HUD's place (DESIGN_SYSTEM.md 7.5); the board and booster bar stay visible and usable. Its buy button and the booster bar both call `session.press_booster`. End run calls `session.end_run()`. GameScreen shows the panel on `offer_changed(true, ...)`, refreshes it on every `status_changed`, and restores the HUD on `offer_changed(false, ...)`.
 6. **End.** On `run_ended` the App deletes the saved run, saves the profile and shows EndPanel. It never saves a run unless `session.is_run_in_progress()` is true.
-7. **Settings.** Reached from MainMenu and PausePanel. Sound calls `settings.set_sound_on`; a skin chip calls `settings.set_skin_id`. The App listens: sound goes to `audio.set_enabled`; a skin change rebuilds the theme and calls `apply_skin` on every live screen and panel. Both save the profile.
+7. **Settings.** Reached from SplashScreen and PausePanel. Sound calls `settings.set_sound_on`; a skin chip calls `settings.set_skin_id`. The App listens: sound goes to `audio.set_enabled`; a skin change rebuilds the theme and calls `apply_skin` on every live screen and panel. Both save the profile.
 8. **Saving.** On `save_requested` the App saves the run (only while `session.is_run_in_progress()`) and the profile at once. It also saves on NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT and NOTIFICATION_WM_CLOSE_REQUEST, after calling `board.cancel_drag()` and `session.cancel_targeting()` (13.1).
-9. **Pause.** Opening PausePanel by any route (the HUD pause button or the back button) first calls `board.cancel_drag()` and `session.cancel_targeting()` (13.1). Pause offers Resume, New game and Settings (DESIGN_SYSTEM.md 7.3). The main menu is reached at launch and from the end of run screen.
-10. **Back button.** The App sets `get_tree().quit_on_go_back = false` and handles NOTIFICATION_WM_GO_BACK_REQUEST in this order: cancel targeting; else close the top panel (ConfirmDialog, an open license text inside AboutPanel, AboutPanel, HowToPlayPanel, SettingsPanel, PausePanel, where closing Pause resumes); else on GameScreen (offer included) open PausePanel; else on MainMenu or EndPanel quit after saving.
-11. **How to play (D-44).** Reached from MainMenu and PausePanel. It opens over the screen it came from, like Settings, and closing it (its close control or back) returns there. Opened from Pause, the run stays paused under it. It never opens by itself.
-12. **About.** Reached from SettingsPanel's About row. It opens over Settings, and closing it returns to Settings. A license row opens that license's full text inside AboutPanel; back closes the text first, then About. The texts are read at runtime: `res://NOTICE` and `res://COPYING` (the export preset includes both), `res://src/design/fonts/OFL.txt`, and the Engine license calls. If a file cannot be read, the row says so in plain words instead of crashing; that is a build error the tests catch.
+9. **Pause.** Opening PausePanel by any route (the HUD pause button or the back button) first calls `board.cancel_drag()` and `session.cancel_targeting()` (13.1). Pause offers Resume, New game, Settings and Info (DESIGN_SYSTEM.md 7.3). The splash is reached at launch and from the end of run screen's Home.
+10. **Back button.** The App sets `get_tree().quit_on_go_back = false` and handles NOTIFICATION_WM_GO_BACK_REQUEST in this order: cancel targeting; else close the top panel (ConfirmDialog, an open license text inside AboutPanel, AboutPanel, InfoPanel, SettingsPanel, PausePanel, where closing Pause resumes); else on GameScreen (offer included) open PausePanel; else on SplashScreen or EndPanel quit after saving (a held saved run stays saved).
+11. **Info (D-44).** Reached from SplashScreen and PausePanel. It opens over the screen it came from, like Settings, and closing it (its close control or back) returns there. Opened from Pause, the run stays paused under it. It never opens by itself.
+12. **About.** Reached from SplashScreen's About and from SettingsPanel's About row. It opens over the screen it came from, and closing it returns there. A license row opens that license's full text inside AboutPanel; back closes the text first, then About. The texts are read at runtime: `res://NOTICE` and `res://COPYING` (the export preset includes both), `res://src/design/fonts/OFL.txt`, and the Engine license calls. If a file cannot be read, the row says so in plain words instead of crashing; that is a build error the tests catch.
 
 ## 12. How skins and the theme are read
 
@@ -861,7 +873,7 @@ static func content_column(viewport: Viewport, skin: SkinData) -> Rect2
 | TH18 save and load | `SaveCodec`, `SaveService` with a temp directory |
 | TH19 hit test | `BoardGeometry.cell_at` |
 | TH20 click count | `AudioService.click_requests` |
-| TH21 How to play content | `HowToPlayPanel.content()` (section 11) |
+| TH21 Info content | `InfoPanel.content()` (section 11) |
 | TH22 About and license texts | `AboutPanel.info_text()`, `AboutPanel.license_text(id)` (section 11) |
 | TH23 hold the save, see the gate | `SaveService.set_hold`, `SaveService.is_idle`, `BoardController.is_waiting_for_save` |
 

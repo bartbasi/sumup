@@ -1,14 +1,14 @@
 # SumUp: Game Design Document
 
-Owner: lead-game-designer. Status: approved by Bart at Hard Stop 1 on 2026-10-10. Decisions D-38 to D-43 were added after Hard Stop 1: they write out the three additions Bart made to v1 scope and close two gaps found in the design review. Decisions D-44 to D-46 were added on 2026-10-13 at Bart's request: How to play, stars and free boosters.
+Owner: lead-game-designer. Status: approved by Bart at Hard Stop 1 on 2026-10-10. Decisions D-38 to D-43 were added after Hard Stop 1: they write out the three additions Bart made to v1 scope and close two gaps found in the design review. Decisions D-44 to D-46 were added on 2026-10-13 at Bart's request: How to play, stars and free boosters. On 2026-10-14 Bart replaced the main menu with a splash screen (D-47) and How to play with the INFO guide (D-44, rewritten).
 
-This document turns section 3 of docs/BRIEF.md into exact rules. The rules Bart confirmed are copied unchanged in section 4. Every gap the brief leaves open is settled here as a numbered designer decision (D-01, D-02, ...) with its reasoning and worked examples. Every tunable number lives in one table in section 18. Section 19 is the acceptance test list (AT-01, AT-02, ...) that QA walks and developers turn into unit tests. Section 20 lists the test hooks those tests need from the code. Section 21 holds the exact How to play text.
+This document turns section 3 of docs/BRIEF.md into exact rules. The rules Bart confirmed are copied unchanged in section 4. Every gap the brief leaves open is settled here as a numbered designer decision (D-01, D-02, ...) with its reasoning and worked examples. Every tunable number lives in one table in section 18. Section 19 is the acceptance test list (AT-01, AT-02, ...) that QA walks and developers turn into unit tests. Section 20 lists the test hooks those tests need from the code. Section 21 holds the exact INFO guide text.
 
 All rules here describe the rules model only. They do not depend on any screen, so level goals could be added later. Nothing here is designed for level goals.
 
 ## 1. Decision summary
 
-One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. D-38 to D-46 were added afterwards (section 1.1).
+One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. D-38 to D-47 were added afterwards (section 1.1).
 
 | ID | Decision | Section |
 |---|---|---|
@@ -52,12 +52,13 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 | D-38 | Small tile clearing: when a chain or a Double raises the spawn window's smallest value, every tile below the new smallest value clears at once, scores nothing, and the board refills (gravity, then spawns) before the move check. Replaces D-13. | 9.4 |
 | D-39 | Hammer, Swap, Shuffle and Undo never trigger clearing. Undo brings back tiles the undone chain cleared. Clearing never touches Best Tile or this run's highest tile. A Hammer that lowers the highest tile lets smaller values spawn again until the window rises again. | 9.4 |
 | D-40 | While dragging, exactly the tiles that would join if the finger moved onto them now are highlighted (D-04). Tiles already in the chain, including the backtrack tile, are never highlighted. | 6.7 |
-| D-41 | This run's highest tile is the highest value on the board at any time this run, from any source. Hammer and Undo never lower it. It is saved with the run and shown on the end of run screen with the final score, Best Score, Best Tile and New game. | 11.4, 12.3 |
+| D-41 | This run's highest tile is the highest value on the board at any time this run, from any source. Hammer and Undo never lower it. It is saved with the run and shown on the end of run screen with the final score, Best Score, Best Tile, New game and the button back to the splash (D-47). | 11.4, 12.3 |
 | D-42 | The no moves offer marks Shuffle as the suggested rescue when it is usable, otherwise Undo when it is usable, otherwise nothing. | 12.2 |
 | D-43 | Hammer and Double act on one tap, and Swap acts on the tap of its second tile. There is no select then confirm step. A highlight under a pressed finger is press feedback only. | 13.1 |
-| D-44 | How to play: seven short sections of fixed text, three with an example row of real tiles in the current skin. It opens only from its button on the main menu or in Pause, and back closes it. | 21 |
+| D-44 | INFO (replaces How to play, 2026-10-14): one guide of sixteen short sections of fixed text covering every rule the player meets, four with an example row of real tiles in the current skin. It opens only from INFO on the splash or in Pause, and back returns to where it was opened. | 21 |
 | D-45 | Stars: one star for each value that leaves the spawn window for the first time in a run, from the first 2K tile on. The count is worked out from this run's highest tile and never stored, so Hammer, Undo and loading can never add one twice (128K gives 7 stars). A floor rise that removes no tile still earns its star. Every star move shows the clear notice with the stars earned. | 11.5 |
 | D-46 | Free boosters: every 3 stars earn one, with no cap. While one is held, the next booster used is free whatever the score, and other conditions still apply. Cancelling targeting keeps it, Undo never gives one back, unused ones end with the run. The run saves how many were used. | 13.9 |
+| D-47 | Splash screen (replaces the main menu, 2026-10-14): it shows at every launch of the app, with or without a saved run, and from the end of run screen. It holds the Settings gear, Best Score, Best Tile and three buttons: PLAY continues the saved run or starts a new one, INFO opens the guide, ABOUT opens About. Back on it quits. Coming back to an app still running in the background does not show it. | 15.4 |
 
 ### 1.1 Sign-off
 
@@ -69,6 +70,7 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 - On 2026-10-13 Bart approved fixing security finding SEC-01 (two touching 2^62 tiles in a hand edited save could never end the run). D-37 now lists every rule at the 64 bit limit, and D-04, D-15, D-25, the 13.1 usability rule and Double's targets follow it. Tests AT-143 and AT-144.
 - On 2026-10-13 Bart approved fixing every QA Phase 6 finding. In this document: AT-57 now uses Board P (QA Q1); the run saves the Best Score when it began, for the New best badge (12.3, 15.1, QA6-03, AT-145); and a move shows only once its save has finished (D-33, 15.1, QA6-06, AT-146).
 - On 2026-10-13 Bart added three more things to v1 scope: a How to play screen (D-44), stars (D-45) and free boosters (D-46). He also added an About screen in Settings. It holds no game rules, so it has no D number; its acceptance tests are AT-140 to AT-142. D-44 to D-46 go to Bart for review through the DM.
+- On 2026-10-14 Bart replaced the main menu with a splash screen that shows every time the app opens, with PLAY, INFO and ABOUT (D-47, section 15.4). It replaces his 2026-10-11 rule that reopening the app with a saved run goes straight back into the run. INFO is one full guide to the game and replaces How to play everywhere, Pause included (D-44 and section 21, rewritten). Every test that started from the main menu or relied on reopening straight into the run now goes through the splash. New tests AT-147 to AT-153. D-44 and D-47 go to Bart for review through the DM, with one point to confirm: "every time the app opens" is read as every launch, not every return from the background (15.4).
 
 ### 1.2 Decisions highlighted for Hard Stop 1
 
@@ -737,7 +739,7 @@ Reasoning: these are the two rescues that always produce a valid move without th
 ### 12.3 When the run ends
 
 - The saved run is deleted. Best Score and Best Tile are already up to date and stay saved.
-- The end of run screen shows the final score, Best Score, Best Tile, this run's highest tile (D-41) and New game.
+- The end of run screen shows the final score, Best Score, Best Tile, this run's highest tile (D-41), New game and a button that goes to the splash (D-47). It replaces the old Main menu button; the suggested label is "Home" (the wording is DESIGN_SYSTEM.md's). New game starts a new run at once, with no confirmation, because no run is in progress any more.
 - It also shows the New best badge when this run set a new Best Score: the Best Score now is higher than the Best Score when this run began. The run saves that starting value (section 15.1), so closing and reopening the app mid run does not lose the badge. A run whose score only equalled the old record gets no badge.
 - Nothing more can be done with that run.
 
@@ -753,7 +755,7 @@ All examples have H = 1024, so B = 1024. Costs: Hammer 1,024, Swap 1,024, Shuffl
 | GO4 | Score 1,500. No Undo snapshot (Undo was just used). No moves. | Hammer, Swap, Shuffle usable. Double and Undo disabled. Picks Hammer, then taps Hammer again. | Back at the offer. Score still 1,500. |
 | GO5 | Same as GO4, after the cancel. | Picks Swap, then taps a 32 and a 4 that touches another 32. | The two 32s now touch. Score 476. Play goes on. |
 | GO6 | Same as GO4, but the player hammers a 4 and the board still has no move. | Offer opens again. Every cost is at least 512, score is 476. | Nothing usable, so the run ends at once. Final score 476. |
-| GO7 | The app is closed while the offer is open. | On reopening, the run loads, the move check finds no move. | The offer opens again, unchanged. |
+| GO7 | The app is closed while the offer is open. | On reopening, the splash shows (D-47). The player taps PLAY, the run loads and the move check finds no move. | The offer opens again, unchanged. |
 
 ## 13. Boosters
 
@@ -1095,7 +1097,7 @@ Readability requirement (assumption A-1): on 18:9 phones (360 x 720 dp) and tall
 
 Reasoning: the score is exact and rarely a power of two, so abbreviating it would round it, and a score "2K" (2,000) would clash with the tile meaning of 2K (2,048). The screen showing the score must fit at least 13 characters (9,999,999,999). Players never need to compare a cost with the score by eye, because unaffordable boosters are visibly disabled.
 
-## 15. Saving, resuming and move flow
+## 15. Saving, resuming, move flow and the splash screen
 
 ### 15.1 What is saved (D-33)
 
@@ -1115,17 +1117,80 @@ When the run is saved:
 
 The board starts showing a move only once its save has finished. That takes at most a few frames (25 ms at most in QA's measurements), too short to notice. Until then the board, score and booster bar look exactly as they did at the lift or tap. The chain line and the commit click may stay as they are, because neither shows the result. So the player never sees a result that was not saved, a spawn included. A kill or close at any moment reopens either the run before the move, with nothing of it ever shown, or the run after it. Closing the app during an animation therefore cannot undo or reroll a move. If a save fails, the move shows anyway, so the game never freezes.
 
-On load: show the saved board and score exactly, update the records (step 7 of section 8), then run the move check. If there is no valid move, open the no moves offer (12.2). The stars and free boosters held come from the saved run highest tile and free boosters used. Loading earns no star and shows no clear notice (D-45).
+On load: the saved run is read and checked at every launch, before the splash shows (D-47). If it is valid, the records are updated from it (step 7 of section 8), so the splash shows them up to date. When the player taps PLAY, show the saved board and score exactly, then run the move check. If there is no valid move, open the no moves offer (12.2). The stars and free boosters held come from the saved run highest tile and free boosters used. Loading earns no star and shows no clear notice (D-45).
 
-What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; a run highest tile that is a power of two and at least the highest value on the saved board and on the snapshot board; free boosters used, a whole number from 0 up to the free boosters earned from that run highest tile (D-46); a Best Score when the run began of 0 or more (not checked against the records, which live in another file); an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. A run saved before D-46 existed has no count of free boosters used: it loads as 0 used, so its stars and free boosters appear on load, with no notice. A run saved before the starting Best Score existed takes the Best Score loaded with it instead. Its New best badge then shows only if the run beats the record again after reopening, which is the old behaviour. Best Score is 0 or more. Best Tile is 0 or a power of two. If the saved run fails validation, it is discarded and a new run starts. Valid settings and records are kept.
+What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; a run highest tile that is a power of two and at least the highest value on the saved board and on the snapshot board; free boosters used, a whole number from 0 up to the free boosters earned from that run highest tile (D-46); a Best Score when the run began of 0 or more (not checked against the records, which live in another file); an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. A run saved before D-46 existed has no count of free boosters used: it loads as 0 used, so its stars and free boosters appear on load, with no notice. A run saved before the starting Best Score existed takes the Best Score loaded with it instead. Its New best badge then shows only if the run beats the record again after reopening, which is the old behaviour. Best Score is 0 or more. Best Tile is 0 or a power of two. If the saved run fails validation, it is discarded at launch. The splash shows as usual, and PLAY starts a new run. Valid settings and records are kept.
 
 ### 15.2 New game during a run (D-34)
 
 Starting a new game while a run is in progress asks the player to confirm. On confirm, the saved run is discarded and a new run starts. The discarded run's score already counted toward Best Score (D-16).
 
+New game during a run is offered only in Pause. The splash has no New game: its PLAY always continues a saved run (D-47). New game on the end of run screen needs no confirmation, because the run has already ended.
+
 ### 15.3 One move at a time (D-35)
 
 After a move resolves, a new chain or booster tap is accepted only when that move's animation has finished. The short wait for its save before the animation starts (15.1) is part of the move. Input in the meantime is ignored, not queued. The player always acts on the board they can see. This rule does not set how long animations are; the design system keeps them short.
+
+### 15.4 Splash screen (D-47)
+
+Bart's decision (2026-10-14): a splash screen replaces the main menu. It shows every time the app opens, on first launch and after a run ends. Three buttons: PLAY continues the saved run, or starts a new one when none is saved; INFO opens one full guide to the game; ABOUT opens the About screen. This replaces his 2026-10-11 rule that reopening the app with a saved run goes straight back into the run.
+
+**D-47. The splash screen.**
+
+When it shows:
+
+- At every launch of the app: first launch, and every later launch, whether or not a run is saved. A launch is any time the app starts fresh: after the player closed it, swiped it away from recent apps, after the system ended it in the background, or after the phone restarted.
+- When the player taps the end of run screen's button for it (12.3, suggested label "Home").
+- Not when the player comes back to the app while it is still running in the background (for example the home button, then back to the app). The player returns to the screen they left, as now: a drag or targeting in progress was cancelled when the app lost focus (6.5, 13.1), and nothing else changes. If the system ended the app in the meantime, that is a launch, and the splash shows.
+- It never shows on its own during play, and it has no timer. It stays until the player taps something.
+
+What it holds:
+
+- The Settings gear, as on the main menu. Settings opens over the splash and closes back to it. Its About row still opens About (About stays reachable from Settings too).
+- Best Score and Best Tile, as on the main menu (records format, D-32). They are the records after the launch check of 15.1.
+- Three buttons, in this order: PLAY, INFO, ABOUT (Bart's names; the casing in each skin follows DESIGN_SYSTEM.md).
+- Nothing else. No New game, no Continue, and nothing about the saved run. PLAY reads the same with or without a saved run.
+
+What each button does:
+
+| Button | With a valid saved run | With no saved run |
+|---|---|---|
+| PLAY | Opens the play screen with the saved run exactly as saved (15.1). The move check runs, so the no moves offer opens if the board has no move (GO7). No confirmation. | Starts a new run (D-14) and opens the play screen. No confirmation. |
+| INFO | Opens the INFO guide (D-44, section 21) over the splash. Back or its close control returns to the splash. | Same. |
+| ABOUT | Opens the About screen (DESIGN_SYSTEM.md 7.10 and 7.13) over the splash. Back or its close control returns to the splash. A license view inside About closes back to About first, as now. | Same. |
+
+Android back:
+
+- On the splash itself, back quits the app, as on the main menu. A saved run stays saved, so the next launch's PLAY continues it.
+- With Settings, INFO, About or a license view open over the splash, back closes that one, as above.
+- From INFO or About opened anywhere else, back returns to where they were opened: INFO from Pause returns to Pause, About from Settings returns to Settings.
+
+Further rules:
+
+- The splash changes nothing. Showing it, opening INFO, About or Settings from it, and quitting from it leave the saved run, the records and the settings exactly as they were. Only PLAY starts or opens a run, and only the Settings controls change settings.
+- A new game while a run is saved is started from Pause, as now (D-34, 15.2).
+- After a run ends, no run is saved, so PLAY on the splash starts a new run.
+- A saved run that fails the launch check is discarded at launch (15.1). The splash shows as usual and PLAY starts a new run. The player is not told; the records are kept.
+- Like every menu, the splash follows the shared arrangement drawn in the current skin's style (Bart, 2026-10-10). Its layout is a design system choice.
+
+Reasoning:
+
+- A launch is the moment the player chooses to open the game, so it gets the splash every time, as Bart asked. Coming back from the background is not opening the app: the game is still on screen in the recent apps view, and a splash there would make every phone call or app switch cost an extra tap. If Bart meant every return from the background too, only this rule changes.
+- One PLAY button with no Continue is what Bart asked for. A saved run always continues, so a misplaced tap can never throw a run away. Starting over needs Pause and a confirmation, as now.
+- Reading the records at launch, before PLAY, lets the splash show the same Best Score and Best Tile the player will see in the run.
+
+Worked examples:
+
+| # | Situation | What the player sees |
+|---|---|---|
+| SP1 | First launch after install. | The splash, Best Score 0 and no Best Tile yet. PLAY starts a new run. |
+| SP2 | A run is in progress. The player swipes the app away and opens it again. | The splash, not the board. PLAY opens the run exactly as it was, Undo included. |
+| SP3 | A run is in progress. The player presses home, answers a message, comes back. | The play screen as they left it. No splash. |
+| SP4 | Same as SP3, but the system ended the app while it was in the background. | The splash. PLAY opens the run as it was saved. |
+| SP5 | The offer is open, the player taps End run, then Home. | The splash with the updated records. PLAY starts a new run. |
+| SP6 | On the splash with a saved run, the player taps INFO, reads, presses back, then presses back again. | INFO closes to the splash, then the app quits. On the next launch PLAY continues the same run. |
+| SP7 | A run is in progress, the player opens Pause, then INFO, then presses back. | INFO closes to Pause. The run stays paused until Resume. |
+| SP8 | The saved run file is damaged. The player opens the app. | The splash, with the records kept. PLAY starts a new run. |
 
 ## 16. Click sound triggers (D-36)
 
@@ -1374,7 +1439,7 @@ row 7:   8  32   8  32   8
 
 **AT-43. Best Tile counts Double and is not lowered by Hammer.** Type: Unit. Setup: Board D with (0,7) = 4096 and (1,7) = 4096, score 50,000, Best Tile 4096. Action: commit (0,7), (1,7); then Double on the 8192; then Hammer on the 16384. Expected: after the commit Best Tile 8192 and score 58,192. The 8192 is this run's third star, so one free booster is held (D-46). After Double (free): score 58,192, Best Tile 16384, no free booster held. After Hammer (cost 16,384): score 41,808, H is below 16384, Best Tile still 16384. (The commit and the Double each raise the floor and clear small tiles, D-38. That does not change these numbers.) Updated on 2026-10-13 for D-46: before it, the Double cost 16,384.
 
-**AT-44. Records persist.** Type: Play. Setup: finish a run that set a new Best Score and Best Tile. Action: close the app fully, reopen it, start a new run. Expected: Best Score and Best Tile show the values from the finished run.
+**AT-44. Records persist.** Type: Play. Setup: finish a run that set a new Best Score and Best Tile. Action: close the app fully, reopen it, then tap PLAY on the splash. Expected: the splash shows Best Score and Best Tile with the values from the finished run. PLAY starts a new run (no run is saved), and its Best Score and Best Tile are the same values.
 
 ### 19.7 Game over
 
@@ -1396,9 +1461,9 @@ row 7:   8  32   8  32   8
 
 **AT-53. The offer repeats, then the run ends.** Type: Unit. Setup: Board D1024, score 1,500, no snapshot, scripted spawn 8. Action: Hammer on (4,7). Expected: column 4 reads 8, 2, 8, 2, 8, 2, 8, 2. Score 476. Still no valid move. Every cost is at least 512, so nothing is usable and the run ends at once with final score 476.
 
-**AT-54. End run.** Type: Play. Setup: the offer is open with something usable. Action: tap End run. Expected: the end of run screen shows the final score, Best Score, Best Tile, this run's highest tile and New game. Closing and reopening the app does not resume that run.
+**AT-54. End run.** Type: Play. Setup: the offer is open with something usable. Action: tap End run. Expected: the end of run screen shows the final score, Best Score, Best Tile, this run's highest tile, New game and the button to the splash. Closing and reopening the app shows the splash, and PLAY starts a new run instead of resuming that one.
 
-**AT-55. The offer survives a restart.** Type: Both. Setup: the offer is open. Action: close the app fully and reopen it. Expected: same board and score, and the offer opens again.
+**AT-55. The offer survives a restart.** Type: Both. Setup: the offer is open. Action: close the app fully, reopen it and tap PLAY on the splash. Expected: same board and score, and the offer opens again.
 
 ### 19.8 Boosters: general rules
 
@@ -1428,7 +1493,7 @@ row 7:   8  32   8  32   8
 
 **AT-64. Back cancels targeting.** Type: Play. Setup: Swap active with one tile selected. Action: press the Android back button once. Expected: targeting ends, nothing is charged, and the game stays on the board (no pause, no exit).
 
-**AT-65. Targeting is not saved.** Type: Both. Setup: Swap active with (0,0) selected, score 5,000. Action: close the app fully and reopen it. Expected: no booster active, no tile selected, score 5,000.
+**AT-65. Targeting is not saved.** Type: Both. Setup: Swap active with (0,0) selected, score 5,000. Action: close the app fully, reopen it and tap PLAY on the splash. Expected: no booster active, no tile selected, score 5,000.
 
 **AT-66. Taps elsewhere do nothing while targeting.** Type: Play. Setup: Hammer active. Action: tap the score area and other empty screen space. Expected: Hammer stays active and nothing is charged.
 
@@ -1477,7 +1542,7 @@ row 7:   8  32   8  32   8
 
 **AT-82. Undo does not rewind the random generator.** Type: Unit. Setup: AT-76 with seed 7, just before the Undo. Action: record the generator state, Undo, read the state again. Expected: the two states are equal.
 
-**AT-83. The Undo snapshot survives a restart.** Type: Both. Setup: right after a chain, Undo enabled. Action: close the app fully, reopen, Undo. Expected: Undo is enabled with the same cost as before closing, and Undo gives the board from before that chain and the expected score.
+**AT-83. The Undo snapshot survives a restart.** Type: Both. Setup: right after a chain, Undo enabled. Action: close the app fully, reopen, tap PLAY on the splash, Undo. Expected: Undo is enabled with the same cost as before closing, and Undo gives the board from before that chain and the expected score.
 
 ### 19.10 Score never below zero
 
@@ -1499,11 +1564,11 @@ row 7:   8  32   8  32   8
 
 ### 19.12 Saving and flow
 
-**AT-91. Resume after the app is killed.** Type: Play. Setup: a run in progress right after a chain, with Undo enabled (score minus that chain's points is at least the Undo cost, D-28). Note the board, score, Best Score, Best Tile, run highest tile and Undo cost. Action: swipe the app away from recent apps, reopen it. Expected: the same board and score, the same records, the same run highest tile, Undo enabled at the same cost.
+**AT-91. Resume after the app is killed.** Type: Play. Setup: a run in progress right after a chain, with Undo enabled (score minus that chain's points is at least the Undo cost, D-28). Note the board, score, Best Score, Best Tile, run highest tile and Undo cost. Action: swipe the app away from recent apps, reopen it, check the splash, tap PLAY. Expected: the splash shows first, with the same Best Score and Best Tile. After PLAY: the same board and score, the same records, the same run highest tile, Undo enabled at the same cost.
 
-**AT-92. Killed during an animation.** Type: Play. Setup: a run in progress. Action: commit a long chain and kill the app before its animation ends. Reopen. Expected: the chain's result and points are there.
+**AT-92. Killed during an animation.** Type: Play. Setup: a run in progress. Action: commit a long chain and kill the app before its animation ends. Reopen and tap PLAY on the splash. Expected: the chain's result and points are there.
 
-**AT-93. Killed during a drag.** Type: Play. Setup: a 3 tile chain being dragged. Action: kill the app while the finger is still down. Reopen. Expected: no chain was committed. Board and score are as before the drag.
+**AT-93. Killed during a drag.** Type: Play. Setup: a 3 tile chain being dragged. Action: kill the app while the finger is still down. Reopen and tap PLAY on the splash. Expected: no chain was committed. Board and score are as before the drag.
 
 **AT-94. Settings persist and sound starts on.** Type: Play. Setup: a fresh install. Action: check the sound setting; turn sound off and pick a different skin; close the app fully and reopen. Expected: sound is on at first launch. After reopening, sound is off and the chosen skin is shown.
 
@@ -1526,7 +1591,7 @@ Action: load each file.
 Expected:
 - The control loads and equals the saved run exactly.
 - Each faulty file is refused: the run loader returns no run, and nothing crashes or shows a raw error.
-- The run is discarded, Continue is not offered, and the next game is a new run.
+- The run is discarded. In the App the splash shows as usual and PLAY starts a new run (D-47).
 - Every time, the profile is untouched: Best Score 5,000 and Best Tile 512 are kept.
 
 **AT-96. New game asks first.** Type: Play. Setup: a run in progress. Action: choose New game, cancel; choose New game, confirm. Expected: after cancel the run is unchanged. After confirm a new run starts with score 0 and Undo disabled, and Best Score still holds the old run's highest score.
@@ -1602,24 +1667,31 @@ Expected:
 
 Play setups that need stars or free boosters can use a run file written by hand in the save format (docs/ARCHITECTURE.md section 10), or a run played that far.
 
-**How to play (D-44)**
+**INFO guide (D-44, rewritten on 2026-10-14; it replaces How to play)**
 
-**AT-112. How to play opens from the main menu.** Type: Play. Setup: the main menu (first launch, or after a run ends). Note Best Score and Best Tile. Action: tap How to play; scroll to the end; press Android back. Open it again and close it with its own close control. Expected: the screen opens titled "How to play" with sections HP1 to HP7 of section 21.2 in order, every title and text exactly as written there. Both back and the close control return to the main menu. Best Score and Best Tile are unchanged.
+**AT-112. INFO opens from the splash.** Type: Play. Setup: the splash, with a saved run (a run in progress, then the app closed fully and reopened). Note Best Score and Best Tile. Action: tap INFO; scroll to the end; press Android back. Open INFO again and close it with its own close control. Then tap PLAY. Expected:
+- The screen opens titled "Info" with sections IN1 to IN16 of section 21.2 in order, every title and text exactly as written there.
+- Both back and the close control return to the splash, not to the board. Best Score and Best Tile are unchanged.
+- PLAY opens the saved run unchanged.
 
-**AT-113. How to play opens from Pause and leaves the run untouched.** Type: Play. Setup: a run in progress right after a chain, with Undo enabled. Note the board, score, stars and Undo cost. Action: open Pause, tap How to play, press back, then tap Resume. Expected: How to play opens from Pause. Back returns to Pause, not to the board. After Resume the board, score, stars, free boosters held and Undo cost are exactly as noted.
+**AT-113. INFO opens from Pause and leaves the run untouched.** Type: Play. Setup: a run in progress right after a chain, with Undo enabled. Note the board, score, stars, free boosters held and Undo cost. Action: open Pause, tap Info, press back, then tap Resume. Expected:
+- Pause has an Info button and no How to play button. No screen anywhere in the app has a How to play button.
+- INFO opens from Pause. Back returns to Pause, not to the board.
+- After Resume the board, score, stars, free boosters held and Undo cost are exactly as noted.
 
-**AT-114. How to play never opens by itself.** Type: Play. Setup: a fresh install. Action: launch the app; start a new game; play until the run ends; start another game; close the app and reopen it. Expected: How to play never appears unless its button is tapped.
+**AT-114. INFO never opens by itself.** Type: Play. Setup: a fresh install. Action: launch the app; tap PLAY; play until the run ends; tap New game; play a few moves; close the app fully, reopen it and tap PLAY. Expected: INFO never appears unless its button is tapped.
 
-**AT-115. Real tiles in the current skin, and the screen fits.** Type: Play. Setup: 360 x 720 dp and 360 x 640 dp portrait screens. Action: for each skin (Gumdrop, Slate, Nova), select it in Settings, then open How to play from the main menu and from Pause. Expected:
-- The rows HP1 (2, 2, 4 then 8), HP2 (2, 2, 2 then 4) and HP5 (1024, 1024 then 2K) are drawn by that skin's own tile component, with its colors and font. The labels read "1024" and "2K".
-- The result tile in each row is set apart from the chain tiles.
+**AT-115. Real tiles in the current skin, and the screen fits.** Type: Play. Setup: 360 x 720 dp and 360 x 640 dp portrait screens. Action: for each skin (Gumdrop, Slate, Nova), select it in Settings, then open INFO from the splash and from Pause, and scroll from the top to the end. Expected:
+- The rows IN1 (2, 2, 4 then 8), IN2 (2, 2, 2 then 4), IN6 (1024, 1024 then 2K) and IN12 (8 then 16) are drawn by that skin's own tile component, with its colors and font. The labels read "1024" and "2K".
+- The result tile in each row is set apart from the tiles before it.
 - Titles and text use that skin's fonts, colors and casing.
-- On 360 x 720 dp the whole content scrolls in at most about two screen heights. Nothing is clipped on either screen.
+- The guide scrolls from IN1 to the end of IN16. Nothing is clipped on either screen.
 - Tapping or dragging the example tiles does nothing.
 
-**AT-116. The How to play content checks out.** Type: Unit. Setup: the content the screen shows (TH21). Action: read it, and check each example row on the rules model. Expected:
-- Seven sections, titles and texts exactly as in section 21.2. Each title is 1 to 4 words and each text 2 sentences.
-- Each example row, laid out as touching cells on a test board, is a valid chain (D-04), and its result tile equals the merge result (TH15): 2, 2, 4 gives 8; 2, 2, 2 gives 4; 1024, 1024 gives 2048.
+**AT-116. The INFO content checks out.** Type: Unit. Setup: the content the screen shows (TH21). Action: read it, and check each example row on the rules model. Expected:
+- The screen title is "Info". Sixteen sections, titles and texts exactly as in section 21.2. Each title is 1 to 4 words. Each text is 1 to 3 sentences and at most 40 words.
+- Each chain row, laid out as touching cells on a test board, is a valid chain (D-04), and its result tile equals the merge result (TH15): 2, 2, 4 gives 8; 2, 2, 2 gives 4; 1024, 1024 gives 2048.
+- The IN12 row: Double on a test board tile of 8 (TH11) makes 16, its result tile.
 - Each label equals NumberFormat's tile label (TH17): "1024" and "2K".
 
 **Stars (D-45)**
@@ -1705,7 +1777,7 @@ Play setups that need stars or free boosters can use a run file written by hand 
 
 **AT-137. Unused free boosters end with the run (example FB11).** Type: Both. Setup: Board D1024. Score 5,000. Run highest tile 8192. Free boosters used 0, so 1 held. The offer is open. Action: tap End run, then New game. Expected: the end of run screen shows this run's highest tile 8K. The new run has 0 stars and 0 free boosters held, and its boosters show costs (Hammer 128), not Free.
 
-**AT-138. Stars and free boosters survive a restart.** Type: Both. Setup: (Unit) a run state with a valid board, run highest tile 131072 and 1 free booster used. (Play) a run with at least 3 stars and 1 free booster held. Action: (Unit) save it and load it again (TH18). (Play) note the stars, close the app fully and reopen it, then use any booster. Expected: (Unit) the loaded state equals the saved one: 7 stars, 1 free booster held. (Play) the run reopens with the same stars and every booster still reads Free. The booster used next charges nothing.
+**AT-138. Stars and free boosters survive a restart.** Type: Both. Setup: (Unit) a run state with a valid board, run highest tile 131072 and 1 free booster used. (Play) a run with at least 3 stars and 1 free booster held. Action: (Unit) save it and load it again (TH18). (Play) note the stars, close the app fully, reopen it and tap PLAY on the splash, then use any booster. Expected: (Unit) the loaded state equals the saved one: 7 stars, 1 free booster held. (Play) the run reopens with the same stars and every booster still reads Free. The booster used next charges nothing.
 
 **AT-139. Checking the saved count of free boosters used.** Type: Unit (TH18, save format of docs/ARCHITECTURE.md section 10). Setup: a valid run file with run highest tile 131072 (exponent 17, so 2 free boosters earned) and a valid profile. Action: load copies with free boosters used set to (a) 0, (b) 2, (c) 3, (d) minus 1, (e) 1.5, (f) the text "1", and (g) a copy with no such entry at all. Expected:
 - (a) and (b) load, with 2 and 0 free boosters held.
@@ -1714,7 +1786,7 @@ Play setups that need stars or free boosters can use a run file written by hand 
 
 **About screen (no D number)**
 
-**AT-140. About opens from Settings and back closes it.** Type: Play. Setup: Settings open, once from the main menu and once from Pause. Action: tap About, press Android back; tap About again, use its own close control. Then open About, open a license row, press back; open the row again and use the license view's close control. Expected: About opens from Settings. Back and the close control each return to Settings, which is still open. A second back closes Settings as before. From a license view, back and its close control each return to About. It works in every skin.
+**AT-140. About opens from Settings and back closes it.** Type: Play. Setup: Settings open, once from the splash and once from Pause. (About also opens straight from the splash: AT-151.) Action: tap About, press Android back; tap About again, use its own close control. Then open About, open a license row, press back; open the row again and use the license view's close control. Expected: About opens from Settings. Back and the close control each return to Settings, which is still open. A second back closes Settings as before. From a license view, back and its close control each return to About. It works in every skin.
 
 **AT-141. About shows what it is and who made it.** Type: Both. Setup: none. Action: open About in each skin, and compare it with the Settings version line. Expected (copy from DESIGN_SYSTEM.md 7.10 and 7.13):
 - The brand block shows the wordmark "SumUp", "Version {version}", "Made by Bart Basi" and "Copyright 2026 Bart Basi".
@@ -1767,22 +1839,66 @@ Play setups that need stars or free boosters can use a run file written by hand 
 
 **From QA's Phase 6 report (2026-10-13)**
 
-**AT-145. New best survives a restart (QA6-03).** Type: Both. Setup: a profile with Best Score 5,000, and a saved run file: Board D1024, score 5,000, no snapshot, Best Score when the run began 4,000. So this run raised the record from 4,000 to 5,000 before the app closed. Action: open the app (the run resumes and the offer opens, because Board D1024 has no valid move), then tap End run. Repeat with two changed copies of the run file: (b) Best Score when the run began 5,000; (c) no starting Best Score in the file at all, as saved before this rule. Expected:
+**AT-145. New best survives a restart (QA6-03).** Type: Both. Setup: a profile with Best Score 5,000, and a saved run file: Board D1024, score 5,000, no snapshot, Best Score when the run began 4,000. So this run raised the record from 4,000 to 5,000 before the app closed. Action: open the app and tap PLAY on the splash (the run resumes and the offer opens, because Board D1024 has no valid move), then tap End run. Repeat with two changed copies of the run file: (b) Best Score when the run began 5,000; (c) no starting Best Score in the file at all, as saved before this rule. Expected:
 - (a) The end of run screen shows the New best badge.
 - (b) No badge: the run only equalled the record.
 - (c) No badge, the old behaviour (section 15.1).
 - Unit: the same three files through TH18 and the session give a run summary with New best true, false and false.
-- Play, in a real run as well: set a new Best Score, use a booster so the score drops below it, close the app fully and reopen it, then play to the out of moves offer without passing the Best Score again and tap End run. The badge shows.
+- Play, in a real run as well: set a new Best Score, use a booster so the score drops below it, close the app fully, reopen it and tap PLAY on the splash, then play to the out of moves offer without passing the Best Score again and tap End run. The badge shows.
 
 **AT-146. A kill right after the lift never shows an unsaved move (QA6-06).** Type: Both. Setup: a run in progress. Action:
 - Unit (TH23): hold back the save writer, commit a chain, check the view, then release the writer.
-- Play: 20 times, commit a chain and hard kill the process in the first frame after the lift (as QA's r_f), and also inside the save request (as r_g). Capture the last frame shown before each kill, then reopen.
+- Play: 20 times, commit a chain and hard kill the process in the first frame after the lift (as QA's r_f), and also inside the save request (as r_g). Capture the last frame shown before each kill, then reopen and tap PLAY on the splash.
 
 Expected:
 - Unit: while the save is held back, the board view has not started the move. The board, score and booster bar are as at the lift. Once the save finishes, the move's animation starts.
 - Play: each reopen gives one of two results. Either the run from before the move, and the captured frame shows nothing of the move: no merged tile, no score change, no clear and no spawn. Or the run after the move, with its result and points. A result that was on screen is never missing after reopening.
 
-### 19.15 Coverage
+### 19.15 Added on 2026-10-14: the splash screen (D-47)
+
+These tests cover the App's flow, so they are Play tests. Unit tests for the rules underneath (loading, validation, a new run) already exist: AT-01, AT-95, AT-138, AT-139.
+
+**AT-147. The splash shows at every launch.** Type: Play. Setup and action, in turn: (a) a fresh install, launch the app. (b) A run in progress: close the app fully and reopen it. (c) A run in progress: swipe the app away from recent apps and reopen it. (d) A run in progress with the no moves offer open: close the app fully and reopen it. Expected, every time:
+- The splash shows, not the board.
+- It holds the Settings gear, Best Score, Best Tile (once one exists) and three buttons in this order: PLAY, INFO, ABOUT.
+- It holds no New game and no Continue, and PLAY reads the same in (a) as in (b) to (d).
+- In (a) Best Score is 0. In (b) to (d) Best Score and Best Tile equal the values before closing.
+- It stays until a button is tapped. Leave it for 60 seconds: nothing changes.
+
+**AT-148. PLAY with no saved run starts a new run.** Type: Play. Setup: (a) a fresh install, on the splash. (b) A run that has just ended, back on the splash through the end of run screen's button (AT-150). Action: tap PLAY. Expected: no confirmation. A new run opens: 40 tiles from 2, 4, 8 and 16, score 0, Undo disabled, 0 stars, no free boosters, every booster showing its cost. In (b) Best Score and Best Tile keep the old run's values.
+
+**AT-149. PLAY continues the saved run exactly.** Type: Play. Setup: a run in progress right after a chain, with Undo enabled, at least 3 stars and 1 free booster held. Note the board, score, Best Score, Best Tile, run highest tile, stars, free boosters held and Undo cost. Action: close the app fully, reopen it, tap PLAY. Expected: no confirmation. The board, score, records, stars, free boosters held (every booster reads Free) and Undo cost are exactly as noted. Undo gives the board from before the last chain.
+
+**AT-150. The end of run screen leads to the splash.** Type: Play. Setup: a run with the no moves offer open and something usable. Action: tap End run; on the end of run screen check the buttons; tap the button that goes to the splash (suggested label "Home"); then tap PLAY. Expected:
+- The end of run screen shows New game and the splash button. It has no Main menu button.
+- The splash shows, with Best Score and Best Tile including this run.
+- PLAY starts a new run with no confirmation, as in AT-148.
+- Repeat with New game on the end of run screen instead: a new run starts at once with no confirmation, without the splash.
+
+**AT-151. INFO, ABOUT and Settings open over the splash and return to it.** Type: Play. Setup: the splash with a saved run. Note Best Score, Best Tile and the skin. Action, in order:
+- (a) Tap INFO, press back.
+- (b) Tap ABOUT, press back. Tap ABOUT, use its close control.
+- (c) Tap ABOUT, open the "SumUp license" row, press back, press back.
+- (d) Tap the Settings gear, tap About, press back, press back.
+- (e) Tap PLAY.
+
+Expected:
+- (a) INFO opens and back returns to the splash.
+- (b) About opens straight from the splash, with the same content as from Settings (AT-141). Back and the close control each return to the splash.
+- (c) The license view closes to About, then About closes to the splash.
+- (d) About opens from Settings and back returns to Settings. The second back closes Settings to the splash.
+- (e) The saved run opens unchanged. Best Score, Best Tile and the skin are unchanged throughout.
+- It works the same in every skin.
+
+**AT-152. Back on the splash quits and keeps the run.** Type: Play. Setup: a run in progress; close the app fully and reopen it, so the splash shows. Action: press Android back. Reopen the app and tap PLAY. Expected: the first back closes the app (no dialog, no board). On reopening the splash shows again, and PLAY opens the same run unchanged. Also: with Settings open over the splash, the first back closes Settings and the app stays open.
+
+**AT-153. Coming back from the background does not show the splash.** Type: Play. Setup and action, in turn: (a) a run in progress with no drag: press home, wait 10 seconds, return to the app from recent apps. (b) A run in progress with Swap active and one tile selected: the same. (c) INFO open over the splash: the same. Expected:
+- (a) The play screen as it was. No splash.
+- (b) The play screen. Targeting is cancelled and nothing was charged (13.1). No splash.
+- (c) INFO is still open over the splash.
+- If the system ended the app while it was in the background (for example under memory pressure), the return is a launch and the splash shows (D-47). QA notes which case happened.
+
+### 19.16 Coverage
 
 | Decision or rule | Tests |
 |---|---|
@@ -1818,33 +1934,35 @@ Expected:
 | D-30 Never below zero | AT-57, AT-58, AT-59, AT-84, AT-130 |
 | D-31 Tile labels | AT-85, AT-86, AT-87 |
 | D-32 Score and cost formats | AT-88, AT-89 |
-| D-33 Saving | AT-55, AT-65, AT-83, AT-91 to AT-93, AT-95, AT-138, AT-139, AT-145, AT-146 |
-| D-34 New game | AT-96 |
+| D-33 Saving | AT-55, AT-65, AT-83, AT-91 to AT-93, AT-95, AT-138, AT-139, AT-145, AT-146, AT-149 |
+| D-34 New game | AT-96, AT-150 |
 | D-35 One move at a time | AT-97, AT-146 |
 | D-36 Click triggers | AT-98 |
 | D-37 64-bit values and the limit (SEC-01) | AT-28, AT-71, AT-73, AT-143, AT-144 |
 | D-38 Small tile clearing | AT-36, AT-38, AT-75, AT-99, AT-100, AT-101, AT-104 |
 | D-39 Clearing and other rules | AT-38, AT-80, AT-102, AT-103 |
 | D-40 Joinable highlight | AT-105, AT-106, AT-107 |
-| D-41 Run highest tile | AT-50, AT-54, AT-91, AT-95, AT-99, AT-108 |
+| D-41 Run highest tile | AT-50, AT-54, AT-91, AT-95, AT-99, AT-108, AT-150 |
 | D-42 Suggested rescue | AT-47, AT-49, AT-109 |
 | D-43 Targeting acts on tap | AT-62, AT-110, AT-111 |
-| D-44 How to play | AT-112 to AT-116 |
+| D-44 INFO guide (replaced How to play on 2026-10-14) | AT-112 to AT-116, AT-151, AT-153 |
 | D-45 Stars | AT-75, AT-117 to AT-126, AT-138 |
 | D-46 Free boosters | AT-43, AT-75, AT-84, AT-127 to AT-139, AT-143, AT-144 |
-| About screen (no D number) | AT-140 to AT-142 |
+| D-47 Splash screen | AT-44, AT-54, AT-95, AT-112, AT-147 to AT-153 |
+| About screen (no D number) | AT-140 to AT-142, AT-151 |
 | Confirmed: chain rules | AT-06 to AT-16 |
 | Confirmed: merge and after merge | AT-17, AT-26, AT-29 to AT-31 |
 | Confirmed: score, Best Score and Best Tile kept separately | AT-39 to AT-44 |
 | Confirmed: game over | AT-45 to AT-55 |
 | Confirmed: boosters, disabled when unaffordable, score never below zero | AT-56 to AT-84 |
 | Confirmed: number display | AT-85 to AT-89 |
-| Confirmed: persistence | AT-44, AT-83, AT-91 to AT-95 |
+| Confirmed: persistence | AT-44, AT-83, AT-91 to AT-95, AT-149 |
 | Hard Stop 1 additions (Bart) | AT-99 to AT-108 |
 | 2026-10-13 additions (Bart) | AT-112 to AT-142 |
 | SEC-01 fix (Bart, 2026-10-13) | AT-143, AT-144 |
 | End of run New best badge (12.3) | AT-145 |
 | QA Phase 6 fixes (Bart, 2026-10-13) | AT-57, AT-145, AT-146 |
+| 2026-10-14 splash and INFO (Bart) | AT-112 to AT-116, AT-147 to AT-153 |
 
 ## 20. Test hooks the acceptance tests need
 
@@ -1894,70 +2012,100 @@ For the contract in docs/ARCHITECTURE.md. The rules model (core and boosters) mu
 | TH18 | Save a run and records to the save format, and load from given data, with the validation result. | save | AT-95, AT-125, AT-138, AT-139, AT-145 |
 | TH19 | Hit test: finger position and tile pitch give a tile or none. | board | AT-21 |
 | TH20 | A count of click requests made to the audio service. | audio | AT-98 |
-| TH21 | Read the How to play content the screen shows: section titles, texts, example rows and result tiles. | ui | AT-116 |
+| TH21 | Read the INFO content the screen shows: screen title, section titles, texts, example rows and result tiles. | ui | AT-116 |
 | TH22 | Read the About screen's text and each license text it shows. | ui | AT-141, AT-142 |
 | TH23 | Hold back the save writer and release it, and read whether the board view has started showing the last move. | save, ui | AT-146 |
 
-## 21. How to play screen (D-44)
+## 21. INFO guide (D-44)
 
-Bart's request (2026-10-13): a How to play button on the main menu and in Pause opens a screen explaining how the game works and how points are scored, in short sections, each with a small row of real tiles drawn in the current skin. It opens only when tapped, never by itself.
+Bart's decision (2026-10-14): INFO opens one full guide that gives the player everything they need to understand the game: chains, merging and rounding, scoring, falling and new tiles, the highlight, small tiles clearing, stars and free boosters, each booster, the out of moves offer and the run's end, the records, and where skins and sound are. It replaces How to play everywhere, Pause included. It keeps the 2026-10-13 rules: short sections, real tile examples in the current skin, and it opens only when tapped.
 
-**D-44. How to play.**
+The How to play screen of 2026-10-13 (sections HP1 to HP7) is gone. Its content is inside the guide: HP1 is IN1, HP2 is IN2, HP5 is IN6 and IN7, and the rest is spread over the new sections.
+
+**D-44. The INFO guide.**
 
 ### 21.1 Rules for the screen
 
-- Only a "How to play" button opens it: one on the main menu and one in Pause. It never opens by itself, not at first launch and not when a run starts or ends.
-- Android back and the screen's own close control both close it and return to where it was opened. From Pause it returns to Pause, so the run stays paused until the player taps Resume.
+- Only an INFO button opens it: one on the splash (D-47) and one in Pause, where it takes the place of How to play. No How to play button remains anywhere. It never opens by itself: not at launch, not at first launch, and not when a run starts or ends.
+- The screen title is "Info". The buttons read INFO, as Bart wrote it; the casing in each skin follows DESIGN_SYSTEM.md.
+- Android back and the screen's own close control both close it and return to where it was opened. From the splash it returns to the splash. From Pause it returns to Pause, so the run stays paused until the player taps Resume.
 - It changes nothing. Board, score, stars, free boosters, Undo, records and settings stay exactly as they were. It is not a move.
 - It follows the shared arrangement for menus and dialogs, drawn in the current skin's style: fonts, colors, panels and casing (Bart, 2026-10-10).
-- Example rows are real tiles drawn by the current skin's tile component, with tile labels (D-31), never pictures. Each row shows the chain tiles in drag order, then the result tile, set apart so the player can tell it is the result. The tiles are only an illustration: tapping or dragging them does nothing.
+- It is one scrolling screen with the sections of 21.2 in order. Each section is a title of 1 to 4 words and 1 to 3 short sentences (at most 40 words), in the voice of How to play. There is no height limit: the guide is as long as its sixteen sections, and it scrolls.
+- Example rows are real tiles drawn by the current skin's tile component, with tile labels (D-31), never pictures. A chain row shows the chain tiles in drag order, then the result tile. The Double row shows the tile before the Double, then the tile after it. The result tile is set apart so the player can tell it is the result. The tiles are only an illustration: tapping or dragging them does nothing.
 - The text is fixed. It holds no live numbers such as current prices or the score.
-- On a 360 x 720 dp screen it takes at most about two screen heights, and it scrolls when it is longer than the screen.
 - The layout is a design system choice.
 
 ### 21.2 The text
 
-Screen title: "How to play". Seven sections, in this order. The brief asked for about six: the seven topics it lists each need their own section to stay within two short sentences.
+Screen title: "Info". Sixteen sections, in this order.
 
 | # | Title | Text | Example row | Result tile |
 |---|---|---|---|---|
-| HP1 | Make a chain | Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it. | 2, 2, 4 | 8 |
-| HP2 | What it makes | Lift to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 6 becomes 4. | 2, 2, 2 | 4 |
-| HP3 | After a merge | The merged tile lands where your chain ended, tiles above fall and new ones drop in. While you drag, highlighted tiles can join next. | none | none |
-| HP4 | Score | A chain scores the sum of its tiles. Boosters cost points, your score never drops below zero, and best score and best tile are saved. | none | none |
-| HP5 | Move up, earn stars | Each new highest tile from 2K up removes the smallest number and earns a star. Every 3 stars make your next booster free. | 1024, 1024 | 2K |
-| HP6 | Boosters | Hammer smashes a tile, Swap swaps two, Shuffle mixes the board, Double doubles one, Undo takes back your last chain. Prices grow as you go. | none | none |
-| HP7 | Out of moves | When no two touching tiles match, you can pick a booster to keep going. If you can't, or you tap End run, the run ends. | none | none |
+| IN1 | Make a chain | Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it. A tile that does not fit simply does not join. | 2, 2, 4 | 8 |
+| IN2 | Merge | Lift your finger to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 2, 2, 2 makes 4. The new tile lands where your chain ended. | 2, 2, 2 | 4 |
+| IN3 | While you drag | While you drag, you see the tile your chain will make, and the tiles that can join next are highlighted. Slide back onto the previous tile to drop the last one. | none | none |
+| IN4 | Points | A chain scores the sum of its tiles, so 2, 2, 2 scores 6 although it makes 4. Only chains score. Your score never drops below zero. | none | none |
+| IN5 | New tiles | Tiles above fall into the gaps, and new tiles drop in from the top. New tiles are 2 to 16 at first and move up as your highest tile grows. | none | none |
+| IN6 | Moving up | When your highest tile reaches 2K (2048), and each time it doubles after that, the smallest number stops dropping in and its tiles clear from the board. Cleared tiles score no points. | 1024, 1024 | 2K |
+| IN7 | Stars | Each number that stops dropping in earns a star, once per run. Every 3 stars give you a free booster: the next booster you use costs nothing. Stars and free boosters end with the run. | none | none |
+| IN8 | Boosters | Boosters are paid from your score and never add points. Prices follow your highest tile, and a booster you can't afford is switched off. To cancel before you tap a tile, tap the booster again: nothing is charged. | none | none |
+| IN9 | Hammer | Tap Hammer, then a tile to smash it. The tiles above fall and a new tile drops in. | none | none |
+| IN10 | Swap | Tap Swap, then two tiles anywhere on the board, and they trade places. The two must be different numbers. | none | none |
+| IN11 | Shuffle | Tap Shuffle to mix the same tiles into new places. You always get at least one move. | none | none |
+| IN12 | Double | Tap Double, then a tile to double it, so 8 becomes 16. It costs twice as much as Hammer. | 8 | 16 |
+| IN13 | Undo | Undo takes back your last chain and its points, and any booster used since. It goes back one step only, and what you paid stays paid. Your score without that chain's points must cover its price. | none | none |
+| IN14 | Out of moves | When no two touching tiles match, play stops and you can pick any booster you can afford, with one marked as suggested. Or tap End run. If you can't afford any, the run ends. | none | none |
+| IN15 | Records | Best score and Best tile are kept across runs, and spending never lowers them. When a run ends you see its score, its highest tile and New best if you beat your Best score. | none | none |
+| IN16 | Saving and settings | Your run saves after every move, and Play takes you back to it. New game in Pause starts over. Pick a skin and turn sound on or off in Settings. | none | none |
 
-Sizes: titles of 3, 3, 3, 1, 4, 1 and 3 words (the comma in "Move up, earn stars" is part of the title). Each text is two sentences of 22, 25, 24, 25, 23, 25 and 25 words, 169 in all. Three example rows, each of 2 or 3 tiles plus the result. Booster names are those on the booster bar, and "End run" and "Out of moves" match the offer (DESIGN_SYSTEM.md 7.5).
+Sizes: titles of 3, 1, 3, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 3, 1 and 3 words. Texts of 3, 3, 2, 3, 2, 2, 3, 3, 2, 2, 2, 2, 3, 3, 2 and 3 sentences, and of 32, 37, 31, 27, 30, 32, 35, 38, 18, 19, 17, 19, 36, 34, 34 and 30 words, 469 in all. Four example rows: three chains of 2 or 3 tiles plus the result, and one Double (one tile plus the result). Booster names are those on the booster bar. "End run", "Out of moves", "Best score", "Best tile", "New best", "New game", "Pause", "Settings" and "Play" match the names on screen (DESIGN_SYSTEM.md 7.3 to 7.7 and the splash).
 
 ### 21.3 Checks against the rules
 
 | Item | Check | Rules |
 |---|---|---|
-| HP1 row: 2, 2, 4 makes 8 | 2 equals 2, so the chain can start. 4 is double 2, so it joins. The sum, 8, is already a power of two, so the result is 8. | D-04, D-02 |
-| HP2 row: 2, 2, 2 makes 4 | 2 equals 2, and the third 2 equals the last tile. The sum is 6, and the largest power of two not above 6 is 4. Same as M2. | D-04, D-02 |
-| HP2 "6 becomes 4" | The HP2 row's sum and result. | D-02 |
-| HP2 "lift on one tile to cancel" | A tile that breaks the rules never joins, so a chain of 1 tile is the only one that cancels. | D-04, D-06 |
-| HP3 | The result goes in the last cell of the chain, tiles above fall, new tiles fill from the top, and the highlight marks exactly the tiles that would join. | D-09, D-40 |
-| HP4 | Points are the sum of the tiles, not the result (2, 2, 2 scores 6). Boosters are paid from the score, which never goes below zero. Best Score and Best Tile are kept. | D-18, D-30, D-16, D-17 |
-| HP5 row: 1024, 1024 makes 2K | An equal pair. The sum, 2048, is already a power of two. 1024 shows in full and 2048 as "2K". | D-04, D-02, D-31 |
-| HP5 "from 2K up" | The first star comes when the run highest tile reaches 2048 and 2 leaves the spawn window. | D-45 |
-| HP5 "Every 3 stars make your next booster free" | STARS_PER_FREE_BOOSTER is 3, and the free booster goes to the next booster used. | D-46 |
-| HP6 | The five booster names. Costs follow the highest tile. | D-20 |
-| HP7 | No valid move means no two touching tiles are equal. The offer follows, and the run ends when nothing is usable or on End run. | D-15, D-19 |
+| IN1 row: 2, 2, 4 makes 8 | 2 equals 2, so the chain can start. 4 is double 2, so it joins. The sum, 8, is already a power of two, so the result is 8. | D-04, D-02 |
+| IN1 "A tile that does not fit simply does not join" | A tile that breaks the joining rule never joins, and the chain stays as it was. | D-04 |
+| IN2 row: 2, 2, 2 makes 4 | 2 equals 2, and the third 2 equals the last tile. The sum is 6, and the largest power of two not above 6 is 4. Same as M2. | D-04, D-02 |
+| IN2 "lift on one tile to cancel" | A tile that breaks the rules never joins, so a chain of 1 tile is the only one that cancels. Lifting with 2 or more commits. | D-04, D-06 |
+| IN2 "lands where your chain ended" | The result goes in the chain's last cell. | D-09 step 3 |
+| IN3 | The preview shows the result from 2 tiles on. The highlight marks exactly the tiles that would join. Moving onto the tile just before the last removes the last one. | D-03, D-40, D-05 |
+| IN4 | Points are the sum of the tiles, not the result: 2, 2, 2 scores 6 and makes 4 (M2). Only committed chains add points. The score never goes below zero. | D-18, D-02, D-30 |
+| IN5 | Tiles above fall into the emptied cells and new tiles fill from the top. The spawn window is 2, 4, 8, 16 for the starting board and while the highest tile is 1024 or less, then moves up one step each time the highest tile doubles. | D-09, D-10, D-11, D-14 |
+| IN6 row: 1024, 1024 makes 2K | An equal pair. The sum, 2048, is already a power of two. 1024 shows in full and 2048 as "2K". This merge is the first clear (SC2). | D-04, D-02, D-31, D-38 |
+| IN6 "reaches 2K, and each time it doubles after that" | The window floor is 2 until H reaches 2048, then H / 512, so it rises at 2048 and at each doubling after. The value below the new floor stops spawning and every tile of it clears, scoring nothing. | D-10, D-38 |
+| IN7 | A star for each value that leaves the spawn window for the first time in a run. Hammer and Undo never earn one twice. Every 3 stars earn a free booster, which goes to the next booster used, automatically. Unused ones and the stars end with the run. | D-45, D-46 |
+| IN8 | Boosters are paid from the score and add no points. Costs come from the highest tile (B). A booster that is not affordable is visibly disabled. Cancelling targeting charges nothing. | D-18, D-20, D-21, D-22, 13.1 |
+| IN9 | Hammer removes one tile, the tiles above fall one cell, and one new tile spawns at the top of that column. | D-23 |
+| IN10 | Swap works on any two tiles anywhere. A tile with the same value as the selected one cannot be picked. | D-24 |
+| IN11 | Shuffle keeps every value and rearranges them, and it always leaves a valid move on any board real play can reach. | D-25 |
+| IN12 row: 8 makes 16 | Double doubles one tile in place. | D-26 |
+| IN12 "twice as much as Hammer" | Double costs 2 x B, Hammer costs B. | D-20 |
+| IN13 | Undo restores the board from before the last chain, which also takes back any booster used since, and takes off that chain's points. Every cost paid stays spent, Undo's own included. One step only. It is usable only when the score minus the chain's points is at least the Undo cost. | D-27, D-28 |
+| IN14 | No valid move means no two touching tiles are equal. The offer shows every usable booster, marks the suggested rescue, and offers End run. The run ends at once when nothing is usable. | D-15, D-19, D-42 |
+| IN15 | Best Score and Best Tile are saved outside the run and never go down. The end of run screen shows the final score, this run's highest tile and the New best badge when the run beat the Best Score it began with. | D-16, D-17, D-41, 12.3 |
+| IN16 | The run saves as soon as each move resolves. PLAY continues the saved run. New game during a run is in Pause. Sound and skin are in Settings. | D-33, D-47, D-34, section 4 (Persistence) |
 
 Simplified on purpose. Each of these lines is true but leaves out a rare case:
 
-- HP3 does not say that the merged tile itself can fall (G2).
-- HP5 says "a star" for each new highest tile. A jump of two steps at once removes two numbers and earns two stars (CL3). The clear notice shows exactly what happened.
-- HP6 "Prices grow as you go": costs follow the highest tile on the board, so hammering the highest tile lowers them again.
-- HP7 "If you can't" means no booster is usable.
+- IN2 does not say that the new tile can then fall (G2).
+- IN3: the preview shows only from 2 tiles on.
+- IN5 "move up as your highest tile grows": they start moving at 2K, and hammering the highest tile lowers them again.
+- IN6 and IN7: a jump of two steps at once clears two numbers and earns two stars (CL3). After a Hammer lowers the highest tile, a smaller number can drop in again until the highest tile climbs back. The clear notice always shows exactly what happened.
+- IN8 "Prices follow your highest tile": they never go below the 128 level (COST_BASIS_MIN). While a free booster is held every price reads Free.
+- IN11 "always": on a hand edited board with no two equal tiles, no arrangement can help (13.5).
+- IN13: Undo also brings back tiles the chain cleared, and keeps the stars and records.
+- IN14 "you can afford" means usable (13.1). A held free booster makes every booster affordable. "One marked as suggested" is true whenever Shuffle or Undo is usable, which with the section 18 costs is every time the offer opens on a real board (D-42).
+- IN15 "if you beat your Best score": the Best Score from when the run began. A run that only equals it gets no badge.
+- IN16 "starts over": New game asks to confirm first (D-34).
 
 Reasoning:
 
-- The sections follow the order the player meets the rules: chain, merge, refill, score, moving up, boosters, out of moves.
+- Bart asked for one guide with everything the player needs. Sixteen short sections, each about one thing, are easier to scan than a few long ones. Each stays close to How to play's two sentences: at most three.
+- The sections follow the order the player meets the rules: chain, merge, drag help, score, new tiles, moving up, stars, boosters, out of moves, records, saving and settings.
+- Each booster has its own section, because Bart asked for each one: what it does, that it is paid from the score, how prices behave, and Undo's limits.
 - Real tiles in the current skin show the player the exact tiles they will play with, including a label like "2K".
-- Each example is the simplest one that shows its rule: HP1 a sum that is already a power of two, HP2 the rounding case, HP5 the first star.
+- Each example is the simplest one that shows its rule: IN1 a sum that is already a power of two, IN2 the rounding case, IN6 the first clear and the first star, IN12 a Double.
 - No live numbers, so the text is always right, whatever the state of the run.
 
