@@ -35,6 +35,20 @@ func _restart() -> App:
 	return _start()
 
 
+## The App on the splash, then Play, as a player opening the game and
+## tapping Play (flow 1 and 2).
+func _play() -> App:
+	var app: App = _start()
+	U.play(app)
+	return app
+
+
+func _restart_play() -> App:
+	var app: App = _restart()
+	U.play(app)
+	return app
+
+
 func _service() -> SaveService:
 	U.settle(_app)
 	return SaveService.new(_dir)
@@ -55,20 +69,32 @@ func _undo_status(app: App) -> BoosterStatus:
 
 # Flow 1: start
 
-func test_start_without_a_saved_run_shows_the_main_menu() -> void:
+func test_at_147_a_start_without_a_saved_run_shows_the_splash() -> void:
 	var app: App = _start()
-	assert_not_null(app.main_menu(), "main menu")
+	assert_not_null(app.splash_screen(), "the splash")
+	assert_false(app.has_held_run(), "no run held")
+	assert_eq(app.splash_screen().best_score_text(), "0", "Best Score 0")
 	assert_null(app.game_screen(), "no play screen")
 	assert_eq(app.session.phase(), GameSession.Phase.NONE, "no run")
 	assert_true(app.open_panels().is_empty(), "no panel")
 
 
-func test_at_91_start_with_a_saved_run_resumes_straight_into_play() -> void:
+func test_at_91_and_at_149_a_saved_run_shows_the_splash_and_play_resumes_it() -> void:
 	var saved: RunState = RunState.create(U.board_p(), 1032, U.snapshot_board(), 32, 64)
 	U.save_game(_dir, saved, 50000, 2048)
+	var before: PackedByteArray = U.SaveFixtures.read_bytes(_dir.path_join("run.json"))
 	var app: App = _start()
-	assert_null(app.main_menu(), "no main menu with a saved run")
-	assert_not_null(app.game_screen(), "straight into play")
+	assert_not_null(app.splash_screen(), "the splash, not the board (AT-147 b)")
+	assert_null(app.game_screen(), "no play screen yet")
+	assert_true(app.has_held_run(), "the run is held")
+	assert_eq(app.session.phase(), GameSession.Phase.NONE, "and not resumed")
+	assert_eq(app.splash_screen().best_score_text(), "50,000", "the records on the splash")
+	U.settle(app)
+	assert_eq(U.SaveFixtures.read_bytes(_dir.path_join("run.json")), before, "the splash leaves the run file as it was")
+	U.play(app)
+	assert_null(app.splash_screen(), "Play leaves the splash")
+	assert_not_null(app.game_screen(), "for the play screen")
+	assert_false(app.has_held_run(), "nothing held any more")
 	assert_true(app.session.is_run_in_progress(), "the run is live")
 	assert_true(app.session.state.equals(saved), "same board, score, snapshot and run highest tile")
 	assert_eq(app.records.best_score, 50000, "same Best Score")
@@ -79,15 +105,18 @@ func test_at_91_start_with_a_saved_run_resumes_straight_into_play() -> void:
 	assert_eq(undo.cost, BoosterRules.cost(&"undo", saved, app.config), "at the same cost")
 
 
-func test_at_95_a_broken_saved_run_starts_on_the_menu() -> void:
+func test_at_95_a_broken_saved_run_is_discarded_at_launch() -> void:
 	U.save_game(_dir, null, 5000, 512)
 	U.SaveFixtures.write_text(_dir.path_join("run.json"), "{\"format\": 1, \"cells\": [1, 2")
 	var app: App = _start()
-	assert_not_null(app.main_menu(), "the menu, with no Continue")
+	assert_not_null(app.splash_screen(), "the splash as usual (SP8)")
 	assert_null(app.game_screen(), "no play screen")
+	assert_false(app.has_held_run(), "nothing held")
 	assert_false(_service().has_run(), "the broken run is discarded")
 	assert_eq(app.records.best_score, 5000, "Best Score kept")
 	assert_eq(app.records.best_tile, 512, "Best Tile kept")
+	U.play(app)
+	assert_eq(app.session.state.score, 0, "Play starts a new run")
 
 
 func test_profile_loads_before_any_listener() -> void:
@@ -115,10 +144,10 @@ func test_an_unknown_skin_id_falls_back_to_the_default() -> void:
 
 # Flow 2 and 8: new game and saving
 
-func test_new_game_from_the_menu_starts_and_saves_a_run() -> void:
+func test_at_148_play_with_no_saved_run_starts_and_saves_a_run() -> void:
 	var app: App = _start()
-	app.main_menu().new_game_chosen.emit()
-	assert_null(app.main_menu(), "menu gone")
+	U.play(app)
+	assert_null(app.splash_screen(), "splash gone")
 	assert_not_null(app.game_screen(), "play screen")
 	assert_true(app.session.is_run_in_progress(), "a run")
 	assert_eq(app.session.state.score, 0, "score 0")
@@ -127,7 +156,7 @@ func test_new_game_from_the_menu_starts_and_saves_a_run() -> void:
 
 func test_at_92_a_move_is_saved_as_soon_as_it_resolves() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 0))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	var chain: Array[Vector2i] = [Vector2i(1, 6), Vector2i(2, 6)]
 	var result: MoveResult = app.session.commit_chain(chain)
@@ -151,7 +180,7 @@ func test_no_run_is_saved_when_no_run_is_in_progress() -> void:
 
 func test_lifecycle_events_save_the_run() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 700))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	U.settle(app)
 	for what: int in [Node.NOTIFICATION_APPLICATION_PAUSED, Node.NOTIFICATION_APPLICATION_FOCUS_OUT, Node.NOTIFICATION_WM_CLOSE_REQUEST]:
@@ -166,7 +195,7 @@ func test_lifecycle_events_save_the_run() -> void:
 func test_at_50_run_end_deletes_the_run_saves_the_profile_and_shows_the_end_panel() -> void:
 	var saved: RunState = RunState.create(U.board_d1024(), 300, U.snapshot_board(), 40)
 	U.save_game(_dir, saved, 300, 1024)
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	assert_eq(app.session.phase(), GameSession.Phase.ENDED, "nothing is usable, so the run ends at once")
 	assert_false(app.session.is_offer_open(), "no offer")
@@ -183,7 +212,7 @@ func test_at_50_run_end_deletes_the_run_saves_the_profile_and_shows_the_end_pane
 
 func test_at_54_an_ended_run_does_not_come_back() -> void:
 	U.save_game(_dir, RunState.create(U.board_d1024(), 5000, U.snapshot_board(), 40))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	assert_true(app.session.is_offer_open(), "the offer is open")
 	var offer: OfferPanel = app.game_screen().offer_panel()
@@ -192,12 +221,15 @@ func test_at_54_an_ended_run_does_not_come_back() -> void:
 	assert_eq((app.top_panel() as EndPanel).reason_text(), "", "with no 'No moves left.': something was still usable")
 	assert_false(_service().has_run(), "the run is deleted")
 	var reopened: App = _restart()
-	assert_not_null(reopened.main_menu(), "reopening shows the menu, not that run")
+	assert_not_null(reopened.splash_screen(), "reopening shows the splash")
+	assert_false(reopened.has_held_run(), "with no run held")
+	U.play(reopened)
+	assert_eq(reopened.session.state.score, 0, "Play starts a new run instead of that one")
 
 
-func test_end_panel_new_game_and_main_menu() -> void:
+func test_at_150_end_panel_new_game_and_home() -> void:
 	U.save_game(_dir, RunState.create(U.board_d1024(), 300))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	var panel: EndPanel = app.top_panel() as EndPanel
 	panel.new_game_chosen.emit()
@@ -207,16 +239,27 @@ func test_end_panel_new_game_and_main_menu() -> void:
 
 	U.settle(app)
 	U.save_game(_dir, RunState.create(U.board_d1024(), 300))
-	var again: App = _restart()
+	var again: App = _restart_play()
 	U.shown(again)
-	(again.top_panel() as EndPanel).main_menu_chosen.emit()
-	assert_not_null(again.main_menu(), "Main menu goes to the menu")
+	var end: EndPanel = again.top_panel() as EndPanel
+	assert_not_null(end.find_child("Home", true, false), "the end of run screen has Home")
+	assert_null(end.find_child("MainMenu", true, false), "and no Main menu")
+	end.home_chosen.emit()
+	assert_not_null(again.splash_screen(), "Home goes to the splash")
 	assert_null(again.game_screen(), "the play screen is gone")
+	assert_true(again.open_panels().is_empty(), "no panel over it")
+	assert_eq(again.splash_screen().best_score_text(), "300", "the records include the run")
+	assert_false(again.has_held_run(), "no run held")
+	U.play(again)
+	assert_true(again.session.is_run_in_progress(), "Play starts a new run (AT-148 b)")
+	assert_eq(again.session.state.score, 0, "at 0, with no confirmation")
+	assert_true(again.open_panels().is_empty(), "no confirmation")
+	assert_eq(again.records.best_score, 300, "Best Score keeps the old run's value")
 
 
 func test_at_44_records_persist_after_a_run() -> void:
 	U.save_game(_dir, RunState.create(U.with_cell(U.board_d(), Vector2i(0, 0), 8), 9990))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	var chain: Array[Vector2i] = [Vector2i(0, 0), Vector2i(0, 1)]
 	app.session.commit_chain(chain)
@@ -224,13 +267,14 @@ func test_at_44_records_persist_after_a_run() -> void:
 	var reopened: App = _restart()
 	assert_eq(reopened.records.best_score, 10006, "kept after reopening")
 	assert_eq(reopened.records.best_tile, 16, "Best Tile kept after reopening")
+	assert_eq(reopened.splash_screen().best_score_text(), "10,006", "on the splash")
 
 
 # Flow 9: pause
 
 func test_pause_cancels_the_drag_and_targeting() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	assert_true(app.session.begin_drag(), "a drag starts")
 	app.game_screen().hud().pause_pressed.emit()
@@ -249,20 +293,20 @@ func test_pause_cancels_the_drag_and_targeting() -> void:
 func test_at_24_and_at_93_focus_loss_drops_the_drag_and_keeps_the_board() -> void:
 	var saved: RunState = RunState.create(U.board_p(), 5000)
 	U.save_game(_dir, saved)
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.session.begin_drag()
 	app.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	assert_false(app.session.is_dragging(), "no chain in progress")
 	assert_true(_saved_run().equals(saved), "board and score as before the drag")
-	var reopened: App = _restart()
+	var reopened: App = _restart_play()
 	assert_true(reopened.session.state.equals(saved), "and that is what resumes")
 
 
 func test_at_96_new_game_from_pause_asks_first() -> void:
 	var saved: RunState = RunState.create(U.board_p(), 5000, U.snapshot_board(), 40)
 	U.save_game(_dir, saved, 9000, 32)
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.open_pause()
 	(app.top_panel() as PausePanel).new_game_chosen.emit()
@@ -286,7 +330,7 @@ func test_at_96_new_game_from_pause_asks_first() -> void:
 
 func test_at_64_back_cancels_targeting_first() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.session.press_booster(&"swap")
 	app.session.tap_cell(Vector2i(0, 0))
@@ -301,7 +345,7 @@ func test_at_64_back_cancels_targeting_first() -> void:
 
 func test_back_closes_the_top_panel_then_opens_pause() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	assert_true(app.top_panel() is PausePanel, "back on the board opens Pause")
@@ -321,16 +365,16 @@ func test_back_closes_the_top_panel_then_opens_pause() -> void:
 
 func test_back_in_the_offer_opens_pause() -> void:
 	U.save_game(_dir, RunState.create(U.board_d1024(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	assert_true(app.session.is_offer_open(), "the offer is open")
 	app.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	assert_true(app.top_panel() is PausePanel, "Pause")
 
 
-func test_back_on_the_menu_quits_after_saving() -> void:
+func test_back_on_the_splash_quits_after_saving() -> void:
 	var app: App = _start()
-	app.main_menu().settings_chosen.emit()
+	app.splash_screen().settings_chosen.emit()
 	app.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	assert_true(app.open_panels().is_empty(), "back first closes Settings")
 	assert_true(_quits.is_empty(), "no exit yet")
@@ -341,7 +385,7 @@ func test_back_on_the_menu_quits_after_saving() -> void:
 
 func test_back_on_the_end_panel_quits_after_saving() -> void:
 	U.save_game(_dir, RunState.create(U.board_d1024(), 300))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	assert_true(app.top_panel() is EndPanel, "the end of run panel")
 	app.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
@@ -359,7 +403,7 @@ func _escape(echo: bool = false) -> InputEventKey:
 
 func test_qa4_05_escape_does_what_back_does_on_desktop() -> void:
 	U.save_game(_dir, RunState.create(U.board_d1024(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	assert_true(app.session.is_offer_open(), "the offer hides the HUD's pause button")
 	app._unhandled_key_input(_escape())
@@ -379,10 +423,10 @@ func test_qa4_05_escape_does_what_back_does_on_desktop() -> void:
 	assert_true(_quits.is_empty(), "never an exit on the board")
 
 
-func test_qa4_05_escape_on_the_menu_quits_like_back() -> void:
+func test_qa4_05_escape_on_the_splash_quits_like_back() -> void:
 	var app: App = _start()
 	app._unhandled_key_input(_escape())
-	assert_eq(_quits.size(), 1, "the same back order: the menu quits after saving")
+	assert_eq(_quits.size(), 1, "the same back order: the splash quits after saving")
 
 
 # Flow 7: settings
@@ -391,7 +435,7 @@ func test_at_94_sound_setting_reaches_the_audio_service_and_persists() -> void:
 	var app: App = _start()
 	assert_true(app.settings.sound_on, "sound on at first launch")
 	assert_true(app.audio.is_enabled(), "audio on")
-	app.main_menu().settings_chosen.emit()
+	app.splash_screen().settings_chosen.emit()
 	var panel: SettingsPanel = app.top_panel() as SettingsPanel
 	panel.sound_toggle().toggled.emit(false)
 	assert_false(app.settings.sound_on, "the setting changes")
@@ -403,7 +447,7 @@ func test_at_94_sound_setting_reaches_the_audio_service_and_persists() -> void:
 
 func test_at_94_skin_setting_switches_the_game_live_and_persists() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.open_pause()
 	(app.top_panel() as PausePanel).settings_chosen.emit()
@@ -421,13 +465,14 @@ func test_at_94_skin_setting_switches_the_game_live_and_persists() -> void:
 	assert_eq(app.session.state.score, 5000, "the run carries on")
 	var reopened: App = _restart()
 	assert_eq(reopened.skin.id, &"nova", "Nova after reopening")
+	assert_true((reopened.splash_screen().wordmark().get_script() as Script).resource_path.contains("nova"), "the splash in Nova")
 
 
 # The offer on the play screen
 
 func test_at_47_the_offer_takes_the_hud_place() -> void:
 	U.save_game(_dir, RunState.create(U.board_d1024(), 5000, U.snapshot_board(), 40))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	var game: GameScreen = app.game_screen()
 	assert_true(app.session.is_offer_open(), "the offer opens")
@@ -446,7 +491,7 @@ func test_at_47_the_offer_takes_the_hud_place() -> void:
 
 func test_at_48_shuffle_from_the_offer_closes_it() -> void:
 	U.save_game(_dir, RunState.create(U.board_d1024(), 5000, U.snapshot_board(), 40))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.game_screen().offer_panel().buy_button().pressed.emit()
 	assert_eq(app.session.state.score, 3976, "Shuffle charged")
@@ -459,11 +504,13 @@ func test_at_48_shuffle_from_the_offer_closes_it() -> void:
 func test_at_55_the_offer_survives_a_restart() -> void:
 	var saved: RunState = RunState.create(U.board_d1024(), 5000)
 	U.save_game(_dir, saved)
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	assert_true(app.session.is_offer_open(), "the offer is open")
 	app.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
 	var reopened: App = _restart()
+	assert_not_null(reopened.splash_screen(), "the splash shows first (AT-147 d)")
+	U.play(reopened)
 	U.shown(reopened)
 	assert_true(reopened.session.state.equals(saved), "same board and score")
 	assert_true(reopened.session.is_offer_open(), "and the offer opens again")
@@ -472,12 +519,12 @@ func test_at_55_the_offer_survives_a_restart() -> void:
 
 func test_at_65_targeting_is_not_saved() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.session.press_booster(&"swap")
 	app.session.tap_cell(Vector2i(0, 0))
 	app.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
-	var reopened: App = _restart()
+	var reopened: App = _restart_play()
 	assert_eq(reopened.session.targeting_booster(), &"", "no booster active")
 	assert_eq(reopened.session.swap_first(), U.NO_CELL, "no tile selected")
 	assert_eq(reopened.session.state.score, 5000, "score 5,000")
@@ -487,7 +534,7 @@ func test_at_65_targeting_is_not_saved() -> void:
 
 func test_at_97_booster_taps_wait_for_the_view() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	var chain: Array[Vector2i] = [Vector2i(1, 6), Vector2i(2, 6)]
 	assert_true(app.session.commit_chain(chain).accepted, "a chain commits")
@@ -504,7 +551,7 @@ func test_at_97_booster_taps_wait_for_the_view() -> void:
 
 func test_targeting_hint_reaches_the_bar_and_the_context_row() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 5000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	app.session.press_booster(&"hammer")
 	assert_eq(app.game_screen().booster_bar().call(&"hint_text"), app.skin.cased(&"label", "Tap a tile to smash it"), "Gumdrop's hint pill")
@@ -516,7 +563,7 @@ func test_slate_context_row_shows_targeting_and_the_chain() -> void:
 	var settings: Settings = Settings.new()
 	settings.set_skin_id(&"slate")
 	U.save_game(_dir, RunState.create(U.board_p(), 5000), 0, 0, settings)
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	var hud: SkinHud = app.game_screen().hud()
 	app.session.press_booster(&"swap")
@@ -540,7 +587,7 @@ func test_at_104_a_clear_shows_the_notice() -> void:
 	# AT-99: the chain raises the floor and clears one 2.
 	var board: PackedInt64Array = U.with_cell(U.with_cell(U.with_cell(_board_e(), Vector2i(0, 3), 2), Vector2i(4, 6), 1024), Vector2i(4, 7), 1024)
 	U.save_game(_dir, RunState.create(board, 10000))
-	var app: App = _start()
+	var app: App = _play()
 	U.shown(app)
 	var chain: Array[Vector2i] = [Vector2i(4, 6), Vector2i(4, 7)]
 	var result: MoveResult = app.session.commit_chain(chain)
@@ -551,7 +598,7 @@ func test_at_104_a_clear_shows_the_notice() -> void:
 
 func test_scores_reach_the_hud() -> void:
 	U.save_game(_dir, RunState.create(U.board_p(), 1234), 98765, 32)
-	var app: App = _start()
+	var app: App = _play()
 	U.gate(app)
 	var label: Label = app.game_screen().hud().score_label()
 	assert_eq(label.text, "1,234", "the score")

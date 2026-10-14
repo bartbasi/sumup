@@ -8,11 +8,12 @@ class_name EndPanel extends "res://src/ui/dialog_base.gd"
 ## - rows split by the skin's divider: Best score with the number, and the
 ##   New best badge beside it when this run set the Best Score; Best tile and
 ##   This run's highest tile, each with a mini tile;
-## - New game (primary) and Main menu (secondary).
+## - New game (primary) and Home (secondary), which goes to the splash
+##   (GDD 12.3 and D-47, DESIGN_SYSTEM.md 7.6).
 ## Back on this panel quits the app after saving (the App handles it).
 
 signal new_game_chosen()
-signal main_menu_chosen()
+signal home_chosen()
 
 ## Side of the mini tiles in the record rows (DESIGN_SYSTEM.md 7.9).
 const MINI_TILE: float = 72.0
@@ -117,11 +118,11 @@ func _fill(skin: SkinData, summary: RunSummary) -> void:
 	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	again.pressed.connect(_on_new_game)
 	buttons.add_child(again)
-	var menu: Button = UiParts.button(skin, &"SecondaryButton", Copy.MAIN_MENU)
-	menu.name = "MainMenu"
-	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	menu.pressed.connect(_on_main_menu)
-	buttons.add_child(menu)
+	var home: Button = UiParts.button(skin, &"SecondaryButton", Copy.HOME)
+	home.name = "Home"
+	home.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	home.pressed.connect(_on_home)
+	buttons.add_child(home)
 	_layout()
 
 
@@ -160,6 +161,6 @@ func _on_new_game() -> void:
 		new_game_chosen.emit()
 
 
-func _on_main_menu() -> void:
+func _on_home() -> void:
 	if not _closing:
-		main_menu_chosen.emit()
+		home_chosen.emit()

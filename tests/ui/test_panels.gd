@@ -189,10 +189,13 @@ func test_qa4_04_new_best_sits_on_the_best_score_row() -> void:
 func test_end_panel_buttons() -> void:
 	var panel: EndPanel = _end_panel(&"slate", _summary(false))
 	panel.new_game_chosen.connect(_record.bind("new game"))
-	panel.main_menu_chosen.connect(_record.bind("menu"))
+	panel.home_chosen.connect(_record.bind("home"))
 	(panel.find_child("NewGame", true, false) as Button).pressed.emit()
-	(panel.find_child("MainMenu", true, false) as Button).pressed.emit()
-	assert_eq(_events, ["new game", "menu"] as Array[String], "both report")
+	(panel.find_child("Home", true, false) as Button).pressed.emit()
+	assert_eq(_events, ["new game", "home"] as Array[String], "both report")
+	assert_null(panel.find_child("MainMenu", true, false), "no Main menu button (AT-150)")
+	assert_eq((panel.find_child("Home", true, false) as Button).text, "Home", "Home reads as written")
+	assert_eq((panel.find_child("Home", true, false) as Button).theme_type_variation, &"SecondaryButton", "Home is secondary")
 	assert_true(_has_text(panel, "RUN OVER"), "Slate's signal label in capitals")
 	panel.close()
 	(panel.find_child("NewGame", true, false) as Button).pressed.emit()
@@ -208,10 +211,10 @@ func test_pause_panel_buttons() -> void:
 	panel.resume_chosen.connect(_record.bind("resume"))
 	panel.new_game_chosen.connect(_record.bind("new game"))
 	panel.settings_chosen.connect(_record.bind("settings"))
-	panel.how_to_play_chosen.connect(_record.bind("how to play"))
-	for button_name: String in ["Resume", "Newgame", "Howtoplay", "Settings"]:
+	panel.info_chosen.connect(_record.bind("info"))
+	for button_name: String in ["Resume", "Newgame", "Info", "Settings"]:
 		(panel.find_child(button_name, true, false) as Button).pressed.emit()
-	assert_eq(_events, ["resume", "new game", "how to play", "settings"] as Array[String], "every choice reports")
+	assert_eq(_events, ["resume", "new game", "info", "settings"] as Array[String], "every choice reports")
 	assert_true(_has_text(panel, "Paused"), "the title")
 
 
@@ -228,10 +231,10 @@ func test_pause_arrangement_7_3() -> void:
 			if child is Button:
 				order.append(String(child.name))
 				variations.append((child as Button).theme_type_variation)
-		assert_eq(order, ["Resume", "Newgame", "Howtoplay", "Settings"] as Array[String], "%s: Resume, New game, How to play, Settings" % skin_id)
+		assert_eq(order, ["Resume", "Newgame", "Info", "Settings"] as Array[String], "%s: Resume, New game, Info, Settings" % skin_id)
 		assert_eq(variations, [&"PrimaryButton", &"SecondaryButton", &"SecondaryButton", &"SecondaryButton"] as Array[StringName], "%s: Resume primary, the rest secondary" % skin_id)
-		var how: Button = content.find_child("Howtoplay", false, false) as Button
-		assert_eq(how.text, skin.cased(&"body", "How to play"), "%s: the copy" % skin_id)
+		var how: Button = content.find_child("Info", false, false) as Button
+		assert_eq(how.text, "Info", "%s: the copy, as written" % skin_id)
 		assert_true(how.custom_minimum_size.y >= skin.num(&"touch_min"), "%s: at least touch_min tall" % skin_id)
 
 
@@ -324,68 +327,142 @@ func test_settings_swatch_edge_only_when_it_matches_the_panel() -> void:
 	assert_eq(nova_style.bg_color, SkinCatalog.get_skin(&"nova").color(&"bg"), "Nova's bg")
 
 
-# Main menu (7.2)
+# Splash (7.2, GDD D-47)
 
-func test_main_menu() -> void:
+func _splash(skin_id: StringName, records: Records) -> SplashScreen:
+	var splash: SplashScreen = (load("res://scenes/ui/splash_screen.tscn") as PackedScene).instantiate() as SplashScreen
+	_host(skin_id).add_child(splash)
+	splash.setup(SkinCatalog.get_skin(skin_id), records)
+	return splash
+
+
+func test_splash() -> void:
 	var records: Records = Records.new()
 	records.best_score = 96520
 	records.best_tile = 8192
-	var menu: MainMenu = (load("res://scenes/ui/main_menu.tscn") as PackedScene).instantiate() as MainMenu
-	_host(&"gumdrop").add_child(menu)
-	menu.setup(SkinCatalog.get_skin(&"gumdrop"), records)
-	menu.new_game_chosen.connect(_record.bind("new game"))
-	menu.settings_chosen.connect(_record.bind("settings"))
-	assert_eq(menu.best_score_text(), "96,520", "Best Score")
-	assert_true(_has_text(menu, "Sum") and _has_text(menu, "Up"), "the two tone wordmark")
-	assert_eq(_tile_count(menu), 5, "the four decorative tiles, then Best Tile")
-	assert_true(_has_text(menu, "Best tile"), "the Best tile row")
-	menu.how_to_play_chosen.connect(_record.bind("how to play"))
-	(menu.find_child("NewGame", true, false) as Button).pressed.emit()
-	(menu.find_child("Settings", true, false) as BaseButton).pressed.emit()
-	(menu.find_child("HowToPlay", true, false) as Button).pressed.emit()
-	assert_eq(_events, ["new game", "settings", "how to play"] as Array[String], "every button reports")
+	var splash: SplashScreen = _splash(&"gumdrop", records)
+	splash.play_chosen.connect(_record.bind("play"))
+	splash.info_chosen.connect(_record.bind("info"))
+	splash.about_chosen.connect(_record.bind("about"))
+	splash.settings_chosen.connect(_record.bind("settings"))
+	assert_eq(splash.best_score_text(), "96,520", "Best Score")
+	assert_not_null(splash.wordmark(), "the drawn wordmark")
+	assert_eq(_tile_count(splash), 2, "the sum row's result tile, then Best Tile")
+	assert_true(_has_text(splash, "Best tile"), "the Best tile row")
+	(splash.find_child("Play", true, false) as Button).pressed.emit()
+	(splash.find_child("Info", true, false) as Button).pressed.emit()
+	(splash.find_child("About", true, false) as Button).pressed.emit()
+	(splash.find_child("Settings", true, false) as BaseButton).pressed.emit()
+	assert_eq(_events, ["play", "info", "about", "settings"] as Array[String], "every button reports")
 
 
-func test_main_menu_arrangement_7_2() -> void:
+func test_splash_arrangement_7_2() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
-		var menu: MainMenu = (load("res://scenes/ui/main_menu.tscn") as PackedScene).instantiate() as MainMenu
-		_host(skin_id).add_child(menu)
-		menu.setup(skin, Records.new())
-		var new_game: Button = menu.find_child("NewGame", true, false) as Button
-		var how: Button = menu.find_child("HowToPlay", true, false) as Button
-		var buttons: VBoxContainer = new_game.get_parent() as VBoxContainer
-		assert_eq(how.get_parent(), buttons, "%s: both buttons in one column" % skin_id)
-		assert_eq(new_game.get_index(), 0, "%s: New game first" % skin_id)
-		assert_eq(how.get_index(), 1, "%s: How to play under it" % skin_id)
+		var splash: SplashScreen = _splash(skin_id, Records.new())
+		var play: Button = splash.find_child("Play", true, false) as Button
+		var info: Button = splash.find_child("Info", true, false) as Button
+		var about: Button = splash.find_child("About", true, false) as Button
+		var buttons: VBoxContainer = play.get_parent() as VBoxContainer
+		assert_eq(play.get_index(), 0, "%s: Play first" % skin_id)
+		assert_eq(info.get_parent().get_parent(), buttons, "%s: Info and About in one row under Play" % skin_id)
+		assert_eq(info.get_parent(), about.get_parent(), "%s: side by side" % skin_id)
+		assert_true(info.get_index() < about.get_index(), "%s: Info, then About" % skin_id)
 		assert_eq(buttons.get_theme_constant(&"separation"), roundi(skin.num(&"space_s")), "%s: space_s apart" % skin_id)
-		assert_eq(new_game.theme_type_variation, &"PrimaryButton", "%s: New game primary" % skin_id)
-		assert_eq(how.theme_type_variation, &"SecondaryButton", "%s: How to play secondary" % skin_id)
-		var layout: Node = menu.find_child("Layout", true, false)
+		assert_eq((info.get_parent() as HBoxContainer).get_theme_constant(&"separation"), roundi(skin.num(&"space_s")), "%s: space_s between Info and About" % skin_id)
+		assert_eq(info.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "%s: Info shares the width" % skin_id)
+		assert_eq(about.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "%s: About shares the width" % skin_id)
+		assert_eq(play.theme_type_variation, &"PrimaryButton", "%s: Play primary" % skin_id)
+		assert_eq(info.theme_type_variation, &"SecondaryButton", "%s: Info secondary" % skin_id)
+		assert_eq(about.theme_type_variation, &"SecondaryButton", "%s: About secondary" % skin_id)
+		for button: Button in [play, info, about]:
+			assert_eq(button.text, String(button.name), "%s: %s reads as written (body role)" % [skin_id, button.name])
+			assert_true(button.custom_minimum_size.y >= skin.num(&"button_height"), "%s: button_height tall" % skin_id)
+			assert_eq(button.alignment, HORIZONTAL_ALIGNMENT_LEFT if skin_id == &"slate" else HORIZONTAL_ALIGNMENT_CENTER, "%s: Slate left aligns button text" % skin_id)
+		var layout: Node = splash.find_child("Layout", true, false)
 		assert_eq(buttons.get_parent().get_index(), layout.get_child_count() - 1, "%s: the buttons on the bottom of the safe area" % skin_id)
 		var margins: MarginContainer = buttons.get_parent() as MarginContainer
 		assert_eq(margins.get_theme_constant(&"margin_left"), roundi(skin.num(&"board_margin")), "%s: full width less board_margin" % skin_id)
-		# The wordmark: two labels, as wide as the tile row.
-		var wordmark: HBoxContainer = menu.wordmark()
-		assert_eq(wordmark.get_child_count(), 2, "%s: two labels" % skin_id)
-		assert_eq(wordmark.get_theme_constant(&"separation"), 0, "%s: no gap" % skin_id)
-		var size_px: int = (wordmark.get_child(0) as Label).get_theme_font_size(&"font_size")
-		var row_width: float = 4.0 * 160.0 + 3.0 * skin.num(&"space_s")
-		var display: Font = skin.font(&"display")
-		assert_true(UiParts.wordmark_width(display, size_px) <= row_width, "%s: no wider than the tile row (%d px)" % [skin_id, size_px])
-		assert_true(UiParts.wordmark_width(display, size_px + 1) > row_width or size_px == skin.font_size(&"display"), "%s: and as large as fits" % skin_id)
-		assert_true(size_px >= skin.font_size(&"display"), "%s: never below the display size" % skin_id)
-		assert_eq(wordmark.alignment, BoxContainer.ALIGNMENT_BEGIN if skin_id == &"slate" else BoxContainer.ALIGNMENT_CENTER, "%s: Slate left aligns it" % skin_id)
+		# The sum row: the skin's board view chained 2, 2, 4, 8 at 144 px, the
+		# 72 px arrow, the result 16.
+		var board: SkinBoardView = splash.sum_board()
+		assert_true((board.get_script() as Script).resource_path.contains(String(skin_id)), "%s: the skin's own board view" % skin_id)
+		assert_eq(int(board.get(&"columns")), 4, "%s: four cells" % skin_id)
+		assert_eq(int(board.get(&"rows")), 1, "%s: one row" % skin_id)
+		assert_eq(board.get(&"_cells"), PackedInt64Array([2, 2, 4, 8]), "%s: 2, 2, 4, 8" % skin_id)
+		assert_eq((board.get(&"_chain") as Array).size(), 4, "%s: all four chained" % skin_id)
+		assert_near(board.custom_minimum_size.x, UiParts.chain_width(skin, 4, 144.0), 0.01, "%s: sized for 144 px tiles" % skin_id)
+		assert_eq(splash.sum_arrow().custom_minimum_size, Vector2(72.0, 72.0), "%s: the 72 px arrow" % skin_id)
+		assert_eq(splash.sum_result().custom_minimum_size, Vector2(144.0, 144.0), "%s: the 144 px result" % skin_id)
+		assert_eq(int(splash.sum_result().get(&"_value")), 16, "%s: the result 16" % skin_id)
+		var row: HBoxContainer = board.get_parent() as HBoxContainer
+		assert_eq(row.alignment, BoxContainer.ALIGNMENT_BEGIN if skin_id == &"slate" else BoxContainer.ALIGNMENT_CENTER, "%s: Slate left aligns the row" % skin_id)
+		# The wordmark: the skin's drawn one, fitted to the row, never below
+		# the display size.
+		var wordmark: SkinWordmark = splash.wordmark()
+		assert_true((wordmark.get_script() as Script).resource_path.contains(String(skin_id)), "%s: the skin's own wordmark" % skin_id)
+		var row_width: float = row.get_combined_minimum_size().x
+		var drawn: float = float(wordmark.call(&"_drawn_width_at", int(wordmark.get(&"_px"))))
+		assert_true(drawn <= row_width + 0.01, "%s: no wider than the sum row (%d of %d px)" % [skin_id, roundi(drawn), roundi(row_width)])
+		assert_true(int(wordmark.get(&"_px")) >= skin.font_size(&"display"), "%s: never below the display size" % skin_id)
+		assert_eq(bool(wordmark.get(&"_masthead")), true, "%s: the masthead asked for (only Slate draws it)" % skin_id)
+		_assert_ignores_mouse(splash.find_child("Brand", true, false), skin_id)
 
 
-func test_main_menu_hides_best_tile_before_the_first_run() -> void:
-	var menu: MainMenu = (load("res://scenes/ui/main_menu.tscn") as PackedScene).instantiate() as MainMenu
-	_host(&"slate").add_child(menu)
-	menu.setup(SkinCatalog.get_skin(&"slate"), Records.new())
-	assert_eq(menu.best_score_text(), "0", "Best Score 0")
-	assert_eq(_tile_count(menu), 4, "only the decorative tiles")
-	assert_false(_has_text(menu, "BEST TILE"), "no Best Tile row yet")
-	assert_true(_has_text(menu, "BEST SCORE"), "Slate captions in capitals")
+func _assert_ignores_mouse(node: Node, label: String) -> void:
+	for child: Node in node.find_children("*", "Control", true, false):
+		assert_eq((child as Control).mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s: %s takes no input" % [label, child.name])
+
+
+func test_splash_hides_best_tile_before_the_first_run() -> void:
+	var splash: SplashScreen = _splash(&"slate", Records.new())
+	assert_eq(splash.best_score_text(), "0", "Best Score 0")
+	assert_eq(_tile_count(splash), 1, "only the sum row's result tile")
+	assert_false(_has_text(splash, "BEST TILE"), "no Best Tile row yet")
+	assert_true(_has_text(splash, "BEST SCORE"), "Slate captions in capitals")
+
+
+func test_splash_entrance() -> void:
+	Motion.bind_tweens = false
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var splash: SplashScreen = _splash(skin_id, Records.new())
+		var board: SkinBoardView = splash.sum_board()
+		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.REST, "%s: built at rest" % skin_id)
+		splash.play_entrance()
+		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.BRAND_IN, "%s: the brand comes in" % skin_id)
+		assert_eq(board.get(&"_cells"), PackedInt64Array([0, 0, 0, 0]), "%s: the sum row starts empty" % skin_id)
+		assert_true((board.get(&"_chain") as Array).is_empty(), "%s: with no chain" % skin_id)
+		assert_eq(splash.sum_arrow().modulate.a, 0.0, "%s: the arrow hidden" % skin_id)
+		assert_eq(splash.sum_result().modulate.a, 0.0, "%s: the result hidden" % skin_id)
+		for button: String in ["Play", "Info", "About"]:
+			assert_eq((splash.find_child(button, true, false) as Button).modulate.a, 1.0, "%s: %s shows from the first frame" % [skin_id, button])
+		var half: float = skin.duration(&"dialog_in") * 0.5
+		splash.entrance_tween().custom_step(half * 0.9)
+		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.BRAND_IN, "%s: no spawn before half of dialog_in" % skin_id)
+		splash.entrance_tween().custom_step(half * 0.2)
+		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.SPAWNING, "%s: the tiles spawn at half of dialog_in" % skin_id)
+		assert_eq(board.get(&"_cells"), PackedInt64Array([2, 2, 4, 8]), "%s: 2, 2, 4 and 8 come in" % skin_id)
+		assert_true((board.get(&"_chain") as Array).is_empty(), "%s: still with no chain line" % skin_id)
+		splash.entrance_tween().custom_step(10.0)
+		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.REST, "%s: the entrance ends" % skin_id)
+		assert_eq((board.get(&"_chain") as Array).size(), 4, "%s: the chain appears whole" % skin_id)
+		assert_eq(splash.sum_arrow().modulate.a, 0.0, "%s: the arrow starts its fade" % skin_id)
+		splash.apply_skin(skin)
+		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.REST, "%s: a skin switch rebuilds it at rest" % skin_id)
+		assert_eq(splash.sum_result().modulate.a, 1.0, "%s: with the result showing" % skin_id)
+	Motion.bind_tweens = true
+
+
+func test_splash_sum_row_shrinks_only_without_room() -> void:
+	var skin: SkinData = SkinCatalog.get_skin(&"gumdrop")
+	var splash: SplashScreen = _splash(&"gumdrop", Records.new())
+	splash.layout_in(Rect2(0.0, 0.0, 1080.0, 2400.0), Rect2(0.0, 120.0, 1080.0, 2214.0))
+	assert_eq(splash.sum_tile_side(), 144.0, "144 px on a phone")
+	splash.layout_in(Rect2(0.0, 0.0, 1080.0, 1100.0), Rect2(0.0, 0.0, 1080.0, 1100.0))
+	assert_true(splash.sum_tile_side() < 144.0, "smaller when there is no room")
+	assert_true(splash.sum_tile_side() >= 112.0, "never below 112 px")
+	assert_near(splash.sum_board().custom_minimum_size.x, UiParts.chain_width(skin, 4, splash.sum_tile_side()), 0.01, "the board follows")
 
 
 # Shared rules

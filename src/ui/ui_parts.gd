@@ -29,9 +29,6 @@ const ROLES: Dictionary[StringName, StringName] = {
 const _LEFT_ALIGNED_SKIN: StringName = &"slate"
 const _FREE_SECTIONS_SKIN: StringName = &"nova"
 const _CASE_UPPER: String = "upper"
-## DESIGN_SYSTEM.md 7.2: the wordmark, "Sum" in ink and "Up" in accent.
-const WORDMARK_PARTS: Array[String] = ["Sum", "Up"]
-const _WORDMARK_COLORS: Array[StringName] = [&"ink", &"accent"]
 
 
 ## The type role of a variation in this skin.
@@ -107,46 +104,50 @@ static func case_rule(skin: SkinData, type_role: StringName) -> String:
 	return String(skin.type_roles[type_role].get("case", ""))
 
 
-## The two tone wordmark "SumUp" (DESIGN_SYSTEM.md 7.2): "Sum" in ink and
-## "Up" in accent, two labels in the display role with no gap, never cased.
-## font_px 0 keeps the display role's size.
-static func wordmark(skin: SkinData, font_px: int, start: bool) -> HBoxContainer:
-	var row: HBoxContainer = hbox(0.0)
-	row.name = "Wordmark"
-	row.alignment = BoxContainer.ALIGNMENT_BEGIN if start else BoxContainer.ALIGNMENT_CENTER
-	for index: int in WORDMARK_PARTS.size():
-		var part: Label = Label.new()
-		part.theme_type_variation = &"DisplayLabel"
-		part.text = WORDMARK_PARTS[index]
-		part.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		part.add_theme_color_override(&"font_color", skin.color(_WORDMARK_COLORS[index]))
-		if font_px > 0:
-			part.add_theme_font_size_override(&"font_size", font_px)
-		row.add_child(part)
-	return row
+## A chain as a one row board in the skin's own board view (DESIGN_SYSTEM.md
+## 7.2 and 7.12): every cell chained in drag order, no preview and no
+## highlight, sized for side px tiles.
+static func chain_board(skin: SkinData, values: PackedInt64Array, side: float) -> SkinBoardView:
+	var count: int = values.size()
+	var board: SkinBoardView = SkinCatalog.make_board_view(skin)
+	board.name = "Chain"
+	board.setup(skin, count, 1)
+	var width: float = chain_width(skin, count, side)
+	board.custom_minimum_size = Vector2(width, board.preferred_height(width))
+	board.size = board.custom_minimum_size
+	board.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	board.set_board(values)
+	board.set_chain(row_cells(count), Vector2(-1.0, -1.0))
+	return board
 
 
-## The menu wordmark's size: its advance width equals width. floor(display
-## size x width / the width at the display size), then 1 px smaller until it
-## fits, never below the display size (DESIGN_SYSTEM.md 7.2).
-static func fitted_wordmark_size(skin: SkinData, width: float) -> int:
-	var display: Font = skin.font(&"display")
-	var base: int = skin.font_size(&"display")
-	var at_base: float = wordmark_width(display, base)
-	if at_base <= 0.0:
-		return base
-	var fitted: int = floori(float(base) * width / at_base)
-	while fitted > base and wordmark_width(display, fitted) > width:
-		fitted -= 1
-	return maxi(base, fitted)
+## A one row board's width for count tiles of side px: the tiles, the gaps
+## and the tray padding, or for orbs the pitch (the tile over orb_scale).
+static func chain_width(skin: SkinData, count: int, side: float) -> float:
+	if skin.numbers.has(&"orb_scale"):
+		return float(count) * side / skin.num(&"orb_scale")
+	var padding: float = skin.numbers.get(&"board_padding", 0.0)
+	return float(count) * side + float(count - 1) * skin.num(&"board_gap") + 2.0 * padding
 
 
-## The wordmark's advance width at font_px: its two parts side by side.
-static func wordmark_width(display: Font, font_px: int) -> float:
-	var total: float = 0.0
-	for part: String in WORDMARK_PARTS:
-		total += display.get_string_size(part, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_px).x
-	return total
+## The cells of a one row board, left to right.
+static func row_cells(count: int) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for index: int in count:
+		cells.append(Vector2i(index, 0))
+	return cells
+
+
+## The skin's arrow icon, side px, in ink_muted, as in the example rows.
+static func arrow(skin: SkinData, side: float) -> SkinIcon:
+	var made: SkinIcon = UiKit.make_icon(skin)
+	made.name = "Arrow"
+	made.custom_minimum_size = Vector2(side, side)
+	made.size = Vector2(side, side)
+	made.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	made.set_icon(&"arrow")
+	made.set_color(skin.color(&"ink_muted"))
+	return made
 
 
 ## text's advance width in the font of variation's role at font_px, rounded

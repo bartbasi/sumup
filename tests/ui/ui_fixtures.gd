@@ -35,6 +35,11 @@ static func start_app(folder: String, quits: Array[int]) -> App:
 	return app
 
 
+## Taps Play on the splash: the held saved run resumes, or a new run starts.
+static func play(app: App) -> void:
+	app.splash_screen().play_chosen.emit()
+
+
 ## Frees the App. Its queued saves are flushed first, as on a real exit.
 static func stop_app(app: App) -> void:
 	if app == null or not is_instance_valid(app):

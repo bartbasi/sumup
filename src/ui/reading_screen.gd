@@ -1,5 +1,5 @@
 extends Control
-## The frame every reading screen shares (DESIGN_SYSTEM.md 7.11): How to play,
+## The frame every reading screen shares (DESIGN_SYSTEM.md 7.11): Info,
 ## About and the license texts.
 ## - Full screen and opaque, over whatever opened it: the skin's backdrop
 ##   fills the screen, with the whole screen kept clear of decoration (Nova
@@ -7,7 +7,7 @@ extends Control
 ##   it can be reached.
 ## - In the content column (2.8): the header, touch_min tall inside the safe
 ##   area, with the title (TitleLabel, left at board_margin) and the close
-##   icon button inset like the main menu's settings button; Slate adds a
+##   icon button inset like the splash's settings button; Slate adds a
 ##   hairline under it. Then the ScrollContainer, down to the screen's bottom
 ##   edge: vertical only, the indicator's room always kept, the 24 px
 ##   deadzone, no follow focus. Its content is padded board_margin on the

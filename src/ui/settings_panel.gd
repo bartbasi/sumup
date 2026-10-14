@@ -1,5 +1,5 @@
 class_name SettingsPanel extends "res://src/ui/dialog_base.gd"
-## Settings (DESIGN_SYSTEM.md 7.7), reached from the main menu and Pause:
+## Settings (DESIGN_SYSTEM.md 7.7), reached from the splash and Pause:
 ## - "Settings" with a close icon button;
 ## - the Sound row with the skin's toggle;
 ## - a divider, "Skin", then the three skin choices side by side;

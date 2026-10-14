@@ -11,6 +11,8 @@ extends SceneTree
 ##   2. every text pair the skin lists (text color on background)
 ##   3. the new pairs of the 2026-10-13 additions (ADDED_PAIRS) that the
 ##      skin does not list yet
+##   4. text on a tinted glow (GLOW_PAIRS), whose background is a mix
+##      rather than a palette token: the 2026-10-14 wordmark glow
 ## using the WCAG 2 contrast ratio and relative luminance formula. A color
 ## with alpha is first composited over what sits behind it. Every pair is
 ## printed with its ratio. Exits with code 0 when every pair reaches its
@@ -38,6 +40,18 @@ const ADDED_PAIRS: Dictionary[StringName, Array] = {
 		{"name": "Free cost and its star, pressed column", "fg": "accent", "bg": "surface", "min": MIN_RATIO},
 	],
 	&"nova": [],
+}
+
+## Text drawn over a glow tinted with a palette color (DESIGN_SYSTEM.md 6.3
+## and 7.2, 2026-10-14). The background is the glow's worst case: "glow" at
+## "alpha" (its center) composited over "over", the lightest backdrop under
+## it. Checked from this table only: the mix is not a palette token, so the
+## skin resources do not list it.
+const GLOW_PAIRS: Dictionary[StringName, Array] = {
+	&"nova": [
+		{"name": "Wordmark Up on its glow", "fg": "accent", "glow": "accent", "alpha": 0.25, "over": "bg_glow", "min": MIN_RATIO},
+		{"name": "Wordmark Sum where the glow reaches it", "fg": "ink", "glow": "accent", "alpha": 0.25, "over": "bg_glow", "min": MIN_RATIO},
+	],
 }
 
 var _checked: int = 0
@@ -89,6 +103,10 @@ func _check_skin(skin_id: StringName) -> void:
 		var pending: Dictionary = entry.duplicate()
 		pending["name"] = "%s [2026-10-13, not yet in the resource]" % entry["name"]
 		_check_text_pair(skin, pending)
+	# Text on a tinted glow.
+	var glows: Array = GLOW_PAIRS.get(skin_id, [])
+	for entry: Dictionary in glows:
+		_check_glow_pair(skin, entry)
 	print("  %s: %d pairs, %d failed" % [skin_id, _checked - count_before, _failed - before])
 
 
@@ -129,6 +147,21 @@ func _check_text_pair(skin: SkinData, entry: Dictionary) -> void:
 		fg = composite(fg, bg)
 	var label: String = "%s (%s on %s)" % [pair_name, fg_name, bg_name]
 	_check_pair(label, fg, bg, float(entry["min"]))
+
+
+func _check_glow_pair(skin: SkinData, entry: Dictionary) -> void:
+	var pair_name: String = String(entry["name"])
+	var fg_ref: Dictionary = resolve(skin, String(entry["fg"]))
+	var glow_ref: Dictionary = resolve(skin, String(entry["glow"]))
+	var over_ref: Dictionary = resolve(skin, String(entry["over"]))
+	if not bool(fg_ref["ok"]) or not bool(glow_ref["ok"]) or not bool(over_ref["ok"]):
+		_report_problem(skin.id, "glow pair '%s' has an unknown token" % pair_name)
+		return
+	var glow: Color = glow_ref["color"]
+	glow.a = float(entry["alpha"])
+	var bg: Color = composite(glow, over_ref["color"])
+	var label: String = "%s (%s on %s glow at %.2f over %s)" % [pair_name, entry["fg"], entry["glow"], float(entry["alpha"]), entry["over"]]
+	_check_pair(label, fg_ref["color"], bg, float(entry["min"]))
 
 
 func _check_pair(label: String, fg: Color, bg: Color, minimum: float) -> void:

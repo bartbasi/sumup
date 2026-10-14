@@ -1,6 +1,6 @@
 extends "res://tests/base_test.gd"
-## The reading screens on their own (DESIGN_SYSTEM.md 7.11 to 7.14): How to
-## play (GDD D-44, TH21, AT-115, AT-116), About (TH22, AT-141) and the license
+## The reading screens on their own (DESIGN_SYSTEM.md 7.11 to 7.14): Info
+## (GDD D-44, TH21, AT-115, AT-116), About (TH22, AT-141) and the license
 ## texts (AT-142), and the rows that open a screen.
 
 const U := preload("res://tests/ui/ui_fixtures.gd")
@@ -45,8 +45,8 @@ func _host(skin_id: StringName) -> Control:
 	return host
 
 
-func _how_to_play(skin_id: StringName) -> HowToPlayPanel:
-	var panel: HowToPlayPanel = (load("res://scenes/ui/how_to_play_panel.tscn") as PackedScene).instantiate() as HowToPlayPanel
+func _info(skin_id: StringName) -> InfoPanel:
+	var panel: InfoPanel = (load("res://scenes/ui/info_panel.tscn") as PackedScene).instantiate() as InfoPanel
 	_host(skin_id).add_child(panel)
 	panel.setup(SkinCatalog.get_skin(skin_id))
 	return panel
@@ -68,10 +68,10 @@ func _count_tap() -> void:
 func _gdd_sections() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	var text: String = FileAccess.get_file_as_string(GDD_PATH)
-	var row_name: RegEx = RegEx.create_from_string("^HP[1-7]$")
+	var row_name: RegEx = RegEx.create_from_string("^IN([1-9]|1[0-6])$")
 	for line: String in text.split("\n"):
 		var cells: PackedStringArray = line.split("|")
-		# The 21.2 table: | HP1 | title | text | example | result |
+		# The 21.2 table: | IN1 | title | text | example | result |
 		if cells.size() != 7 or row_name.search(cells[1].strip_edges()) == null:
 			continue
 		var example: PackedInt64Array = PackedInt64Array()
@@ -89,86 +89,142 @@ func _gdd_sections() -> Array[Dictionary]:
 	return rows
 
 
-# How to play: TH21 and AT-116
+# Info: TH21 and AT-116
 
 func test_at_116_th21_content_is_gdd_21_2_word_for_word() -> void:
 	var expected: Array[Dictionary] = _gdd_sections()
-	assert_eq(expected.size(), 7, "the GDD lists seven sections")
-	var panel: HowToPlayPanel = _how_to_play(&"gumdrop")
+	assert_eq(expected.size(), 16, "the GDD lists sixteen sections")
+	var panel: InfoPanel = _info(&"gumdrop")
 	var content: Array[Dictionary] = panel.content()
-	assert_eq(content.size(), 7, "seven sections")
+	assert_eq(content.size(), 16, "sixteen sections")
+	var total: int = 0
 	for index: int in mini(content.size(), expected.size()):
 		var section: Dictionary = content[index]
 		var gdd: Dictionary = expected[index]
-		assert_eq(section["title"], gdd["title"], "HP%d title" % (index + 1))
-		assert_eq(section["text"], gdd["text"], "HP%d text, word for word" % (index + 1))
-		assert_eq(section["example"], gdd["example"], "HP%d example row" % (index + 1))
-		assert_eq(section["result"], gdd["result"], "HP%d result tile" % (index + 1))
+		var tag: String = "IN%d" % (index + 1)
+		assert_eq(section["title"], gdd["title"], "%s title" % tag)
+		assert_eq(section["text"], gdd["text"], "%s text, word for word" % tag)
+		assert_eq(section["example"], gdd["example"], "%s example row" % tag)
+		assert_eq(section["result"], gdd["result"], "%s result tile" % tag)
 		var words: int = String(section["title"]).split(" ", false).size()
-		assert_true(words >= 1 and words <= 4, "HP%d title is 1 to 4 words" % (index + 1))
-		assert_eq(String(section["text"]).count(". "), 1, "HP%d text is 2 sentences" % (index + 1))
-		assert_true(String(section["text"]).ends_with("."), "HP%d text ends a sentence" % (index + 1))
-	assert_eq(panel.title_text(), "How to play", "the screen title")
+		assert_true(words >= 1 and words <= 4, "%s title is 1 to 4 words" % tag)
+		var text: String = section["text"]
+		var sentences: int = text.count(". ") + 1
+		assert_true(sentences >= 1 and sentences <= 3, "%s text is 1 to 3 sentences" % tag)
+		assert_true(text.ends_with("."), "%s text ends a sentence" % tag)
+		var text_words: int = text.split(" ", false).size()
+		assert_true(text_words <= 40, "%s text is at most 40 words (%d)" % [tag, text_words])
+		total += text_words
+		var icon: StringName = section["icon"]
+		var expected_icon: StringName = [&"hammer", &"swap", &"shuffle", &"double", &"undo"][index - 8] if index >= 8 and index <= 12 else &""
+		assert_eq(icon, expected_icon, "%s booster icon" % tag)
+	assert_eq(total, 469, "469 words in all, as the GDD counts")
+	assert_eq(panel.title_text(), "Info", "the screen title")
 
 
 func test_at_116_example_rows_check_out_on_the_rules_model() -> void:
 	var config: GameConfig = GameConfig.new()
-	var rows: int = 0
-	for section: Dictionary in Copy.how_to_play_sections():
+	var chains: int = 0
+	var changes: int = 0
+	for section: Dictionary in Copy.info_sections():
 		var example: PackedInt64Array = section["example"]
 		if example.is_empty():
 			assert_eq(section["result"], 0, "no row, no result")
+			assert_eq(section["row"], &"", "no row kind")
 			continue
-		rows += 1
 		# Laid out as touching cells along the top row of a board of 2s.
 		var cells: PackedInt64Array = PackedInt64Array()
 		cells.resize(config.cell_count())
 		cells.fill(2)
-		var chain: Array[Vector2i] = []
 		for index: int in example.size():
 			cells[index] = example[index]
+		if section["row"] == &"change":
+			changes += 1
+			# The IN12 row: Double on a tile of 8 (TH11) makes the result tile.
+			var state: RunState = RunState.create(cells, 100000)
+			var rng: RunRandom = RunRandom.new()
+			rng.set_seed(1)
+			var result: MoveResult = BoosterRules.apply(&"double", state, Records.new(), [Vector2i(0, 0)] as Array[Vector2i], rng, config)
+			assert_true(result.accepted, "Double applies to the %d" % example[0])
+			assert_eq(state.value_at(Vector2i(0, 0)), section["result"], "%d doubles to its result tile" % example[0])
+			continue
+		chains += 1
+		assert_eq(section["row"], &"chain", "%s: a chain row" % str(example))
+		var chain: Array[Vector2i] = []
+		for index: int in example.size():
 			chain.append(Vector2i(index, 0))
 		assert_true(CoreRules.is_valid_chain(cells, chain, config), "%s: a valid chain" % str(example))
 		assert_eq(CoreRules.merge_result(example), section["result"], "%s: its result is the merge result" % str(example))
-	assert_eq(rows, 3, "three example rows")
+	assert_eq(chains, 3, "three chain rows")
+	assert_eq(changes, 1, "one change row")
 	assert_eq(NumberFormat.tile_label(1024), "1024", "the label 1024")
 	assert_eq(NumberFormat.tile_label(2048), "2K", "the label 2K")
 
 
 func test_content_is_a_copy() -> void:
-	var panel: HowToPlayPanel = _how_to_play(&"slate")
+	var panel: InfoPanel = _info(&"slate")
 	var content: Array[Dictionary] = panel.content()
 	content[0]["title"] = "Changed"
 	assert_eq(panel.content()[0]["title"], "Make a chain", "changing the copy changes nothing")
 
 
-# How to play: AT-115 (the UI half)
+# Info: AT-115 (the UI half)
 
 func test_at_115_rows_are_real_tiles_in_each_skin() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
-		var panel: HowToPlayPanel = _how_to_play(skin_id)
+		var panel: InfoPanel = _info(skin_id)
 		var rows: Array[HBoxContainer] = panel.example_rows()
-		assert_eq(rows.size(), 3, "%s: three example rows" % skin_id)
+		assert_eq(rows.size(), 4, "%s: four example rows" % skin_id)
 		var expected: Array[PackedInt64Array] = [PackedInt64Array([2, 2, 4]), PackedInt64Array([2, 2, 2]), PackedInt64Array([1024, 1024])]
 		for index: int in rows.size():
 			var row: HBoxContainer = rows[index]
-			var board: SkinBoardView = row.get_child(0) as SkinBoardView
-			assert_not_null(board, "%s row %d: the chain is the skin's own board view" % [skin_id, index])
-			var script: Script = board.get_script() as Script
-			assert_true(script.resource_path.contains(String(skin_id)), "%s row %d: drawn by %s's board view" % [skin_id, index, skin_id])
-			assert_near(board.custom_minimum_size.y, board.preferred_height(board.custom_minimum_size.x), 0.01, "%s row %d: sized by its own height" % [skin_id, index])
 			var arrow: SkinIcon = row.get_node("Arrow") as SkinIcon
 			assert_not_null(arrow, "%s row %d: the arrow" % [skin_id, index])
 			assert_eq(arrow.custom_minimum_size, Vector2(56.0, 56.0), "%s: a 56 px arrow" % skin_id)
 			var result: SkinTileView = row.get_node("Result") as SkinTileView
 			assert_not_null(result, "%s row %d: the result is the skin's tile view" % [skin_id, index])
 			assert_eq(result.custom_minimum_size, Vector2(112.0, 112.0), "%s: a 112 px result tile" % skin_id)
-			assert_true(result.get_index() > arrow.get_index() and arrow.get_index() > board.get_index(), "%s row %d: chain, arrow, then the result, set apart" % [skin_id, index])
+			assert_true(result.get_index() > arrow.get_index() and arrow.get_index() > 0, "%s row %d: the tiles, the arrow, then the result, set apart" % [skin_id, index])
 			assert_eq(row.get_child(1).custom_minimum_size.x, skin.num(&"space_m"), "%s: space_m before the arrow" % skin_id)
+			if index == 3:
+				# IN12, the change row: two plain tiles, no board and no chain.
+				var before: SkinTileView = row.get_child(0) as SkinTileView
+				assert_not_null(before, "%s: the change row starts with a tile view" % skin_id)
+				assert_eq(int(before.get(&"_value")), 8, "%s: 8" % skin_id)
+				assert_eq(int(result.get(&"_value")), 16, "%s: then 16" % skin_id)
+				assert_eq(row.find_children("*", "SkinBoardView", true, false).size(), 0, "%s: no board view" % skin_id)
+				continue
+			var board: SkinBoardView = row.get_child(0) as SkinBoardView
+			assert_not_null(board, "%s row %d: the chain is the skin's own board view" % [skin_id, index])
+			var script: Script = board.get_script() as Script
+			assert_true(script.resource_path.contains(String(skin_id)), "%s row %d: drawn by %s's board view" % [skin_id, index, skin_id])
+			assert_near(board.custom_minimum_size.y, board.preferred_height(board.custom_minimum_size.x), 0.01, "%s row %d: sized by its own height" % [skin_id, index])
 			assert_eq(expected[index].size(), int(board.get(&"columns")), "%s row %d: one tile per chain value" % [skin_id, index])
 			assert_eq(int(board.get(&"rows")), 1, "%s row %d: a one row board" % [skin_id, index])
 		_assert_takes_no_input(panel.sections(), skin_id)
+
+
+func test_booster_sections_lead_with_their_icon() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var panel: InfoPanel = _info(skin_id)
+		var icons: Array[SkinIcon] = panel.section_icons()
+		assert_eq(icons.size(), 5, "%s: five booster icons" % skin_id)
+		var names: Array[StringName] = [&"hammer", &"swap", &"shuffle", &"double", &"undo"]
+		for index: int in icons.size():
+			var icon: SkinIcon = icons[index]
+			assert_eq(icon.custom_minimum_size, Vector2(skin.num(&"icon_hud"), skin.num(&"icon_hud")), "%s: an icon_hud box" % skin_id)
+			assert_eq(icon.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s: it takes no input" % skin_id)
+			var columns: HBoxContainer = icon.get_parent().get_parent() as HBoxContainer
+			assert_eq(columns.get_theme_constant(&"separation"), roundi(skin.num(&"space_s")), "%s: space_s to the text" % skin_id)
+			var heading: Label = columns.find_children("*", "Label", true, false)[0] as Label
+			assert_eq(heading.text, skin.cased(&"heading", String(names[index]).capitalize()), "%s: %s's icon by its section" % [skin_id, names[index]])
+			assert_eq(icon.get(&"_icon"), names[index], "%s: %s's own icon" % [skin_id, names[index]])
+		# IN12 holds both its icon and its change row, in the right column.
+		var double_row: HBoxContainer = panel.example_rows()[3]
+		assert_true(icons[3].get_parent().get_parent().is_ancestor_of(double_row), "%s: the Double row sits in its section's columns" % skin_id)
+		assert_false(icons[3].get_parent().is_ancestor_of(double_row), "%s: in the text column, not under the icon" % skin_id)
 
 
 func _assert_takes_no_input(node: Node, label: String) -> void:
@@ -191,7 +247,7 @@ func _inside_row(node: Node) -> bool:
 func test_reading_screen_frame() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
-		var panel: HowToPlayPanel = _how_to_play(skin_id)
+		var panel: InfoPanel = _info(skin_id)
 		var scroll: ScrollContainer = panel.scroll()
 		assert_eq(scroll.horizontal_scroll_mode, ScrollContainer.SCROLL_MODE_DISABLED, "%s: vertical only" % skin_id)
 		assert_eq(scroll.vertical_scroll_mode, ScrollContainer.SCROLL_MODE_RESERVE, "%s: the indicator's room is kept" % skin_id)
@@ -210,7 +266,7 @@ func test_reading_screen_frame() -> void:
 			assert_eq(made.custom_minimum_size.x, 0.0, "%s: %s sets no minimum width" % [skin_id, made.name])
 			if made.get_parent().get_parent() is PanelContainer and made.theme_type_variation in [&"HeadingLabel", &"ReadingLabel"]:
 				assert_eq(made.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART, "%s: %s wraps" % [skin_id, made.name])
-	var slate: HowToPlayPanel = _how_to_play(&"slate")
+	var slate: InfoPanel = _info(&"slate")
 	var heading: Label = slate.sections().find_children("*", "Label", true, false)[0] as Label
 	assert_eq(heading.text, SkinCatalog.get_skin(&"slate").cased(&"heading", "Make a chain"), "headings take the heading role's case")
 
@@ -233,7 +289,7 @@ func test_reading_screen_fits_the_content_column() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		for size_px: Vector2i in [Vector2i(1080, 2400), Vector2i(1998, 2400)]:
-			var panel: HowToPlayPanel = _staged("res://scenes/ui/how_to_play_panel.tscn", skin_id, size_px) as HowToPlayPanel
+			var panel: InfoPanel = _staged("res://scenes/ui/info_panel.tscn", skin_id, size_px) as InfoPanel
 			var page: Control = panel.find_child("Page", true, false) as Control
 			var column: Rect2 = SafeArea.column_in(U.safe_rect(size_px), skin)
 			var label: String = "%s %s" % [skin_id, size_px]
@@ -248,7 +304,7 @@ func test_reading_screen_fits_the_content_column() -> void:
 				assert_near(page.position.x * 2.0 + page.size.x, float(size_px.x), 0.01, "%s: centered" % label)
 			var pad: MarginContainer = panel.find_child("Pad", true, false) as MarginContainer
 			assert_eq(pad.get_theme_constant(&"margin_bottom"), roundi(skin.num(&"space_xl") + 66.0), "%s: the end clears the gesture bar" % label)
-	var gumdrop: HowToPlayPanel = _how_to_play(&"gumdrop")
+	var gumdrop: InfoPanel = _info(&"gumdrop")
 	var pad_left: MarginContainer = gumdrop.find_child("Pad", true, false) as MarginContainer
 	var skin_g: SkinData = SkinCatalog.get_skin(&"gumdrop")
 	assert_eq(pad_left.get_theme_constant(&"margin_left"), roundi(skin_g.num(&"board_margin")), "board_margin on the left")
@@ -257,7 +313,7 @@ func test_reading_screen_fits_the_content_column() -> void:
 
 
 func test_close_button_reports_and_close_stops_input() -> void:
-	var panel: HowToPlayPanel = _how_to_play(&"nova")
+	var panel: InfoPanel = _info(&"nova")
 	panel.closed.connect(_count_tap)
 	panel.close_button().pressed.emit()
 	assert_eq(_taps, 1, "the close control reports")
@@ -305,28 +361,45 @@ func test_at_141_attribution_is_in_the_first_screenful() -> void:
 		var lines: Array[Label] = []
 		for label: Node in brand.find_children("*", "Label", true, false):
 			lines.append(label as Label)
-		assert_eq(lines.back(), panel.copyright_label(), "%s: the attribution ends the brand block" % skin_id)
+		assert_eq(lines[lines.size() - 2], panel.copyright_label(), "%s: the attribution, then only the source line" % skin_id)
+		assert_eq(lines.back(), panel.source_label(), "%s: the source line ends the brand block" % skin_id)
+		var mark: Control = brand.find_child("Wordmark", true, false) as Control
 		var bottom: float = 120.0 + skin.num(&"touch_min") + skin.num(&"space_s") * 2.0 + skin.num(&"space_m") * 2.0
+		bottom += mark.get_combined_minimum_size().y + skin.num(&"space_xs")
 		for label: Label in lines:
-			var role: StringName = &"display" if label.theme_type_variation == &"DisplayLabel" else (&"label" if label.theme_type_variation == &"CaptionLabel" else &"body")
-			var line_height: float = skin.font(role).get_height(skin.font_size(role))
-			if label.get_parent().name == &"Wordmark" and label.get_index() > 0:
-				continue
-			bottom += line_height + skin.num(&"space_xs")
+			if label == panel.source_label():
+				break
+			var role: StringName = &"label" if label.theme_type_variation == &"CaptionLabel" else &"body"
+			bottom += skin.font(role).get_height(skin.font_size(role)) + skin.num(&"space_xs")
 		assert_true(bottom < 1000.0, "%s: the attribution ends about %d px down, in the first screenful" % [skin_id, roundi(bottom)])
 		assert_true(bottom < 2400.0 - 66.0 - 400.0, "%s: well inside the scroll area" % skin_id)
 
 
+func test_about_source_code_line() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var panel: AboutPanel = _about(skin_id)
+		var source: Label = panel.source_label()
+		assert_eq(source.text, "Source code: github.com/bartbasi/sumup", "%s: exactly, never cased" % skin_id)
+		assert_eq(source.theme_type_variation, &"MutedLabel", "%s: body role, ink_muted" % skin_id)
+		assert_eq(source.autowrap_mode, TextServer.AUTOWRAP_OFF, "%s: never broken inside the address" % skin_id)
+		assert_eq(source.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s: plain text, not a link" % skin_id)
+		var width: float = skin.font(&"body").get_string_size(source.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, skin.font_size(&"body")).x
+		assert_true(width <= 1080.0 - 2.0 * skin.num(&"board_margin") - 2.0 * skin.num(&"space_m"), "%s: it fits one line on a 1080 px canvas (%d px)" % [skin_id, roundi(width)])
+		assert_true(panel.info_text().contains("Copyright 2026 Bart Basi
+Source code: github.com/bartbasi/sumup"), "%s: right under the attribution (TH22)" % skin_id)
+
+
 func test_about_wordmark_and_rows() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var about: AboutPanel = _about(skin_id)
+		var mark: SkinWordmark = about.find_child("Wordmark", true, false) as SkinWordmark
+		assert_not_null(mark, "%s: the drawn wordmark" % skin_id)
+		assert_true((mark.get_script() as Script).resource_path.contains(String(skin_id)), "%s: in the skin's own look" % skin_id)
+		assert_eq(int(mark.get(&"_px")), SkinCatalog.get_skin(skin_id).font_size(&"display"), "%s: at the display size, not fitted" % skin_id)
+		assert_false(bool(mark.get(&"_masthead")), "%s: no masthead rule on About" % skin_id)
 	var nova: AboutPanel = _about(&"nova")
-	var parts: Array[Node] = nova.find_child("Wordmark", true, false).get_children()
-	assert_eq(parts.size(), 2, "two labels")
-	assert_eq((parts[0] as Label).text, "Sum", "Sum")
-	assert_eq((parts[1] as Label).text, "Up", "Up")
 	var skin: SkinData = SkinCatalog.get_skin(&"nova")
-	assert_eq((parts[0] as Label).get_theme_color(&"font_color"), skin.color(&"ink"), "Sum in ink")
-	assert_eq((parts[1] as Label).get_theme_color(&"font_color"), skin.color(&"accent"), "Up in accent")
-	assert_false((parts[0] as Label).has_theme_font_size_override(&"font_size"), "at the display size, not fitted")
 	var rows: Dictionary[StringName, Control] = nova.license_rows()
 	assert_eq(rows.keys(), [&"game", &"godot", &"outfit"], "three license rows in order")
 	assert_eq(rows[&"godot"].call(&"detail_text"), "MIT license and its parts", "Nova keeps the names' capitals")

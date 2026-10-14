@@ -1,7 +1,7 @@
 extends "res://tests/base_test.gd"
 ## The content column (QA6-08, DESIGN_SYSTEM.md 2.8, ARCHITECTURE.md
 ## SafeArea.content_column): its width per skin and screen, and that the play
-## screen, the dialog panels, the main menu and the reading screens lay out
+## screen, the dialog panels, the splash and the reading screens lay out
 ## inside it, also after a live resize (fold and unfold).
 ##
 ## Headless tests never enter the scene tree, so each screen is sized by hand
@@ -151,14 +151,14 @@ func test_qa6_08_dialog_panels_in_the_column() -> void:
 				assert_eq(panel.offset_bottom, 0.0, "%s: a sheet reaches the screen's bottom edge" % label)
 
 
-func test_qa6_08_main_menu_in_the_column() -> void:
+func test_qa6_08_splash_in_the_column() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var host: Control = _stage(FOLD_INNER, skin_id)
-		var menu: MainMenu = (load("res://scenes/ui/main_menu.tscn") as PackedScene).instantiate() as MainMenu
-		host.add_child(menu)
-		U.fit(menu, Vector2(FOLD_INNER))
-		menu.setup(SkinCatalog.get_skin(skin_id), Records.new())
+		var splash: SplashScreen = (load("res://scenes/ui/splash_screen.tscn") as PackedScene).instantiate() as SplashScreen
+		host.add_child(splash)
+		U.fit(splash, Vector2(FOLD_INNER))
+		splash.setup(SkinCatalog.get_skin(skin_id), Records.new())
 		var column: Rect2 = _column(FOLD_INNER, skin_id)
-		menu.layout_in(_screen(FOLD_INNER), column)
-		var root: Control = menu.find_child("Layout", true, false) as Control
-		assert_eq(Rect2(root.position, root.size), column, "%s: the menu fills the column" % skin_id)
+		splash.layout_in(_screen(FOLD_INNER), column)
+		var root: Control = splash.find_child("Layout", true, false) as Control
+		assert_eq(Rect2(root.position, root.size), column, "%s: the splash fills the column" % skin_id)

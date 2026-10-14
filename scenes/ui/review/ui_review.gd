@@ -2,7 +2,7 @@ extends Control
 ## Review page for the production screens, 1080 by 2400, for the
 ## senior-graphic-designer. Each scene in scenes/ui/review/ sets the skin and
 ## the page:
-##   menu        the main menu with records
+##   splash      the splash screen with records, at rest
 ##   play        the play screen mid game
 ##   pause       Pause over the play screen
 ##   settings    Settings over the play screen
@@ -18,8 +18,9 @@ extends Control
 ##   first_launch  the real App on first launch with an empty save folder and
 ##               no simulated insets; prints where the brand block sits
 ##   offer_free  the offer with a free booster held ("Shuffle for free")
-##   howto       How to play, top; prints its content height in screen heights
-##   howto_end   How to play, scrolled to the end
+##   info        Info, top; prints its content height in screen heights
+##   info_boosters  Info scrolled to the Hammer section (the booster icons)
+##   info_end    Info, scrolled to the end
 ##   about       About
 ##   license_game, license_godot, license_outfit
 ##               a license text inside About; prints the time to build it
@@ -27,7 +28,7 @@ extends Control
 ##               judge the rule lines drawn as dividers
 ## Every page prints the content column and the height of its panel, if any.
 ## Capture with tools/capture.tscn, for example:
-##   godot --path . res://tools/capture.tscn -- --scene res://scenes/ui/review/review_gumdrop_menu.tscn --out docs/design/review/prod-screens-gumdrop-menu.png
+##   godot --path . res://tools/capture.tscn -- --scene res://scenes/ui/review/review_gumdrop_splash.tscn --out docs/design/review/prod-screens-gumdrop-splash.png
 ##
 ## Everything here is the real screen and panel code fed a crafted session;
 ## nothing is saved. Panels show at rest (no dialog_in), so a capture after a
@@ -35,17 +36,17 @@ extends Control
 ## capture tool's default phone: 120 px on top, 66 px at the bottom.
 
 const GAME_SCENE: PackedScene = preload("res://scenes/ui/game_screen.tscn")
-const MENU_SCENE: PackedScene = preload("res://scenes/ui/main_menu.tscn")
+const SPLASH_SCENE: PackedScene = preload("res://scenes/ui/splash_screen.tscn")
 const PAUSE_SCENE: PackedScene = preload("res://scenes/ui/pause_panel.tscn")
 const SETTINGS_SCENE: PackedScene = preload("res://scenes/ui/settings_panel.tscn")
 const CONFIRM_SCENE: PackedScene = preload("res://scenes/ui/confirm_dialog.tscn")
 const END_SCENE: PackedScene = preload("res://scenes/ui/end_panel.tscn")
-const HOW_TO_PLAY_SCENE: PackedScene = preload("res://scenes/ui/how_to_play_panel.tscn")
+const INFO_SCENE: PackedScene = preload("res://scenes/ui/info_panel.tscn")
 const ABOUT_SCENE: PackedScene = preload("res://scenes/ui/about_panel.tscn")
 const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
 ## The run highest tile on the free offer page: 3 stars, 1 free booster.
 const FREE_RUN_HIGHEST: int = 8192
-## Frames before the measurements, and before scrolling howto_end.
+## Frames before the measurements, and before scrolling info_end.
 const MEASURE_AFTER_FRAMES: int = 3
 
 const APP_SCENE: PackedScene = preload("res://scenes/ui/app.tscn")
@@ -88,7 +89,7 @@ const END_OLD_BEST: int = 70000
 const NO_MOVES_SCORE: int = 1200
 
 @export var skin_id: StringName = &"gumdrop"
-## menu, play, pause, settings, offer, offer_none, end or confirm.
+## One of the pages listed above.
 @export var page: String = "menu"
 ## When above 0, touch_min and button_height take this value on a copy of the
 ## skin, to measure the panels before QA6-05 (144) against now (160).
@@ -123,10 +124,10 @@ func _ready() -> void:
 	_audio = AudioService.new()
 	add_child(_audio)
 	match page:
-		"menu":
-			var menu: MainMenu = MENU_SCENE.instantiate() as MainMenu
-			add_child(menu)
-			menu.setup(_skin, _records())
+		"splash":
+			var splash: SplashScreen = SPLASH_SCENE.instantiate() as SplashScreen
+			add_child(splash)
+			splash.setup(_skin, _records())
 		"play":
 			_game(_board(MID_GAME), SCORE, null)
 		"pause":
@@ -141,8 +142,8 @@ func _ready() -> void:
 			_game(_board(NO_MOVES), FINAL_SCORE, null)
 		"offer_free":
 			_game(_board(NO_MOVES), FINAL_SCORE, null, FREE_RUN_HIGHEST)
-		"howto", "howto_end":
-			(_panel(HOW_TO_PLAY_SCENE) as HowToPlayPanel).setup(_skin)
+		"info", "info_end", "info_boosters":
+			(_panel(INFO_SCENE) as InfoPanel).setup(_skin)
 		"about":
 			(_panel(ABOUT_SCENE) as AboutPanel).setup(_skin)
 		"license_game", "license_godot", "license_outfit", "license_godot_rules":
@@ -185,7 +186,7 @@ func _ready() -> void:
 
 
 ## The measurements the screens review asks for, printed once the layout has
-## settled: the content column, the panel's height, How to play's length in
+## settled: the content column, the panel's height, Info's length in
 ## screen heights, the time a license text took to build.
 func _measure() -> void:
 	_measure_frames += 1
@@ -212,8 +213,10 @@ func _measure() -> void:
 		var scroll: ScrollContainer = reading.call(&"scroll")
 		var content: float = scroll.get_child(0).get_combined_minimum_size().y
 		print("%s: scroll content %.0f px in a %.0f px view, %.2f screen heights" % [tag, content, scroll.size.y, content / maxf(1.0, scroll.size.y)])
-		if page == "howto_end":
+		if page == "info_end":
 			scroll.scroll_vertical = roundi(scroll.get_v_scroll_bar().max_value)
+		elif page == "info_boosters":
+			_scroll_to_text(reading, _skin.cased(&"heading", "Hammer"))
 	if page == "about" and _shown is AboutPanel:
 		var copyright: Rect2 = (_shown as AboutPanel).copyright_label().get_global_rect()
 		print("%s: the attribution ends %.0f px down the screen" % [tag, copyright.end.y])
@@ -262,10 +265,10 @@ func _first_launch() -> void:
 
 func _report_brand() -> void:
 	_frames += 1
-	if _frames < REPORT_AFTER_FRAMES or _app.main_menu() == null:
+	if _frames < REPORT_AFTER_FRAMES or _app.splash_screen() == null:
 		return
 	get_tree().process_frame.disconnect(_report_brand)
-	var brand: Rect2 = _app.main_menu().brand_rect()
+	var brand: Rect2 = _app.splash_screen().brand_rect()
 	var height: float = get_viewport_rect().size.y
 	print("ui_review: %s first launch, brand block %.0f to %.0f px, center %.1f%% of the screen height" % [skin_id, brand.position.y, brand.end.y, brand.get_center().y / height * 100.0])
 

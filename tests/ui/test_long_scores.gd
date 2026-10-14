@@ -129,8 +129,8 @@ func test_qa6_10_end_panel_with_a_25_character_score_fits_the_screen() -> void:
 		assert_true(row_width <= content, "%s: the Best score row (%d px) fits the panel's %d px" % [skin_id, roundi(row_width), roundi(content)])
 
 		# The buttons side by side.
-		var buttons: float = _button_width(skin, theme, panel.find_child("NewGame", true, false) as Button) + gap + _button_width(skin, theme, panel.find_child("MainMenu", true, false) as Button)
-		assert_true(buttons <= content, "%s: New game and Main menu fit" % skin_id)
+		var buttons: float = _button_width(skin, theme, panel.find_child("NewGame", true, false) as Button) + gap + _button_width(skin, theme, panel.find_child("Home", true, false) as Button)
+		assert_true(buttons <= content, "%s: New game and Home fit" % skin_id)
 
 
 func test_qa6_10_slate_goes_below_display_fit_min() -> void:
@@ -184,21 +184,21 @@ func test_qa6_10_offer_with_the_largest_score_fits_its_width() -> void:
 		assert_true(row_width <= content, "%s: \"Out of moves\" and the score (%d px) fit the offer's %d px" % [skin_id, roundi(row_width), roundi(content)])
 
 
-func test_qa6_10_menu_best_score_fits_the_column() -> void:
+func test_qa6_10_splash_best_score_fits_the_column() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var host: Control = _stage(skin_id)
-		var menu: MainMenu = (load("res://scenes/ui/main_menu.tscn") as PackedScene).instantiate() as MainMenu
-		host.add_child(menu)
-		U.fit(menu, Vector2(PHONE))
+		var splash: SplashScreen = (load("res://scenes/ui/splash_screen.tscn") as PackedScene).instantiate() as SplashScreen
+		host.add_child(splash)
+		U.fit(splash, Vector2(PHONE))
 		var records: Records = Records.new()
 		records.best_score = MAX_SCORE
 		records.best_tile = TOP_TILE
-		menu.setup(skin, records)
+		splash.setup(skin, records)
 		var column: Rect2 = _column(skin)
-		menu.layout_in(Rect2(Vector2.ZERO, Vector2(PHONE)), column)
-		assert_eq(menu.best_score_text(), "9,223,372,036,854,775,807", "%s: the whole Best score shows" % skin_id)
-		var number: Label = menu.find_child("BestScore", true, false) as Label
+		splash.layout_in(Rect2(Vector2.ZERO, Vector2(PHONE)), column)
+		assert_eq(splash.best_score_text(), "9,223,372,036,854,775,807", "%s: the whole Best score shows" % skin_id)
+		var number: Label = splash.find_child("BestScore", true, false) as Label
 		var caption: Label = number.get_parent().get_child(0) as Label
 		var row_width: float = _width_of(skin, caption) + float(roundi(skin.num(&"space_s"))) + _width_of(skin, number)
 		var room: float = column.size.x - 2.0 * float(roundi(skin.num(&"board_margin")))

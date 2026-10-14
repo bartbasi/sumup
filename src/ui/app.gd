@@ -6,9 +6,13 @@ class_name App extends Control
 ## save_requested and on lifecycle events, and handles the back button.
 ##
 ## Flow:
-## - Start: the profile loads first, before any listener is connected. A valid
-##   saved run goes straight into play through session.resume; otherwise the
-##   main menu shows (Bart's decision).
+## - Start (flow 1, D-47): the profile loads first, before any listener is
+##   connected. Then the saved run is loaded and checked (a broken one is
+##   deleted) and folded into the records, and the splash shows, at every
+##   launch. The valid run is held, untouched, until Play. A return from the
+##   background is not a launch: nothing here runs again.
+## - Play (flow 2): resumes the held run, or starts a new one when there is
+##   none. Home on the end of run panel shows the splash again, with no run.
 ## - Saving: on save_requested, the run (only while one is in progress) and
 ##   the profile are queued, so SaveService writes them off the move's frame.
 ##   On app pause, focus loss and close, after the drag and targeting are
@@ -16,22 +20,23 @@ class_name App extends Control
 ## - Run end: the saved run is deleted, the profile saved, EndPanel shown.
 ## - The show gate (QA6-06): the board shows a move only once SaveService is
 ##   idle, so the player never sees a move that is not on disk.
-## - How to play opens over the main menu or Pause; About over Settings, and
-##   a license text inside About (flow 11 and 12).
+## - Info opens over the splash or Pause; About over the splash or Settings,
+##   and a license text inside About (flow 11 and 12).
 ## - Back: cancel targeting; else close the top panel (an open license text
 ##   inside About first; closing Pause resumes); else on the play screen open
-##   Pause; else quit after saving. On desktop, Escape does the same.
+##   Pause; else (the splash, the end of run panel) quit after saving, which
+##   leaves a held run saved as it was. On desktop, Escape does the same.
 ## - Skin switch: a new theme, apply_skin on every live screen and panel, and
 ##   a cross-fade from a still of the old look over the new skin's
 ##   skin_switch motion.
 
 const GAME_SCENE: PackedScene = preload("res://scenes/ui/game_screen.tscn")
-const MENU_SCENE: PackedScene = preload("res://scenes/ui/main_menu.tscn")
+const SPLASH_SCENE: PackedScene = preload("res://scenes/ui/splash_screen.tscn")
 const PAUSE_SCENE: PackedScene = preload("res://scenes/ui/pause_panel.tscn")
 const SETTINGS_SCENE: PackedScene = preload("res://scenes/ui/settings_panel.tscn")
 const CONFIRM_SCENE: PackedScene = preload("res://scenes/ui/confirm_dialog.tscn")
 const END_SCENE: PackedScene = preload("res://scenes/ui/end_panel.tscn")
-const HOW_TO_PLAY_SCENE: PackedScene = preload("res://scenes/ui/how_to_play_panel.tscn")
+const INFO_SCENE: PackedScene = preload("res://scenes/ui/info_panel.tscn")
 const ABOUT_SCENE: PackedScene = preload("res://scenes/ui/about_panel.tscn")
 const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
 
@@ -53,7 +58,9 @@ var skin: SkinData = null
 var _screen_layer: Control = null
 var _panel_layer: Control = null
 var _game: GameScreen = null
-var _menu: MainMenu = null
+var _splash: SplashScreen = null
+## The valid saved run loaded at launch, held until Play (flow 1 and 2).
+var _held_run: RunState = null
 ## Open panels, the top one last.
 var _panels: Array[Control] = []
 var _still: TextureRect = null
@@ -95,12 +102,13 @@ func start() -> void:
 	if is_inside_tree():
 		get_tree().quit_on_go_back = false
 
-	var saved: RunState = save.load_run(config)
-	if saved != null:
-		_show_game()
-		session.resume(saved)
-	else:
-		_show_menu()
+	# Flow 1: load and check the saved run (a broken one is deleted), fold it
+	# into the records so the splash shows them up to date (GDD 15.1), and
+	# hold it until Play. The splash shows at every launch.
+	_held_run = save.load_run(config)
+	if _held_run != null and records.update_from(_held_run):
+		_queue_profile()
+	_show_splash()
 
 
 # Reads for tests.
@@ -109,8 +117,13 @@ func game_screen() -> GameScreen:
 	return _game
 
 
-func main_menu() -> MainMenu:
-	return _menu
+func splash_screen() -> SplashScreen:
+	return _splash
+
+
+## True while the splash holds a saved run for Play.
+func has_held_run() -> bool:
+	return _held_run != null
 
 
 ## The open panels, the top one last.
@@ -125,10 +138,10 @@ func top_panel() -> Control:
 # Screens.
 
 func _show_game() -> void:
-	if _menu != null:
-		_screen_layer.remove_child(_menu)
-		_menu.queue_free()
-		_menu = null
+	if _splash != null:
+		_screen_layer.remove_child(_splash)
+		_splash.queue_free()
+		_splash = null
 	if _game != null:
 		return
 	_game = GAME_SCENE.instantiate() as GameScreen
@@ -139,22 +152,40 @@ func _show_game() -> void:
 	_game.pause_requested.connect(open_pause)
 
 
-func _show_menu() -> void:
+## Shows the splash anew, with its entrance (launch and Home).
+func _show_splash() -> void:
 	if _game != null:
 		_screen_layer.remove_child(_game)
 		_game.queue_free()
 		_game = null
-	if _menu == null:
-		_menu = MENU_SCENE.instantiate() as MainMenu
-		_menu.name = "Menu"
-		_screen_layer.add_child(_menu)
-		_menu.new_game_chosen.connect(_start_new_game)
-		_menu.settings_chosen.connect(open_settings)
-		_menu.how_to_play_chosen.connect(open_how_to_play)
-	_menu.setup(skin, records)
+	if _splash == null:
+		_splash = SPLASH_SCENE.instantiate() as SplashScreen
+		_splash.name = "Splash"
+		_screen_layer.add_child(_splash)
+		_splash.play_chosen.connect(_on_play)
+		_splash.info_chosen.connect(open_info)
+		_splash.about_chosen.connect(open_about)
+		_splash.settings_chosen.connect(open_settings)
+	_splash.setup(skin, records)
+	_splash.play_entrance()
+
+
+## Flow 2: Play resumes the held run exactly, or starts a new one. Ignored
+## while a panel covers the splash.
+func _on_play() -> void:
+	if _splash == null or not _panels.is_empty():
+		return
+	var held: RunState = _held_run
+	_held_run = null
+	if held == null:
+		_start_new_game()
+		return
+	_show_game()
+	session.resume(held)
 
 
 func _start_new_game() -> void:
+	_held_run = null
 	_close_all_panels()
 	_show_game()
 	session.start_new_run()
@@ -192,7 +223,7 @@ func open_pause() -> void:
 	pause.resume_chosen.connect(_close_panel.bind(pause))
 	pause.new_game_chosen.connect(_ask_new_game)
 	pause.settings_chosen.connect(open_settings)
-	pause.how_to_play_chosen.connect(open_how_to_play)
+	pause.info_chosen.connect(open_info)
 	pause.play_in()
 
 
@@ -204,19 +235,20 @@ func open_settings() -> void:
 	panel.play_in()
 
 
-## Flow 11 (D-44): How to play over the main menu or Pause. Only its buttons
-## open it. Closing it returns to where it was opened; from Pause the run
-## stays paused.
-func open_how_to_play() -> void:
-	if top_panel() is HowToPlayPanel:
+## Flow 11 (D-44): Info over the splash or Pause. Only its buttons open it.
+## Closing it returns to where it was opened; from Pause the run stays
+## paused.
+func open_info() -> void:
+	if top_panel() is InfoPanel:
 		return
-	var panel: HowToPlayPanel = _open_panel(HOW_TO_PLAY_SCENE) as HowToPlayPanel
+	var panel: InfoPanel = _open_panel(INFO_SCENE) as InfoPanel
 	panel.setup(skin)
 	panel.closed.connect(_close_panel.bind(panel))
 	panel.play_in()
 
 
-## Flow 12: About over Settings. Its license rows open their texts inside it.
+## Flow 12: About over the splash or Settings. Its license rows open their
+## texts inside it.
 func open_about() -> void:
 	if top_panel() is AboutPanel:
 		return
@@ -270,13 +302,15 @@ func _on_run_ended(summary: RunSummary) -> void:
 	panel.setup(skin)
 	panel.show_summary(summary)
 	panel.new_game_chosen.connect(_start_new_game)
-	panel.main_menu_chosen.connect(_leave_to_menu)
+	panel.home_chosen.connect(_go_home)
 	panel.play_in()
 
 
-func _leave_to_menu() -> void:
+## Home on the end of run panel: the splash, with no run to hold.
+func _go_home() -> void:
 	_close_all_panels()
-	_show_menu()
+	_held_run = null
+	_show_splash()
 
 
 # Settings events.
@@ -297,8 +331,8 @@ func _on_skin_changed(skin_id: StringName) -> void:
 	theme = UiKit.build_theme(skin)
 	if _game != null:
 		_game.apply_skin(skin)
-	if _menu != null:
-		_menu.apply_skin(skin)
+	if _splash != null:
+		_splash.apply_skin(skin)
 	for panel: Control in _panels:
 		panel.call(&"apply_skin", skin)
 	_fade_still()
@@ -375,10 +409,11 @@ func _interrupt() -> void:
 
 
 ## Flow 10: cancel targeting; else close the top panel (ConfirmDialog, an
-## open license text inside AboutPanel, AboutPanel, HowToPlayPanel,
+## open license text inside AboutPanel, AboutPanel, InfoPanel,
 ## SettingsPanel, PausePanel, where closing Pause resumes); else on the play
-## screen (offer included) open Pause; else, on the main menu or the end of
-## run panel, quit after saving.
+## screen (offer included) open Pause; else, on the splash or the end of run
+## panel, quit after saving. A held run is not in progress, so its file stays
+## exactly as it was.
 func _on_back() -> void:
 	if session.targeting_booster() != &"":
 		session.cancel_targeting()
@@ -386,7 +421,7 @@ func _on_back() -> void:
 	var top: Control = top_panel()
 	if top is AboutPanel and (top as AboutPanel).close_license():
 		return
-	if top is ConfirmDialog or top is AboutPanel or top is HowToPlayPanel or top is SettingsPanel or top is PausePanel:
+	if top is ConfirmDialog or top is AboutPanel or top is InfoPanel or top is SettingsPanel or top is PausePanel:
 		_close_panel(top)
 		return
 	if top == null and _game != null:

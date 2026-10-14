@@ -29,15 +29,19 @@ const END_RUN: String = "End run"
 const RUN_OVER: String = "Run over"
 ## GDD 12.2 step 3: the run ended at once because nothing was usable (QA4-01).
 const NO_MOVES_LEFT: String = "No moves left."
-const MAIN_MENU: String = "Main menu"
+## 2026-10-14: the end of run screen's button to the splash (was "Main menu").
+const HOME: String = "Home"
 const NEW_BEST: String = "New best"
 
 const SOUND: String = "Sound"
 const SKIN: String = "Skin"
 
-## 2026-10-13 additions (DESIGN_SYSTEM.md 7.10).
-const HOW_TO_PLAY: String = "How to play"
+## 2026-10-13 and 2026-10-14 additions (DESIGN_SYSTEM.md 7.10).
+const PLAY: String = "Play"
+const INFO: String = "Info"
 const ABOUT: String = "About"
+## About's source code line (7.13): plain text, not a link, never cased.
+const SOURCE_CODE: String = "Source code: github.com/bartbasi/sumup"
 const VERSION: String = "Version %s"
 const MADE_BY: String = "Made by Bart Basi"
 ## A license term (NOTICE, term 1): shown exactly, never cased.
@@ -85,23 +89,41 @@ static func buy(booster_id: StringName, cost: int, free: bool = false) -> String
 	return "%s for %s" % [booster_name(booster_id), NumberFormat.tile_label(cost)]
 
 
-## GDD 21.2, HP1 to HP7, word for word. Each section: {"title": String,
-## "text": String, "example": PackedInt64Array (the joined tiles in drag
-## order, empty for none), "result": int (the result tile, 0 for none)}.
-static func how_to_play_sections() -> Array[Dictionary]:
+## GDD 21.2, IN1 to IN16, word for word (TH21). Each section: {"title":
+## String, "text": String, "example": PackedInt64Array (the joined tiles in
+## drag order, or the one tile a booster changes; empty for none), "result":
+## int (the result tile, 0 for none), "row": &"chain", &"change" or &"" for
+## none, "icon": the booster icon name for IN9 to IN13, &"" for none}.
+static func info_sections() -> Array[Dictionary]:
 	return [
-		_section("Make a chain", "Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it.", [2, 2, 4], 8),
-		_section("What it makes", "Lift to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 6 becomes 4.", [2, 2, 2], 4),
-		_section("After a merge", "The merged tile lands where your chain ended, tiles above fall and new ones drop in. While you drag, highlighted tiles can join next.", [], 0),
-		_section("Score", "A chain scores the sum of its tiles. Boosters cost points, your score never drops below zero, and best score and best tile are saved.", [], 0),
-		_section("Move up, earn stars", "Each new highest tile from 2K up removes the smallest number and earns a star. Every 3 stars make your next booster free.", [1024, 1024], 2048),
-		_section("Boosters", "Hammer smashes a tile, Swap swaps two, Shuffle mixes the board, Double doubles one, Undo takes back your last chain. Prices grow as you go.", [], 0),
-		_section("Out of moves", "When no two touching tiles match, you can pick a booster to keep going. If you can't, or you tap End run, the run ends.", [], 0),
+		_section("Make a chain", "Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it. A tile that does not fit simply does not join.", [2, 2, 4], 8),
+		_section("Merge", "Lift your finger to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 2, 2, 2 makes 4. The new tile lands where your chain ended.", [2, 2, 2], 4),
+		_section("While you drag", "While you drag, you see the tile your chain will make, and the tiles that can join next are highlighted. Slide back onto the previous tile to drop the last one."),
+		_section("Points", "A chain scores the sum of its tiles, so 2, 2, 2 scores 6 although it makes 4. Only chains score. Your score never drops below zero."),
+		_section("New tiles", "Tiles above fall into the gaps, and new tiles drop in from the top. New tiles are 2 to 16 at first and move up as your highest tile grows."),
+		_section("Moving up", "When your highest tile reaches 2K (2048), and each time it doubles after that, the smallest number stops dropping in and its tiles clear from the board. Cleared tiles score no points.", [1024, 1024], 2048),
+		_section("Stars", "Each number that stops dropping in earns a star, once per run. Every 3 stars give you a free booster: the next booster you use costs nothing. Stars and free boosters end with the run."),
+		_section("Boosters", "Boosters are paid from your score and never add points. Prices follow your highest tile, and a booster you can't afford is switched off. To cancel before you tap a tile, tap the booster again: nothing is charged."),
+		_section("Hammer", "Tap Hammer, then a tile to smash it. The tiles above fall and a new tile drops in.", [], 0, &"hammer"),
+		_section("Swap", "Tap Swap, then two tiles anywhere on the board, and they trade places. The two must be different numbers.", [], 0, &"swap"),
+		_section("Shuffle", "Tap Shuffle to mix the same tiles into new places. You always get at least one move.", [], 0, &"shuffle"),
+		_section("Double", "Tap Double, then a tile to double it, so 8 becomes 16. It costs twice as much as Hammer.", [8], 16, &"double"),
+		_section("Undo", "Undo takes back your last chain and its points, and any booster used since. It goes back one step only, and what you paid stays paid. Your score without that chain's points must cover its price.", [], 0, &"undo"),
+		_section("Out of moves", "When no two touching tiles match, play stops and you can pick any booster you can afford, with one marked as suggested. Or tap End run. If you can't afford any, the run ends."),
+		_section("Records", "Best score and Best tile are kept across runs, and spending never lowers them. When a run ends you see its score, its highest tile and New best if you beat your Best score."),
+		_section("Saving and settings", "Your run saves after every move, and Play takes you back to it. New game in Pause starts over. Pick a skin and turn sound on or off in Settings."),
 	]
 
 
-static func _section(title: String, text: String, example: Array[int], result: int) -> Dictionary:
-	return {"title": title, "text": text, "example": PackedInt64Array(example), "result": result}
+## A row with one tile before the arrow is a change row (DESIGN_SYSTEM.md
+## 7.12); with more it is a chain row.
+static func _section(title: String, text: String, example: Array[int] = [], result: int = 0, icon: StringName = &"") -> Dictionary:
+	var row: StringName = &""
+	if example.size() == 1:
+		row = &"change"
+	elif example.size() > 1:
+		row = &"chain"
+	return {"title": title, "text": text, "example": PackedInt64Array(example), "result": result, "row": row, "icon": icon}
 
 
 ## "Version 0.1" for About, or "" when the project sets no version (the line

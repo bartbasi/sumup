@@ -2,7 +2,8 @@ class_name UiKit extends RefCounted
 ## The one way screens get a skin's Theme and interface components
 ## (docs/ARCHITECTURE.md section 7). Each skin's implementations live in
 ## src/design/<id>/ and are loaded here with preload; screens use only the
-## base classes (SkinHud, SkinBoosterBar, SkinIcon, SkinToggle, SkinBackdrop).
+## base classes (SkinHud, SkinBoosterBar, SkinIcon, SkinToggle, SkinBackdrop,
+## SkinWordmark).
 ##
 ## Every component comes back already set up for the skin. It works before it
 ## is in the scene tree: add it, then size and place it. Calling setup() again
@@ -47,6 +48,11 @@ const _BACKDROPS: Dictionary[StringName, GDScript] = {
 	&"gumdrop": preload("res://src/design/gumdrop/gumdrop_backdrop.gd"),
 	&"slate": preload("res://src/design/slate/slate_backdrop.gd"),
 	&"nova": preload("res://src/design/nova/nova_backdrop.gd"),
+}
+const _WORDMARKS: Dictionary[StringName, GDScript] = {
+	&"gumdrop": preload("res://src/design/gumdrop/gumdrop_wordmark.gd"),
+	&"slate": preload("res://src/design/slate/slate_wordmark.gd"),
+	&"nova": preload("res://src/design/nova/nova_wordmark.gd"),
 }
 
 
@@ -102,6 +108,15 @@ static func make_backdrop(skin: SkinData) -> SkinBackdrop:
 	var backdrop: SkinBackdrop = _pick(_BACKDROPS, skin).new() as SkinBackdrop
 	backdrop.setup(skin)
 	return backdrop
+
+
+## The drawn "SumUp" wordmark in the skin's look (DESIGN_SYSTEM.md 7.2,
+## 7.13), at the display role's size (About). Call fit_width() for the
+## splash, and on Slate set_masthead(true) for the splash's rule.
+static func make_wordmark(skin: SkinData) -> SkinWordmark:
+	var mark: SkinWordmark = _pick(_WORDMARKS, skin).new() as SkinWordmark
+	mark.setup(skin)
+	return mark
 
 
 static func _pick(table: Dictionary[StringName, GDScript], skin: SkinData) -> GDScript:

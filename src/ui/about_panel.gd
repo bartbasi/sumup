@@ -1,11 +1,13 @@
 class_name AboutPanel extends "res://src/ui/reading_screen.gd"
 ## About (DESIGN_SYSTEM.md 7.13, GDD AT-141), a reading screen opened from
-## Settings' About row:
-## - the brand block on the backdrop in every skin: the two tone wordmark at
-##   the display size, "Version {version}" (the version the Settings line
-##   shows), space_m, then "Made by Bart Basi" and "Copyright 2026 Bart Basi"
-##   in the body role. The attribution is a license term: never cased, muted,
-##   shrunk or truncated, and in the first screenful;
+## the splash's About and from Settings' About row:
+## - the brand block on the backdrop in every skin: the drawn wordmark
+##   (UiKit.make_wordmark) at the display size, "Version {version}" (the
+##   version the Settings line shows), space_m, then "Made by Bart Basi" and
+##   "Copyright 2026 Bart Basi" in the body role, then space_m and the source
+##   code line in the body role, ink_muted, plain text and never cased. The
+##   attribution is a license term: never cased, muted, shrunk or truncated,
+##   and in the first screenful;
 ## - the sections "What it is", "Offline, no data" and "Licenses", the last
 ##   ending in three rows that open a license text, split by the divider.
 ## A license row opens that license's text inside this screen
@@ -17,6 +19,7 @@ const LicenseView: GDScript = preload("res://src/ui/license_view.gd")
 var _license: Control = null
 var _rows: Dictionary[StringName, Control] = {}
 var _copyright: Label = null
+var _source: Label = null
 
 
 func setup(skin: SkinData) -> void:
@@ -48,12 +51,13 @@ func apply_skin(skin: SkinData) -> void:
 ## TH22. Everything the About screen shows above the license rows, one line
 ## per label, in order.
 func info_text() -> String:
-	var lines: PackedStringArray = PackedStringArray([UiParts.WORDMARK_PARTS[0] + UiParts.WORDMARK_PARTS[1]])
+	var lines: PackedStringArray = PackedStringArray([Copy.WORDMARK])
 	var version: String = Copy.version_text()
 	if not version.is_empty():
 		lines.append(_skin.cased(UiParts.role(_skin, &"CaptionLabel"), version))
 	lines.append(Copy.MADE_BY)
 	lines.append(Copy.COPYRIGHT)
+	lines.append(Copy.SOURCE_CODE)
 	for section: Dictionary in Copy.ABOUT_SECTIONS:
 		lines.append(_skin.cased(&"heading", String(section["title"])))
 		lines.append(String(section["text"]))
@@ -115,6 +119,11 @@ func copyright_label() -> Label:
 	return _copyright
 
 
+## The source code line. For tests: never cased, never a link.
+func source_label() -> Label:
+	return _source
+
+
 ## The brand block, on the backdrop, its text lined up with the sections'
 ## text: an unboxed panel padded like a section.
 func _brand(skin: SkinData) -> void:
@@ -126,7 +135,10 @@ func _brand(skin: SkinData) -> void:
 	_sections.add_child(panel)
 	var column: VBoxContainer = UiParts.vbox(skin.num(&"space_xs"))
 	panel.add_child(column)
-	column.add_child(UiParts.wordmark(skin, 0, true))
+	var wordmark: SkinWordmark = UiKit.make_wordmark(skin)
+	wordmark.name = "Wordmark"
+	wordmark.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	column.add_child(wordmark)
 	var version: String = Copy.version_text()
 	if not version.is_empty():
 		var version_label: Label = UiParts.paragraph(skin, &"CaptionLabel", version, HORIZONTAL_ALIGNMENT_LEFT)
@@ -136,11 +148,17 @@ func _brand(skin: SkinData) -> void:
 	column.add_child(_statement("MadeBy", Copy.MADE_BY))
 	_copyright = _statement("Copyright", Copy.COPYRIGHT)
 	column.add_child(_copyright)
+	column.add_child(UiParts.spacer(skin.num(&"space_m") - skin.num(&"space_xs")))
+	_source = _statement("Source", Copy.SOURCE_CODE, &"MutedLabel")
+	# 7.13: it fits on one line on every canvas (at least 1080 px wide), and
+	# must never break inside the address, so it does not wrap.
+	_source.autowrap_mode = TextServer.AUTOWRAP_OFF
+	column.add_child(_source)
 
 
 ## A line in the body role exactly as written: never cased.
-func _statement(node_name: String, text: String) -> Label:
-	var made: Label = UiParts.paragraph(_skin, &"BodyLabel", "", HORIZONTAL_ALIGNMENT_LEFT)
+func _statement(node_name: String, text: String, variation: StringName = &"BodyLabel") -> Label:
+	var made: Label = UiParts.paragraph(_skin, variation, "", HORIZONTAL_ALIGNMENT_LEFT)
 	made.name = node_name
 	made.text = text
 	return made

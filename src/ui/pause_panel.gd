@@ -1,14 +1,14 @@
 class_name PausePanel extends "res://src/ui/dialog_base.gd"
 ## Pause (DESIGN_SYSTEM.md 7.3): "Paused", then Resume (primary), New game,
-## How to play and Settings (secondary). Opened by the HUD's pause button or
+## Info and Settings (secondary). Opened by the HUD's pause button or
 ## Android back during play; back resumes. The App cancels the drag and
 ## targeting before it opens this panel (docs/ARCHITECTURE.md section 11,
-## flow 9). How to play opens over it, so the run stays paused (GDD 21.1).
+## flow 9). Info opens over it, so the run stays paused (GDD 21.1).
 
 signal resume_chosen()
 signal new_game_chosen()
 signal settings_chosen()
-signal how_to_play_chosen()
+signal info_chosen()
 
 
 func setup(skin: SkinData) -> void:
@@ -17,7 +17,7 @@ func setup(skin: SkinData) -> void:
 	_content.add_child(UiParts.label(skin, &"TitleLabel", Copy.PAUSED, UiParts.block_alignment(skin)))
 	_content.add_child(_choice(skin, &"PrimaryButton", Copy.RESUME, resume_chosen))
 	_content.add_child(_choice(skin, &"SecondaryButton", Copy.NEW_GAME, new_game_chosen))
-	_content.add_child(_choice(skin, &"SecondaryButton", Copy.HOW_TO_PLAY, how_to_play_chosen))
+	_content.add_child(_choice(skin, &"SecondaryButton", Copy.INFO, info_chosen))
 	_content.add_child(_choice(skin, &"SecondaryButton", Copy.SETTINGS, settings_chosen))
 
 
