@@ -21,6 +21,9 @@ extends Control
 ##   info        Info, top; prints its content height in screen heights
 ##   info_boosters  Info scrolled to the Hammer section (the booster icons)
 ##   info_end    Info, scrolled to the end
+##   info_open   the splash, then Info opened as the App opens it, with vsync
+##               off; prints the longest frame from the tap until the guide
+##               is built and faded in, then quits (QA SPL-02)
 ##   about       About
 ##   license_game, license_godot, license_outfit
 ##               a license text inside About; prints the time to build it
@@ -124,6 +127,13 @@ func _ready() -> void:
 	_audio = AudioService.new()
 	add_child(_audio)
 	match page:
+		"info_open":
+			var opener: SplashScreen = SPLASH_SCENE.instantiate() as SplashScreen
+			add_child(opener)
+			opener.setup(_skin, _records())
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+			get_tree().process_frame.connect(_time_info_open)
+			return
 		"splash":
 			var splash: SplashScreen = SPLASH_SCENE.instantiate() as SplashScreen
 			add_child(splash)
@@ -223,6 +233,49 @@ func _measure() -> void:
 	if page.begins_with("offer") and _game_screen != null:
 		var offer: OfferPanel = _game_screen.offer_panel()
 		print("%s: offer panel %.0f px tall, buy button '%s'" % [tag, offer.size.y, offer.buy_button().text if offer.buy_button() != null else "none"])
+
+
+var _open_frames: int = 0
+var _open_last_usec: int = 0
+var _open_worst_usec: int = 0
+var _open_info: InfoPanel = null
+var _open_frames_done: int = 0
+## The longest frame before Info opens, the splash alone, for comparison.
+var _idle_worst_usec: int = 0
+var _open_slow: PackedStringArray = PackedStringArray()
+var _open_usec: int = 0
+var _fade_usec: int = 0
+
+
+## info_open: opens Info on frame 30 and times every frame after it until the
+## guide is built, faded in and 10 more frames have run.
+func _time_info_open() -> void:
+	_open_frames += 1
+	var now: int = Time.get_ticks_usec()
+	if _open_info != null:
+		if now - _open_last_usec > 12000:
+			_open_slow.append("%.1f ms at stage %d, %d parts" % [float(now - _open_last_usec) / 1000.0, _open_info.stage(), _open_info.built_parts()])
+		_open_worst_usec = maxi(_open_worst_usec, now - _open_last_usec)
+		if _fade_usec == 0 and _open_info.stage() != InfoPanel.Stage.FIRST:
+			_fade_usec = now - _open_usec
+		if _open_info.stage() == InfoPanel.Stage.DONE and _open_info.modulate.a >= 1.0:
+			_open_frames_done += 1
+			if _open_frames_done >= 10:
+				get_tree().process_frame.disconnect(_time_info_open)
+				print("ui_review: %s info_open: worst frame %.1f ms (splash alone %.1f ms), worst build step %.1f ms, fade starts %.0f ms after the tap" % [_skin.id, float(_open_worst_usec) / 1000.0, float(_idle_worst_usec) / 1000.0, float(_open_info.worst_build_usec) / 1000.0, float(_fade_usec) / 1000.0])
+				if not _open_slow.is_empty():
+					print("ui_review: frames over 12 ms: %s" % "; ".join(_open_slow))
+				get_tree().quit()
+				return
+	elif _open_frames > 10 and _open_frames < 30:
+		_idle_worst_usec = maxi(_idle_worst_usec, now - _open_last_usec)
+	elif _open_frames == 30:
+		_open_info = INFO_SCENE.instantiate() as InfoPanel
+		add_child(_open_info)
+		_open_info.setup(_skin)
+		_open_info.play_in()
+		_open_usec = now
+	_open_last_usec = now
 
 
 ## Scrolls a reading screen so the label that starts with text is at the top.

@@ -363,3 +363,63 @@ func test_delete_run_leaves_the_profile_bak() -> void:
 	_save_two_runs()
 	_service.delete_run()
 	assert_eq(F.read_text(_profile_bak()), _profile_text(5000), "the profile .bak stays")
+
+
+# AT-154 (SPL-01, GDD 15.1 LG1 to LG3): a damaged run file with a valid last
+# good copy continues that copy.
+
+## Run A, score 19,000 with an Undo snapshot.
+func _at_154_a() -> RunState:
+	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 32), 19000, F.board_d(), 40, 0, 0, 18000)
+
+
+## Run B, one chain later: score 20,000.
+func _at_154_b() -> RunState:
+	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 64), 20000, F.with_cell(F.board_d(), Vector2i(0, 0), 32), 1000, 0, 0, 18000)
+
+
+## The setup: a profile with Best Score 20,000, run A then run B saved, then
+## run.json cut off part way. No temp file.
+@warning_ignore("integer_division")
+func _at_154_setup() -> PackedByteArray:
+	assert_true(_service.save_profile(Settings.new(), _records(20000)), "the profile")
+	assert_true(_service.save_run(_at_154_a()), "run A saved")
+	assert_true(_service.save_run(_at_154_b()), "run B saved")
+	var b_text: String = F.read_text(_run_path())
+	F.write_text(_run_path(), b_text.left(b_text.length() / 2))
+	assert_false(FileAccess.file_exists(_run_temp()), "no temp file")
+	return F.read_bytes(_profile_path())
+
+
+func test_at_154_a_a_damaged_run_continues_the_last_good_copy() -> void:
+	var profile: PackedByteArray = _at_154_setup()
+	_reopen()
+	var loaded: RunState = _service.load_run(_config)
+	assert_not_null(loaded, "a run loads")
+	assert_true(loaded != null and loaded.equals(_at_154_a()), "run A, equal in every field")
+	assert_eq(loaded.best_at_start if loaded != null else -1, 18000, "its starting Best Score too")
+	assert_false(FileAccess.file_exists(_run_path()), "the damaged run.json is deleted")
+	assert_eq(_loaded_best_score(), 20000, "the profile is untouched: Best Score 20,000")
+	assert_eq(F.read_bytes(_profile_path()), profile, "byte for byte")
+
+
+@warning_ignore("integer_division")
+func test_at_154_b_a_damaged_last_good_copy_too_means_no_run() -> void:
+	var profile: PackedByteArray = _at_154_setup()
+	var a_text: String = F.read_text(_run_bak())
+	F.write_text(_run_bak(), a_text.left(a_text.length() / 2))
+	_reopen()
+	assert_null(_service.load_run(_config), "no run")
+	assert_false(FileAccess.file_exists(_run_path()), "the damaged run.json is deleted")
+	assert_false(FileAccess.file_exists(_run_bak()), "the damaged last good copy is deleted")
+	assert_false(_service.has_run(), "nothing left")
+	assert_eq(F.read_bytes(_profile_path()), profile, "the profile is untouched")
+	assert_eq(_loaded_best_score(), 20000, "Best Score 20,000")
+
+
+func test_at_154_c_a_valid_temp_holding_b_wins() -> void:
+	_at_154_setup()
+	F.write_text(_run_temp(), F.to_text(SaveCodec.run_to_data(_at_154_b())))
+	_reopen()
+	var loaded: RunState = _service.load_run(_config)
+	assert_true(loaded != null and loaded.equals(_at_154_b()), "run B: the temp wins")

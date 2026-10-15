@@ -70,7 +70,7 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 - On 2026-10-13 Bart approved fixing security finding SEC-01 (two touching 2^62 tiles in a hand edited save could never end the run). D-37 now lists every rule at the 64 bit limit, and D-04, D-15, D-25, the 13.1 usability rule and Double's targets follow it. Tests AT-143 and AT-144.
 - On 2026-10-13 Bart approved fixing every QA Phase 6 finding. In this document: AT-57 now uses Board P (QA Q1); the run saves the Best Score when it began, for the New best badge (12.3, 15.1, QA6-03, AT-145); and a move shows only once its save has finished (D-33, 15.1, QA6-06, AT-146).
 - On 2026-10-13 Bart added three more things to v1 scope: a How to play screen (D-44), stars (D-45) and free boosters (D-46). He also added an About screen in Settings. It holds no game rules, so it has no D number; its acceptance tests are AT-140 to AT-142. D-44 to D-46 go to Bart for review through the DM.
-- On 2026-10-14 Bart replaced the main menu with a splash screen that shows every time the app opens, with PLAY, INFO and ABOUT (D-47, section 15.4). It replaces his 2026-10-11 rule that reopening the app with a saved run goes straight back into the run. INFO is one full guide to the game and replaces How to play everywhere, Pause included (D-44 and section 21, rewritten). Every test that started from the main menu or relied on reopening straight into the run now goes through the splash. New tests AT-147 to AT-153. D-44 and D-47 go to Bart for review through the DM, with one point to confirm: "every time the app opens" is read as every launch, not every return from the background (15.4).
+- On 2026-10-14 Bart replaced the main menu with a splash screen that shows every time the app opens, with PLAY, INFO and ABOUT (D-47, section 15.4). It replaces his 2026-10-11 rule that reopening the app with a saved run goes straight back into the run. INFO is one full guide to the game and replaces How to play everywhere, Pause included (D-44 and section 21, rewritten). Every test that started from the main menu or relied on reopening straight into the run now goes through the splash. New tests AT-147 to AT-153. After QA's SPL-01, 15.1 also says which saved copy of the run loads (the last good copy of SEC-02, which Bart approved), with examples LG1 to LG4, and AT-154 tests it. D-44 and D-47 go to Bart for review through the DM, with one point to confirm: "every time the app opens" is read as every launch, not every return from the background (15.4).
 
 ### 1.2 Decisions highlighted for Hard Stop 1
 
@@ -1119,7 +1119,22 @@ The board starts showing a move only once its save has finished. That takes at m
 
 On load: the saved run is read and checked at every launch, before the splash shows (D-47). If it is valid, the records are updated from it (step 7 of section 8), so the splash shows them up to date. When the player taps PLAY, show the saved board and score exactly, then run the move check. If there is no valid move, open the no moves offer (12.2). The stars and free boosters held come from the saved run highest tile and free boosters used. Loading earns no star and shows no clear notice (D-45).
 
-What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; a run highest tile that is a power of two and at least the highest value on the saved board and on the snapshot board; free boosters used, a whole number from 0 up to the free boosters earned from that run highest tile (D-46); a Best Score when the run began of 0 or more (not checked against the records, which live in another file); an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. A run saved before D-46 existed has no count of free boosters used: it loads as 0 used, so its stars and free boosters appear on load, with no notice. A run saved before the starting Best Score existed takes the Best Score loaded with it instead. Its New best badge then shows only if the run beats the record again after reopening, which is the old behaviour. Best Score is 0 or more. Best Tile is 0 or a power of two. If the saved run fails validation, it is discarded at launch. The splash shows as usual, and PLAY starts a new run. Valid settings and records are kept.
+What a valid saved run looks like, for the save code's validation: exactly 40 values, each a power of two from 2 to 2^62; a score of 0 or more; a run highest tile that is a power of two and at least the highest value on the saved board and on the snapshot board; free boosters used, a whole number from 0 up to the free boosters earned from that run highest tile (D-46); a Best Score when the run began of 0 or more (not checked against the records, which live in another file); an Undo snapshot that is either none or 40 values of the same kind plus points of 4 or more. A run saved before D-46 existed has no count of free boosters used: it loads as 0 used, so its stars and free boosters appear on load, with no notice. A run saved before the starting Best Score existed takes the Best Score loaded with it instead. Its New best badge then shows only if the run beats the record again after reopening, which is the old behaviour. Best Score is 0 or more. Best Tile is 0 or a power of two.
+
+Which copy loads (SEC-02, approved by Bart: "at worst you lose one move"). The save code keeps up to three copies of the run (docs/ARCHITECTURE.md section 10): the main file; a temp file, written just before it replaces the main file; and the last good copy (.bak), the save before the current one. At launch they are tried in this order, and the first that passes every check above is the run:
+
+1. a valid temp file (it is always the newest save);
+2. the main file;
+3. the last good copy.
+
+A copy that fails the checks is deleted. Only when none of the three passes is the run discarded: the splash shows as usual, and PLAY starts a new run. Valid settings and records are kept either way. A run loaded from the last good copy is one save behind, so at most one move is lost. Its records step (step 7 of section 8) never lowers the records, so a Best Score or Best Tile set by the lost move stays. The player is not told which copy loaded.
+
+| # | Saved files at launch | What PLAY does |
+|---|---|---|
+| LG1 | The last chain took the score from 19,000 to 20,000 (and Best Score to 20,000). The main file is cut off part way; the last good copy holds the run at 19,000. | Continues the 19,000 run, one move behind. Best Score stays 20,000. The damaged main file is deleted. |
+| LG2 | As LG1, but the last good copy is damaged too, and there is no temp file. | Starts a new run. Best Score stays 20,000. |
+| LG3 | The main file is damaged, and a valid temp file holds the 20,000 run. | Continues the 20,000 run: the temp wins. |
+| LG4 | Only the main file exists and it is damaged (for example the first save of a run). | Starts a new run. |
 
 ### 15.2 New game during a run (D-34)
 
@@ -1170,7 +1185,7 @@ Further rules:
 - The splash changes nothing. Showing it, opening INFO, About or Settings from it, and quitting from it leave the saved run, the records and the settings exactly as they were. Only PLAY starts or opens a run, and only the Settings controls change settings.
 - A new game while a run is saved is started from Pause, as now (D-34, 15.2).
 - After a run ends, no run is saved, so PLAY on the splash starts a new run.
-- A saved run that fails the launch check is discarded at launch (15.1). The splash shows as usual and PLAY starts a new run. The player is not told; the records are kept.
+- At launch the newest copy of the run that passes the checks is used: a valid temp file, then the main file, then the last good copy, which is one save behind (15.1). PLAY continues that run. Only when no copy passes is the run discarded, and then PLAY starts a new run. The player is not told; the records are kept either way.
 - Like every menu, the splash follows the shared arrangement drawn in the current skin's style (Bart, 2026-10-10). Its layout is a design system choice.
 
 Reasoning:
@@ -1190,7 +1205,8 @@ Worked examples:
 | SP5 | The offer is open, the player taps End run, then Home. | The splash with the updated records. PLAY starts a new run. |
 | SP6 | On the splash with a saved run, the player taps INFO, reads, presses back, then presses back again. | INFO closes to the splash, then the app quits. On the next launch PLAY continues the same run. |
 | SP7 | A run is in progress, the player opens Pause, then INFO, then presses back. | INFO closes to Pause. The run stays paused until Resume. |
-| SP8 | The saved run file is damaged. The player opens the app. | The splash, with the records kept. PLAY starts a new run. |
+| SP8 | The saved run file is damaged, and its last good copy is valid. The player opens the app. | The splash, with the records kept. PLAY continues the run from the last good copy, at most one move behind (15.1, LG1). |
+| SP9 | The saved run file and its last good copy are both damaged, and there is no valid temp file. The player opens the app. | The splash, with the records kept. PLAY starts a new run (LG2). |
 
 ## 16. Click sound triggers (D-36)
 
@@ -1572,7 +1588,7 @@ row 7:   8  32   8  32   8
 
 **AT-94. Settings persist and sound starts on.** Type: Play. Setup: a fresh install. Action: check the sound setting; turn sound off and pick a different skin; close the app fully and reopen. Expected: sound is on at first launch. After reopening, sound is off and the chosen skin is shown.
 
-**AT-95. A broken saved run is discarded.** Type: Unit (TH18, save format of docs/ARCHITECTURE.md section 10: tile values as exponents, scores and points as digit strings). Setup: a valid profile file with records `"best_score": "5000"` and `"best_tile": 9` (Best Score 5,000, Best Tile 512), plus a valid run file. First load that valid run file unchanged as a control. Then, in turn, replace the run file with a copy of it that has exactly one of these faults:
+**AT-95. A broken saved run is discarded.** Type: Unit (TH18, save format of docs/ARCHITECTURE.md section 10: tile values as exponents, scores and points as digit strings). Setup: a valid profile file with records `"best_score": "5000"` and `"best_tile": 9` (Best Score 5,000, Best Tile 512), plus a valid run file, with no temp file and no last good copy beside it (AT-154 covers those). First load that valid run file unchanged as a control. Then, in turn, replace the run file with a copy of it that has exactly one of these faults:
 - (a) `"cells"` holds 39 exponents.
 - (b) One cell exponent is 1.5.
 - (c) One cell exponent is 0.
@@ -1591,7 +1607,7 @@ Action: load each file.
 Expected:
 - The control loads and equals the saved run exactly.
 - Each faulty file is refused: the run loader returns no run, and nothing crashes or shows a raw error.
-- The run is discarded. In the App the splash shows as usual and PLAY starts a new run (D-47).
+- The run is discarded, because no other copy exists. In the App the splash shows as usual and PLAY starts a new run (D-47, 15.1 LG4). With a valid last good copy beside the faulty file, PLAY continues that copy instead (AT-154).
 - Every time, the profile is untouched: Best Score 5,000 and Best Tile 512 are kept.
 
 **AT-96. New game asks first.** Type: Play. Setup: a run in progress. Action: choose New game, cancel; choose New game, confirm. Expected: after cancel the run is unchanged. After confirm a new run starts with score 0 and Undo disabled, and Best Score still holds the old run's highest score.
@@ -1856,7 +1872,7 @@ Expected:
 
 ### 19.15 Added on 2026-10-14: the splash screen (D-47)
 
-These tests cover the App's flow, so they are Play tests. Unit tests for the rules underneath (loading, validation, a new run) already exist: AT-01, AT-95, AT-138, AT-139.
+AT-147 to AT-153 cover the App's flow, so they are Play tests. AT-154 (added after QA's SPL-01) is a Unit test of which saved copy loads. Unit tests for the rules underneath (loading, validation, a new run) already exist: AT-01, AT-95, AT-138, AT-139.
 
 **AT-147. The splash shows at every launch.** Type: Play. Setup and action, in turn: (a) a fresh install, launch the app. (b) A run in progress: close the app fully and reopen it. (c) A run in progress: swipe the app away from recent apps and reopen it. (d) A run in progress with the no moves offer open: close the app fully and reopen it. Expected, every time:
 - The splash shows, not the board.
@@ -1898,6 +1914,11 @@ Expected:
 - (c) INFO is still open over the splash.
 - If the system ended the app while it was in the background (for example under memory pressure), the return is a launch and the splash shows (D-47). QA notes which case happened.
 
+**AT-154. A damaged run file with a valid last good copy continues that copy (SPL-01, examples LG1 to LG3).** Type: Unit (TH18, SaveService on a temp folder, save format of docs/ARCHITECTURE.md section 10). Setup: a valid profile with Best Score 20,000. Save run state A (score 19,000), then run state B (score 20,000, one chain later), so the main run file holds B and the last good copy holds A. Then cut the main run file off part way. No temp file. Action and expected:
+- (a) Load the run. It returns state A, equal to it in every field. The damaged main file is deleted, nothing crashes, and the profile is untouched: Best Score 20,000. In the App, PLAY on the splash continues the run at score 19,000.
+- (b) Same setup, but the last good copy is cut off part way too. Load the run. It returns no run, both damaged copies are deleted, and the profile is untouched. In the App, PLAY starts a new run.
+- (c) Same setup as (a), plus a valid temp file holding state B. Load the run. It returns state B: the temp wins.
+
 ### 19.16 Coverage
 
 | Decision or rule | Tests |
@@ -1934,7 +1955,7 @@ Expected:
 | D-30 Never below zero | AT-57, AT-58, AT-59, AT-84, AT-130 |
 | D-31 Tile labels | AT-85, AT-86, AT-87 |
 | D-32 Score and cost formats | AT-88, AT-89 |
-| D-33 Saving | AT-55, AT-65, AT-83, AT-91 to AT-93, AT-95, AT-138, AT-139, AT-145, AT-146, AT-149 |
+| D-33 Saving | AT-55, AT-65, AT-83, AT-91 to AT-93, AT-95, AT-138, AT-139, AT-145, AT-146, AT-149, AT-154 |
 | D-34 New game | AT-96, AT-150 |
 | D-35 One move at a time | AT-97, AT-146 |
 | D-36 Click triggers | AT-98 |
@@ -1948,7 +1969,7 @@ Expected:
 | D-44 INFO guide (replaced How to play on 2026-10-14) | AT-112 to AT-116, AT-151, AT-153 |
 | D-45 Stars | AT-75, AT-117 to AT-126, AT-138 |
 | D-46 Free boosters | AT-43, AT-75, AT-84, AT-127 to AT-139, AT-143, AT-144 |
-| D-47 Splash screen | AT-44, AT-54, AT-95, AT-112, AT-147 to AT-153 |
+| D-47 Splash screen | AT-44, AT-54, AT-95, AT-112, AT-147 to AT-154 |
 | About screen (no D number) | AT-140 to AT-142, AT-151 |
 | Confirmed: chain rules | AT-06 to AT-16 |
 | Confirmed: merge and after merge | AT-17, AT-26, AT-29 to AT-31 |
@@ -1963,6 +1984,7 @@ Expected:
 | End of run New best badge (12.3) | AT-145 |
 | QA Phase 6 fixes (Bart, 2026-10-13) | AT-57, AT-145, AT-146 |
 | 2026-10-14 splash and INFO (Bart) | AT-112 to AT-116, AT-147 to AT-153 |
+| Last good copy of the run (SEC-02, QA SPL-01) | AT-95, AT-154 |
 
 ## 20. Test hooks the acceptance tests need
 

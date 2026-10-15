@@ -49,6 +49,7 @@ func _info(skin_id: StringName) -> InfoPanel:
 	var panel: InfoPanel = (load("res://scenes/ui/info_panel.tscn") as PackedScene).instantiate() as InfoPanel
 	_host(skin_id).add_child(panel)
 	panel.setup(SkinCatalog.get_skin(skin_id))
+	panel.finish()
 	return panel
 
 
@@ -205,6 +206,45 @@ func test_at_115_rows_are_real_tiles_in_each_skin() -> void:
 		_assert_takes_no_input(panel.sections(), skin_id)
 
 
+func test_spl_02_info_builds_across_frames() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var panel: InfoPanel = (load("res://scenes/ui/info_panel.tscn") as PackedScene).instantiate() as InfoPanel
+		_host(skin_id).add_child(panel)
+		panel.frame_budget_usec = 0
+		panel.setup(SkinCatalog.get_skin(skin_id))
+		assert_eq(panel.built_sections(), 0, "%s: setup builds no section in the tap's frame" % skin_id)
+		assert_eq(panel.content().size(), 16, "%s: content() is whole before the build" % skin_id)
+		panel.play_in()
+		assert_eq(panel.modulate.a, 0.0, "%s: invisible until its first screenful" % skin_id)
+		var frames: int = 0
+		var view: float = 1e9
+		while panel.stage() == InfoPanel.Stage.FIRST and frames < 80:
+			var before: int = panel.built_parts()
+			panel.step(view)
+			assert_true(panel.built_parts() > before or panel.stage() != InfoPanel.Stage.FIRST, "%s: every frame moves on" % skin_id)
+			frames += 1
+			if frames == 1:
+				assert_eq(panel.built_parts(), 1, "%s: a frame builds what its budget allows, here one part" % skin_id)
+				assert_eq(panel.built_sections(), 0, "%s: so the first section is not whole yet" % skin_id)
+			if frames == 6:
+				view = 0.0
+		assert_eq(panel.stage(), InfoPanel.Stage.FADING, "%s: the fade starts on what is built" % skin_id)
+		var at_fade: int = panel.built_sections()
+		assert_true(at_fade < 16, "%s: the rest is left for after the fade" % skin_id)
+		panel.step(0.0)
+		assert_eq(panel.built_sections(), at_fade, "%s: nothing builds during the fade" % skin_id)
+		panel.fade_finished()
+		while panel.stage() == InfoPanel.Stage.REST and frames < 200:
+			panel.step(0.0)
+			frames += 1
+		assert_eq(panel.stage(), InfoPanel.Stage.DONE, "%s: then the rest builds" % skin_id)
+		assert_eq(panel.built_sections(), 16, "%s: all sixteen sections" % skin_id)
+		assert_true(frames > 2, "%s: over several frames (%d)" % [skin_id, frames])
+		assert_eq(panel.example_rows().size(), 4, "%s: the same rows as a whole build" % skin_id)
+		assert_eq(panel.section_icons().size(), 5, "%s: and icons" % skin_id)
+		_assert_takes_no_input(panel.sections(), skin_id)
+
+
 func test_booster_sections_lead_with_their_icon() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
@@ -280,6 +320,8 @@ func _staged(scene: String, skin_id: StringName, size_px: Vector2i) -> Control:
 	U.fit(panel, Vector2(size_px))
 	var skin: SkinData = SkinCatalog.get_skin(skin_id)
 	panel.call(&"setup", skin)
+	if panel is InfoPanel:
+		(panel as InfoPanel).finish()
 	var safe: Rect2 = U.safe_rect(size_px)
 	panel.call(&"layout_in", Rect2(Vector2.ZERO, Vector2(size_px)), safe, SafeArea.column_in(safe, skin))
 	return panel

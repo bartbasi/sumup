@@ -1,6 +1,6 @@
 class_name SkinTileView extends Control
 ## One tile on its own, as one skin draws it (docs/ARCHITECTURE.md section 6):
-## the settings skin chips, the merge preview in a HUD slot, the main menu
+## the settings skin chips, the merge preview in a HUD slot, the splash screen
 ## and the end of run screen.
 ##
 ## The tile is a square of side min(size.x, size.y), centered in the rect.

@@ -613,3 +613,45 @@ func _board_e() -> PackedInt64Array:
 			else:
 				cells.append(8 if column % 2 == 0 else 32)
 	return cells
+
+
+# AT-154, the App half: which copy Play continues (GDD 15.1 LG1 to LG4).
+
+## Saves run A (19,000) then run B (20,000) through the service, as two moves
+## would, with Best Score 20,000, then cuts run.json off part way.
+@warning_ignore("integer_division")
+func _at_154_two_runs_then_damage() -> void:
+	var service: SaveService = SaveService.new(_dir)
+	var records: Records = Records.new()
+	records.best_score = 20000
+	records.best_tile = 1024
+	service.save_profile(Settings.new(), records)
+	service.save_run(RunState.create(U.board_p(), 19000, PackedInt64Array(), 0, 0, 5, 0, 18000))
+	service.save_run(RunState.create(U.with_cell(U.board_p(), Vector2i(0, 0), 64), 20000, PackedInt64Array(), 0, 0, 5, 0, 18000))
+	var text: String = U.SaveFixtures.read_text(_dir.path_join("run.json"))
+	U.SaveFixtures.write_text(_dir.path_join("run.json"), text.left(text.length() / 2))
+
+
+func test_at_154_a_play_continues_the_last_good_copy() -> void:
+	_at_154_two_runs_then_damage()
+	var app: App = _start()
+	assert_not_null(app.splash_screen(), "the splash as usual")
+	assert_true(app.has_held_run(), "the last good copy is held")
+	assert_eq(app.records.best_score, 20000, "Best Score kept")
+	U.play(app)
+	assert_eq(app.session.state.score, 19000, "Play continues the run at 19,000")
+	assert_true(app.session.state.equals(RunState.create(U.board_p(), 19000, PackedInt64Array(), 0, 0, 5, 0, 18000)), "run A exactly")
+
+
+@warning_ignore("integer_division")
+func test_at_154_b_play_starts_a_new_run_when_both_copies_are_damaged() -> void:
+	_at_154_two_runs_then_damage()
+	var bak: String = _dir.path_join("run.json.bak")
+	var text: String = U.SaveFixtures.read_text(bak)
+	U.SaveFixtures.write_text(bak, text.left(text.length() / 2))
+	var app: App = _start()
+	assert_false(app.has_held_run(), "no run held")
+	assert_false(FileAccess.file_exists(bak), "the damaged last good copy is deleted")
+	assert_eq(app.records.best_score, 20000, "Best Score kept")
+	U.play(app)
+	assert_eq(app.session.state.score, 0, "Play starts a new run")

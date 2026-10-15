@@ -3,7 +3,7 @@ extends "res://tests/base_test.gd"
 ## (DESIGN_SYSTEM.md 2.5), for the largest values a save can hold, at the
 ## 72 px mini tile of the end of run panel and at each skin's board tile.
 ## Labels are measured through each skin's own painter, the path the board,
-## the tile view and the How to play rows all draw with.
+## the tile view and the Info rows all draw with.
 
 const PAINTERS: Dictionary[StringName, String] = {
 	&"gumdrop": "res://src/skins/gumdrop/gumdrop_tile_painter.gd",

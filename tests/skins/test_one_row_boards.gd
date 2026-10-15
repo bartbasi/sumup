@@ -1,5 +1,5 @@
 extends "res://tests/base_test.gd"
-## How to play draws each example chain with the skin's own board view as a
+## Info draws each example chain with the skin's own board view as a
 ## one row board (DESIGN_SYSTEM.md 7.12): setup(skin, n, 1) for n from 2 to
 ## 5, set_board, set_chain of every cell in drag order with no finger, no
 ## preview, no highlight, sized so its tiles are 112 px. Every skin must lay
@@ -90,7 +90,7 @@ func test_one_row_boards_show_every_cell_chained_with_the_line_through_them() ->
 			_assert_no_errors(what)
 
 
-## The How to play rows set the board and the chain before the row has its
+## The Info rows set the board and the chain before the row has its
 ## size, as a container lays it out later.
 func test_one_row_boards_take_the_board_and_chain_before_their_size() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
