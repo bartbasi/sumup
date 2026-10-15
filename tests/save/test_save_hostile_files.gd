@@ -324,27 +324,30 @@ func test_profile_64_kb_limit_is_exact() -> void:
 
 
 func test_profile_unicode_skin_id_keeps_the_good_parts() -> void:
+	# Written as a JSON escape, the file is plain ASCII: only the skin id is
+	# refused and the rest of the profile is kept.
+	var escaped_text: String = F.to_text(_good_profile_data()).replace("\"slate\"", "\"sl\\" + "u0430te\"")    # Cyrillic a
+	var loaded: Array = _load_profile(escaped_text.to_utf8_buffer())
+	var settings: Settings = loaded[0]
+	var records: Records = loaded[1]
+	assert_eq(settings.skin_id, &"gumdrop", "a JSON escape: default skin")
+	assert_false(settings.sound_on, "a JSON escape: sound kept")
+	assert_eq(records.best_score, 5000, "a JSON escape: Best Score kept")
+	assert_eq(records.best_tile, 512, "a JSON escape: Best Tile kept")
+
+
+func test_profile_with_non_ascii_bytes_is_refused_whole() -> void:
+	# SEC-05: the game writes plain ASCII, so any byte of 0x80 or above makes
+	# the whole file invalid before it is decoded, like a NUL byte.
 	var raw: Dictionary = _good_profile_data()
 	(raw["settings"] as Dictionary)["skin"] = "gumdr" + String.chr(0x00F6) + "p"
-	var escaped_text: String = F.to_text(_good_profile_data()).replace("\"slate\"", "\"sl\\" + "u0430te\"")    # Cyrillic a
 	var invalid_utf8: PackedByteArray = F.to_text(_good_profile_data()).to_utf8_buffer()
 	var at: int = F.to_text(_good_profile_data()).find("slate")    # the text is ASCII, so this is a byte index
 	invalid_utf8[at] = 0xC3
 	invalid_utf8[at + 1] = 0x28    # a lead byte without its follow byte
-	var cases: Dictionary = {
-		"raw UTF-8": F.to_text(raw).to_utf8_buffer(),
-		"a JSON escape": escaped_text.to_utf8_buffer(),
-		"invalid UTF-8": invalid_utf8,
-		"an emoji": F.to_text(_good_profile_data()).replace("slate", String.chr(0x1F600)).to_utf8_buffer(),
-	}
-	for label: String in cases:
-		var loaded: Array = _load_profile(cases[label])
-		var settings: Settings = loaded[0]
-		var records: Records = loaded[1]
-		assert_eq(settings.skin_id, &"gumdrop", "%s: default skin" % label)
-		assert_false(settings.sound_on, "%s: sound kept" % label)
-		assert_eq(records.best_score, 5000, "%s: Best Score kept" % label)
-		assert_eq(records.best_tile, 512, "%s: Best Tile kept" % label)
+	_assert_profile_defaults(F.to_text(raw).to_utf8_buffer(), "raw UTF-8")
+	_assert_profile_defaults(invalid_utf8, "invalid UTF-8")
+	_assert_profile_defaults(F.to_text(_good_profile_data()).replace("slate", String.chr(0x1F600)).to_utf8_buffer(), "an emoji")
 
 
 func test_profile_bad_numbers_keep_the_good_parts() -> void:

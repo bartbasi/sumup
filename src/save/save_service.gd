@@ -5,10 +5,29 @@ class_name SaveService extends RefCounted
 ## in user://, or in a test folder inside user://.
 ##
 ## Reading. A file over 64 KB is refused before any of it is read. A NUL byte
-## (the UTF-8 decoder would silently stop there) or nesting deeper than
-## _MAX_NESTING (our files nest 3 deep) is refused before parsing. Then
-## Godot's JSON class parses the text into plain values and SaveCodec checks
-## every field. Nothing here can turn file data into an object or code.
+## (the UTF-8 decoder would silently stop there), any byte of 0x80 or above
+## (SEC-05) or nesting deeper than _MAX_NESTING (our files nest 3 deep) is
+## refused before parsing. Then Godot's JSON class parses the text into plain
+## values and SaveCodec checks every field. Nothing here can turn file data
+## into an object or code.
+##
+## The files are plain ASCII (SEC-05). Every key is a fixed ASCII name. Every
+## value is a bool, a small int, a string of ASCII digits (scores) or a skin
+## id of a to z and underscore (SaveCodec refuses anything else on load). The
+## JSON writer adds only tabs, newlines, quotes and ASCII punctuation, and
+## _encode refuses to write anything else. So a byte of 0x80 or above never
+## comes from this game. Refusing it up front also keeps the UTF-8 decoder
+## from logging one error per bad byte, which made such a file slow to refuse.
+##
+## A file that exists but cannot be opened (SEC-04). On Windows another
+## program can hold a file with no sharing, and a file can be briefly
+## unopenable right after a process ends. Opening is tried _OPEN_TRIES times,
+## _OPEN_RETRY_MSEC apart. When the temp or real file of run.json or
+## profile.json still cannot be opened (a temp file may be the newest save),
+## that kind is not judged at all: no older file is used, and none of its
+## files is written, renamed or deleted for as long as this service lives
+## (_blocked). load_run then returns no run, load_profile leaves the values in
+## memory as they are, and the next load reads the files as they are.
 ##
 ## Writing. The whole file goes to <name>.tmp, is flushed, closed, read back
 ## and compared byte for byte, and only then renamed over the real file. On
@@ -66,12 +85,15 @@ const MAX_BYTES: int = 65536
 const _MAX_NESTING: int = 16    # our files nest 3 deep; a wrong typed field may add a little
 const _ROOT: String = "user://"
 const _BYTE_NUL: int = 0
+const _BYTE_HIGH: int = 0x80    # the first byte that is not ASCII
 const _BYTE_QUOTE: int = 0x22
 const _BYTE_BACKSLASH: int = 0x5C
 const _BYTE_OPEN_SQUARE: int = 0x5B
 const _BYTE_CLOSE_SQUARE: int = 0x5D
 const _BYTE_OPEN_CURLY: int = 0x7B
 const _BYTE_CLOSE_CURLY: int = 0x7D
+const _OPEN_TRIES: int = 5
+const _OPEN_RETRY_MSEC: int = 40    # 160 ms in all before giving up
 
 enum _Status { MISSING, UNREADABLE, BROKEN, PARSED }
 
@@ -113,6 +135,13 @@ var _q: WriteQueue = WriteQueue.new()
 var _task_id: int = -1
 ## TH23: while true, queued writes wait and is_idle() is false.
 var _hold: bool = false
+## SEC-04. Files (RUN_FILE, PROFILE_FILE) whose temp or real file existed at
+## the last load but could not be opened. This service never writes, renames
+## or deletes any of their files.
+var _blocked: Dictionary[String, bool] = {}
+## For tests only: opens that fail, by path. A count above 0 fails that many
+## more opens; -1 fails every open.
+var _unopenable: Dictionary[String, int] = {}
 
 
 ## directory must be inside user://. Tests pass a temp folder there. Any other
@@ -131,6 +160,8 @@ func _init(directory: String = _ROOT) -> void:
 ## refuses it) or the write fails. When only the rename fails, the new run
 ## stays in the temp file, which wins on the next load.
 func save_run(state: RunState) -> bool:
+	if _blocked.has(RUN_FILE):
+		return false
 	flush()
 	var bytes: PackedByteArray = _run_bytes(state)
 	if bytes.is_empty():
@@ -142,6 +173,8 @@ func save_run(state: RunState) -> bool:
 ## queues nothing, when the state would not load back. A write that fails
 ## later is reported with push_warning and leaves the last good save.
 func queue_run(state: RunState) -> bool:
+	if _blocked.has(RUN_FILE):
+		return false
 	var bytes: PackedByteArray = _run_bytes(state)
 	if bytes.is_empty():
 		return false
@@ -189,19 +222,35 @@ func set_hold(on: bool) -> void:
 		_start_writer()
 
 
+## SEC-04, for tests only. The next failures reads of the file at path fail
+## to open, as if another program held it; -1 makes every read fail and 0
+## ends it. Only the reads in load_run and load_profile are affected.
+func set_unopenable(path: String, failures: int) -> void:
+	if failures == 0:
+		_unopenable.erase(path)
+	else:
+		_unopenable[path] = failures
+
+
 ## The saved run, or null when there is none or it is invalid. A complete,
 ## valid temp file is the newest save and wins: it is renamed into place and
 ## used. Next comes the real file, then the .bak (SEC-02), each checked the
 ## same way. A temp, real or .bak file whose content is invalid is discarded
 ## (deleted). A file that exists but cannot be opened is left alone, because
-## the cause may not last.
+## the cause may not last. When that file is run.json.tmp or run.json, there
+## is no run this time: no older file is used, and no run file is written or
+## deleted while this service lives (SEC-04).
 func load_run(config: GameConfig) -> RunState:
 	if _directory.is_empty():
 		return null
 	flush()
+	_blocked.erase(RUN_FILE)
 	var main_path: String = _path(RUN_FILE)
 	var temp_path: String = main_path + TEMP_SUFFIX
 	var temp: FileRead = _read_json(temp_path)
+	if temp.status == _Status.UNREADABLE:
+		_block(RUN_FILE, temp_path)
+		return null
 	if temp.status == _Status.PARSED:
 		var newest: RunState = SaveCodec.data_to_run(temp.data, config)
 		if newest != null:
@@ -210,6 +259,9 @@ func load_run(config: GameConfig) -> RunState:
 	if temp.status == _Status.PARSED or temp.status == _Status.BROKEN:
 		_remove(temp_path)
 	var main: FileRead = _read_json(main_path)
+	if main.status == _Status.UNREADABLE:
+		_block(RUN_FILE, main_path)
+		return null
 	if main.status == _Status.PARSED:
 		var state: RunState = SaveCodec.data_to_run(main.data, config)
 		if state != null:
@@ -233,9 +285,10 @@ func load_run(config: GameConfig) -> RunState:
 ## land after the delete. A failed rename waiting to be tried again is
 ## dropped. The temp file goes first and the real file last, so a kill
 ## between the steps can never leave a lone temp or .bak file that would bring
-## an ended run back.
+## an ended run back. While the run is blocked (SEC-04) this service never
+## wrote the run files, so they are left as they are.
 func delete_run() -> void:
-	if _directory.is_empty():
+	if _directory.is_empty() or _blocked.has(RUN_FILE):
 		return
 	flush()
 	_q.mutex.lock()
@@ -261,7 +314,7 @@ func has_run() -> bool:
 
 ## Writes the profile now, after any queued write.
 func save_profile(settings: Settings, records: Records) -> bool:
-	if _directory.is_empty() or settings == null or records == null:
+	if _directory.is_empty() or _blocked.has(PROFILE_FILE) or settings == null or records == null:
 		return false
 	flush()
 	var bytes: PackedByteArray = _encode(SaveCodec.profile_to_data(settings, records))
@@ -272,7 +325,7 @@ func save_profile(settings: Settings, records: Records) -> bool:
 
 ## Encodes the profile now and queues the write, like queue_run.
 func queue_profile(settings: Settings, records: Records) -> bool:
-	if _directory.is_empty() or settings == null or records == null:
+	if _directory.is_empty() or _blocked.has(PROFILE_FILE) or settings == null or records == null:
 		return false
 	var bytes: PackedByteArray = _encode(SaveCodec.profile_to_data(settings, records))
 	if bytes.is_empty():
@@ -288,14 +341,21 @@ func queue_profile(settings: Settings, records: Records) -> bool:
 ## the real file as it is: each part that is missing or invalid keeps the
 ## value the objects already hold, which is the default for fresh objects
 ## (SaveCodec.data_to_profile). A broken real profile is not deleted: the next
-## save_profile replaces it. A .bak that is not fully valid is deleted.
+## save_profile replaces it. A .bak that is not fully valid is deleted. A
+## temp or real file that exists but cannot be opened leaves settings and
+## records as they are, and no profile file is written while this service
+## lives (SEC-04), so its records can never be replaced by older ones.
 func load_profile(settings: Settings, records: Records) -> void:
 	if _directory.is_empty():
 		return
 	flush()
+	_blocked.erase(PROFILE_FILE)
 	var main_path: String = _path(PROFILE_FILE)
 	var temp_path: String = main_path + TEMP_SUFFIX
 	var temp: FileRead = _read_json(temp_path)
+	if temp.status == _Status.UNREADABLE:
+		_block(PROFILE_FILE, temp_path)
+		return
 	if _is_valid_profile(temp):
 		_promote(PROFILE_FILE, temp.bytes)
 		SaveCodec.data_to_profile(temp.data, settings, records)
@@ -303,6 +363,9 @@ func load_profile(settings: Settings, records: Records) -> void:
 	if temp.status == _Status.PARSED or temp.status == _Status.BROKEN:
 		_remove(temp_path)
 	var main: FileRead = _read_json(main_path)
+	if main.status == _Status.UNREADABLE:
+		_block(PROFILE_FILE, main_path)
+		return
 	if _is_valid_profile(main):
 		_set_good(PROFILE_FILE, main.bytes)
 		SaveCodec.data_to_profile(main.data, settings, records)
@@ -323,6 +386,14 @@ static func _is_valid_profile(read: FileRead) -> bool:
 	return read.status == _Status.PARSED and SaveCodec.data_to_profile(read.data, Settings.new(), Records.new()).is_empty()
 
 
+## SEC-04: path, the temp or real file of file_name, exists but cannot be
+## opened. Every file of file_name is left exactly as it is for as long as
+## this service lives.
+func _block(file_name: String, path: String) -> void:
+	_blocked[file_name] = true
+	push_warning("SaveService: %s cannot be opened; %s is left as it is and not used or saved until the next launch" % [path.get_file(), file_name])
+
+
 ## Records bytes, which passed every check, as what the real file holds.
 func _set_good(file_name: String, bytes: PackedByteArray) -> void:
 	_q.mutex.lock()
@@ -334,29 +405,35 @@ func _path(file_name: String) -> String:
 	return _directory.path_join(file_name)
 
 
-## Reads and parses one file with every limit applied before parsing.
+## Reads and parses one file with every limit applied before parsing. A file
+## that cannot be opened, or reads short, is tried again (SEC-04).
 func _read_json(path: String) -> FileRead:
 	var result: FileRead = FileRead.new()
-	if not FileAccess.file_exists(path):
-		result.status = _Status.MISSING
-		return result
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		result.status = _Status.UNREADABLE
-		return result
-	var length: int = file.get_length()
-	if length < 1 or length > MAX_BYTES:
+	result.status = _Status.UNREADABLE
+	var bytes: PackedByteArray = PackedByteArray()
+	for attempt: int in _OPEN_TRIES:
+		if attempt > 0:
+			OS.delay_msec(_OPEN_RETRY_MSEC)
+		if not FileAccess.file_exists(path):
+			result.status = _Status.MISSING
+			return result
+		var file: FileAccess = _open_to_read(path)
+		if file == null:
+			continue
+		var length: int = file.get_length()
+		if length < 1 or length > MAX_BYTES:
+			file.close()
+			result.status = _Status.BROKEN
+			return result
+		bytes = file.get_buffer(length)
 		file.close()
-		result.status = _Status.BROKEN
-		return result
-	var bytes: PackedByteArray = file.get_buffer(length)
-	file.close()
-	if bytes.size() != length:
-		result.status = _Status.UNREADABLE
+		if bytes.size() == length:
+			result.status = _Status.BROKEN
+			break
+	if result.status == _Status.UNREADABLE:
 		return result
 	result.bytes = bytes
-	result.status = _Status.BROKEN
-	if bytes.has(_BYTE_NUL) or not _nesting_within(bytes, _MAX_NESTING):
+	if not _is_plain_ascii(bytes) or not _nesting_within(bytes, _MAX_NESTING):
 		return result
 	var json: JSON = JSON.new()
 	if json.parse(bytes.get_string_from_utf8()) != OK:
@@ -364,6 +441,27 @@ func _read_json(path: String) -> FileRead:
 	result.status = _Status.PARSED
 	result.data = json.data
 	return result
+
+
+## FileAccess.open for reading, unless a test made path unopenable.
+func _open_to_read(path: String) -> FileAccess:
+	if _unopenable.has(path):
+		var left: int = _unopenable[path]
+		if left == 1:
+			_unopenable.erase(path)
+		elif left > 1:
+			_unopenable[path] = left - 1
+		return null
+	return FileAccess.open(path, FileAccess.READ)
+
+
+## True when bytes holds no NUL and no byte of 0x80 or above (SEC-05). Our
+## files are plain ASCII; see the header.
+static func _is_plain_ascii(bytes: PackedByteArray) -> bool:
+	for byte: int in bytes:
+		if byte == _BYTE_NUL or byte >= _BYTE_HIGH:
+			return false
+	return true
 
 
 ## True when no array or object in the JSON text nests deeper than max_depth.
@@ -406,11 +504,11 @@ func _run_bytes(state: RunState) -> PackedByteArray:
 	return _encode(data)
 
 
-## data as file bytes, or empty when it would pass the size limit and so
-## never load back.
+## data as file bytes, or empty when it would pass the size limit or hold a
+## byte that is not plain ASCII (SEC-05), and so never load back.
 static func _encode(data: Dictionary) -> PackedByteArray:
 	var bytes: PackedByteArray = JSON.stringify(data, "\t", false).to_utf8_buffer()
-	if bytes.size() > MAX_BYTES:
+	if bytes.size() > MAX_BYTES or not _is_plain_ascii(bytes):
 		return PackedByteArray()
 	return bytes
 

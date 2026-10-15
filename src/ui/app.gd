@@ -64,6 +64,11 @@ var _held_run: RunState = null
 ## Open panels, the top one last.
 var _panels: Array[Control] = []
 var _still: TextureRect = null
+## True while saves of the run, or of the profile, keep failing, so each
+## failure is logged once, not on every move (SEC-04: a file that cannot be
+## opened blocks saves for the whole session).
+var _run_save_failing: bool = false
+var _profile_save_failing: bool = false
 
 
 func _ready() -> void:
@@ -276,20 +281,32 @@ func _ask_new_game() -> void:
 ## written off this frame by SaveService's writer, well before the move's
 ## animation ends (QA4-02).
 func _on_save_requested() -> void:
-	if session.is_run_in_progress() and not save.queue_run(session.state):
-		push_warning("App: the run could not be saved")
-	if not save.queue_profile(settings, records):
-		push_warning("App: the profile could not be saved")
+	if session.is_run_in_progress():
+		_note_run_save(save.queue_run(session.state))
+	_note_profile_save(save.queue_profile(settings, records))
 
 
 ## The run and the profile, written now after anything queued; the run only
 ## while one is in progress, so an ended run is never written again. For app
 ## pause, focus loss, close and quit, when the process may end at any moment.
 func _save_all() -> void:
-	if session.is_run_in_progress() and not save.save_run(session.state):
+	if session.is_run_in_progress():
+		_note_run_save(save.save_run(session.state))
+	_note_profile_save(save.save_profile(settings, records))
+
+
+## Logs the first of a row of failed run saves.
+func _note_run_save(ok: bool) -> void:
+	if not ok and not _run_save_failing:
 		push_warning("App: the run could not be saved")
-	if not save.save_profile(settings, records):
+	_run_save_failing = not ok
+
+
+## Logs the first of a row of failed profile saves.
+func _note_profile_save(ok: bool) -> void:
+	if not ok and not _profile_save_failing:
 		push_warning("App: the profile could not be saved")
+	_profile_save_failing = not ok
 
 
 ## Flow 6: delete the saved run, save the profile, show the end of run panel.
@@ -321,8 +338,7 @@ func _on_sound_changed(on: bool) -> void:
 
 
 func _queue_profile() -> void:
-	if not save.queue_profile(settings, records):
-		push_warning("App: the profile could not be saved")
+	_note_profile_save(save.queue_profile(settings, records))
 
 
 func _on_skin_changed(skin_id: StringName) -> void:
