@@ -92,9 +92,10 @@ func _setup() -> void:
 	var alpha_low: float = skin.num(&"glow_alpha_low")
 	var alpha_high: float = skin.num(&"glow_alpha_high")
 	var count: int = fills.size()
-	# From dark_rim_from (the white hole) the chained rim is ink_dark: a white
-	# rim on a white orb vanishes.
-	var dark_rim_from: int = int(skin.num(&"dark_rim_from"))
+	# On every orb with the colors of dark_rim_from (the white hole) the
+	# chained rim is ink_dark: a white rim on a white orb vanishes. It goes by
+	# the color position, since the color cycle puts other colors above it.
+	var dark_rim_position: int = skin.color_position(int(skin.num(&"dark_rim_from")))
 	var dark_rim: Color = skin.color(&"ink_dark")
 	_rim_colors.resize(count)
 	_ray_colors.resize(count)
@@ -109,7 +110,7 @@ func _setup() -> void:
 		_spark_colors[index] = ray
 		ray.a *= ray_alpha
 		_ray_colors[index] = ray
-		_chain_rims[index] = dark_rim if TileLabels.value_of(index) >= dark_rim_from else _chain_color
+		_chain_rims[index] = dark_rim if dark_rim_position >= 0 and positions[index] == dark_rim_position else _chain_color
 		# Both run by ramp index from value 2 to 131072; above that they stay
 		# at the top.
 		var t: float = clampf(float(index) / float(SkinData.RAMP_SIZE - 1), 0.0, 1.0)

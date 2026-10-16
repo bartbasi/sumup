@@ -79,8 +79,7 @@ func test_ramp_matches_tokens() -> void:
 			_assert_color(skin.tile_fill[i], tokens.tile_fill[i], "%s tile_fill[%d]" % [skin_id, i])
 		for i: int in mini(skin.tile_ink.size(), tokens.tile_ink.size()):
 			_assert_color(skin.tile_ink[i], tokens.tile_ink[i], "%s tile_ink[%d]" % [skin_id, i])
-		_assert_color(skin.beyond_fill, tokens.beyond_fill, "%s beyond_fill" % skin_id)
-		_assert_color(skin.beyond_ink, tokens.beyond_ink, "%s beyond_ink" % skin_id)
+		assert_eq(skin.tile_cycle, tokens.tile_cycle, "%s tile_cycle" % skin_id)
 		assert_eq(skin.tile_tier, tokens.tile_tier, "%s tile_tier" % skin_id)
 		assert_eq(skin.beyond_tier, tokens.beyond_tier, "%s beyond_tier" % skin_id)
 

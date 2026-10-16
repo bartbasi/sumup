@@ -13,11 +13,16 @@ class_name SkinData extends Resource
 ## (magenta for colors, 0 for numbers). validate() lets tests catch it first.
 
 ## Lowest and highest value the ramp lists. Index 0 is value 2, index 16 is
-## value 131072. Every value above 131072 uses beyond_fill, beyond_ink and
-## beyond_tier.
+## value 131072. Every value above 131072 takes its colors from tile_cycle
+## (DESIGN_SYSTEM.md 3.3) and its tier from beyond_tier.
 const RAMP_LOW: int = 2
 const RAMP_HIGH: int = 131072
 const RAMP_SIZE: int = 17
+## Shortest color cycle allowed: no two of any 13 consecutive values may
+## share a fill (DESIGN_SYSTEM.md 3.3).
+const CYCLE_MIN: int = 13
+## Power of two of the first value that walks the color cycle (262144).
+const CYCLE_FIRST_POWER: int = 18
 
 ## Case rules a type role can carry.
 const CASE_NONE: String = "none"
@@ -64,9 +69,10 @@ const FALLBACK_TILE_SIZE: int = 1
 ## Fill and number color for 2, 4, 8 ... 131072, 17 entries each.
 @export var tile_fill: PackedColorArray = PackedColorArray()
 @export var tile_ink: PackedColorArray = PackedColorArray()
-## Fill and number color for every value above 131072.
-@export var beyond_fill: Color = MISSING_COLOR
-@export var beyond_ink: Color = MISSING_COLOR
+## Ramp positions, in order, that the values above 131072 walk round:
+## value 2^k with k of 18 or more takes the fill and number color of
+## tile_cycle[(k - 18) mod size] (DESIGN_SYSTEM.md 3.3).
+@export var tile_cycle: PackedInt32Array = PackedInt32Array()
 ## Tier per value 2 to 131072, 17 entries. What a tier changes is per skin.
 @export var tile_tier: PackedInt32Array = PackedInt32Array()
 @export var beyond_tier: int = 0
@@ -112,24 +118,43 @@ static func ramp_index(value: int) -> int:
 	return index
 
 
+## Ramp position whose fill and number color a tile value takes
+## (DESIGN_SYSTEM.md 3.3): its ramp index from 2 to 131072, then round
+## tile_cycle. -1 for anything that is not a tile value, or when the cycle
+## is missing or holds a position outside the ramp.
+func color_position(value: int) -> int:
+	var index: int = _checked_ramp_index(value)
+	if index < RAMP_SIZE:
+		return index
+	if tile_cycle.is_empty():
+		_report("tile_cycle", "%s: tile_cycle is empty" % id)
+		return -1
+	var power: int = CYCLE_FIRST_POWER
+	var v: int = value >> CYCLE_FIRST_POWER
+	while v > 1:
+		v = v >> 1
+		power += 1
+	var position: int = tile_cycle[(power - CYCLE_FIRST_POWER) % tile_cycle.size()]
+	if position < 0 or position >= RAMP_SIZE:
+		_report("tile_cycle", "%s: tile_cycle holds %d, outside the ramp" % [id, position])
+		return -1
+	return position
+
+
 ## Tile fill for a value.
 func fill_for(value: int) -> Color:
-	var index: int = _checked_ramp_index(value)
-	if index < 0 or tile_fill.size() != RAMP_SIZE:
+	var position: int = color_position(value)
+	if position < 0 or tile_fill.size() != RAMP_SIZE:
 		return MISSING_COLOR
-	if index >= RAMP_SIZE:
-		return beyond_fill
-	return tile_fill[index]
+	return tile_fill[position]
 
 
 ## Number color for a value.
 func ink_for(value: int) -> Color:
-	var index: int = _checked_ramp_index(value)
-	if index < 0 or tile_ink.size() != RAMP_SIZE:
+	var position: int = color_position(value)
+	if position < 0 or tile_ink.size() != RAMP_SIZE:
 		return MISSING_COLOR
-	if index >= RAMP_SIZE:
-		return beyond_ink
-	return tile_ink[index]
+	return tile_ink[position]
 
 
 ## Tier for a value. 0 for anything that is not a tile value.
@@ -263,6 +288,15 @@ func validate() -> PackedStringArray:
 		problems.append("tile_ink has %d colors, needs %d" % [tile_ink.size(), RAMP_SIZE])
 	if tile_tier.size() != RAMP_SIZE:
 		problems.append("tile_tier has %d entries, needs %d" % [tile_tier.size(), RAMP_SIZE])
+	if tile_cycle.size() < CYCLE_MIN:
+		problems.append("tile_cycle has %d entries, needs at least %d" % [tile_cycle.size(), CYCLE_MIN])
+	var seen: Dictionary[int, bool] = {}
+	for position: int in tile_cycle:
+		if position < 0 or position >= RAMP_SIZE:
+			problems.append("tile_cycle holds %d, needs 0 to %d" % [position, RAMP_SIZE - 1])
+		elif seen.has(position):
+			problems.append("tile_cycle holds %d twice" % position)
+		seen[position] = true
 	for token: StringName in SHARED_PALETTE:
 		if not palette.has(token):
 			problems.append("missing palette role '%s'" % token)

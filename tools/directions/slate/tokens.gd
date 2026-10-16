@@ -66,8 +66,8 @@ func _init() -> void:
 		Color("#F9D097"), # 64
 		dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark,
 	]
-	beyond_fill = Color("#F5F2E9")
-	beyond_ink = dark
+	# The color cycle above 131072 (DESIGN_SYSTEM.md 3.3): the whole ramp.
+	tile_cycle = PackedInt32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
 	# Tier 1 slab, 2 block, 3 block with the inner hairline frame (32K up).
 	tile_tier = PackedInt32Array([1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3])
 	beyond_tier = 3

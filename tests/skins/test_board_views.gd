@@ -597,16 +597,46 @@ func test_gumdrop_stroke_feather_is_continuous() -> void:
 	assert_near(wide.y, 4.0 + 0.9375, EPSILON, "and clear three quarters of a feather outside")
 
 
+## The dark rim goes by color (DESIGN_SYSTEM.md 6.5): every orb with the
+## white hole's colors, 128K, 8B (2^33) and 512T (2^49), and no other.
 func test_nova_chained_rim_is_dark_on_the_white_hole() -> void:
 	var skin: SkinData = SkinCatalog.get_skin(&"nova")
 	var painter: RefCounted = NOVA_PAINTER.new()
 	painter.call("setup", skin)
 	var rims: PackedColorArray = painter.get("_chain_rims")
-	var dark_from: int = int(skin.num(&"dark_rim_from"))
+	assert_eq(int(skin.num(&"dark_rim_from")), 131072, "dark_rim_from is the white hole")
+	var dark_powers: Array[int] = [17, 33, 49]
 	for index: int in rims.size():
-		var value: int = 2 << index
-		var expected: Color = skin.color(&"ink_dark") if value >= dark_from else skin.color(&"chain")
-		assert_eq(rims[index], expected, "nova chained rim for %d" % value)
+		var power: int = index + 1
+		var expected: Color = skin.color(&"ink_dark") if dark_powers.has(power) else skin.color(&"chain")
+		assert_eq(rims[index], expected, "nova chained rim for 2^%d" % power)
+
+
+## Slate marks go by color (DESIGN_SYSTEM.md 5.7): on a big tile above 128K
+## with a slab color (256K, forest slab) the frames keep chain and joinable
+## and the special frame takes the slab's bright number; on a big block color
+## (16M, amber) they are ink_dark.
+func test_slate_marks_on_big_tiles_follow_the_color() -> void:
+	var skin: SkinData = SkinCatalog.get_skin(&"slate")
+	var painter: RefCounted = SLATE_PAINTER.new()
+	painter.call("setup", skin)
+	var reference: float = float(painter.call("reference_side"))
+	painter.call("set_side", reference, 1.0)
+	var item: RID = RenderingServer.canvas_item_create()
+	var cases: Dictionary = {1 << 18: false, 1 << 24: true, 1 << 35: false, 64: false, 128: true}
+	for value: int in cases:
+		var block: bool = cases[value]
+		var frame_box: StyleBoxFlat = painter.get("_inset_frame_box")
+		painter.call("draw_body", item, Transform2D.IDENTITY, value, false, 1.0, 0.0)
+		var chain_expected: Color = skin.color(&"ink_dark") if block else skin.color(&"chain")
+		assert_eq(frame_box.border_color, chain_expected, "slate chained frame on %d" % value)
+		painter.call("draw_body", item, Transform2D.IDENTITY, value, false, 0.0, 1.0)
+		var join_expected: Color = skin.color(&"ink_dark") if block else skin.color(&"joinable")
+		assert_eq(frame_box.border_color, join_expected, "slate joinable frame on %d" % value)
+		if value >= int(skin.num(&"special_from")):
+			var special_box: StyleBoxFlat = painter.get("_special_box")
+			assert_eq(special_box.border_color, skin.ink_for(value), "slate special frame on %d in its number color" % value)
+	RenderingServer.free_rid(item)
 
 
 func test_nova_sparks_take_the_lightened_fill() -> void:

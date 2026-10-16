@@ -24,16 +24,58 @@ func test_fill_ink_and_tier_cover_the_ramp() -> void:
 		assert_eq(value, SkinData.RAMP_HIGH * 2, "the ramp ends at 131072")
 
 
-func test_values_above_the_ramp_use_the_beyond_rule() -> void:
+## The first values above the ramp, and where each cycle comes round again
+## (DESIGN_SYSTEM.md 3.3): power of two to ramp position, per skin.
+const CYCLE_TABLE: Dictionary = {
+	&"gumdrop": {18: 0, 19: 1, 20: 4, 21: 5, 22: 6, 23: 7, 24: 8, 32: 16, 33: 0},
+	&"slate": {18: 0, 19: 1, 20: 2, 21: 3, 22: 4, 23: 5, 24: 6, 34: 16, 35: 0},
+	&"nova": {18: 0, 19: 2, 20: 3, 21: 4, 22: 5, 23: 6, 24: 7, 33: 16, 34: 0},
+}
+## The cycle lengths of 3.3.
+const CYCLE_LENGTHS: Dictionary = {&"gumdrop": 15, &"slate": 17, &"nova": 16}
+## Highest power of two a tile can hold (GDD D-37).
+const MAX_POWER: int = 62
+## Values on the board at once, at most (DESIGN_SYSTEM.md 3.3).
+const WINDOW: int = 13
+
+
+func test_values_above_the_ramp_walk_the_color_cycle() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
-		for power: int in range(18, HIGHEST_POWER + 1):
+		assert_eq(skin.tile_cycle.size(), CYCLE_LENGTHS[skin_id], "%s cycle length" % skin_id)
+		var table: Dictionary = CYCLE_TABLE[skin_id]
+		for power: int in table.keys():
 			var value: int = 1 << power
-			assert_eq(skin.fill_for(value), skin.beyond_fill, "%s fill for 2^%d" % [skin_id, power])
-			assert_eq(skin.ink_for(value), skin.beyond_ink, "%s ink for 2^%d" % [skin_id, power])
-			assert_eq(skin.tier_for(value), skin.beyond_tier, "%s tier for 2^%d" % [skin_id, power])
-		assert_ne(skin.beyond_fill, SkinData.MISSING_COLOR, "%s beyond_fill is set" % skin_id)
+			var position: int = table[power]
+			assert_eq(skin.color_position(value), position, "%s color position of 2^%d" % [skin_id, power])
+			assert_eq(skin.fill_for(value), skin.tile_fill[position], "%s fill for 2^%d" % [skin_id, power])
+			assert_eq(skin.ink_for(value), skin.tile_ink[position], "%s ink for 2^%d" % [skin_id, power])
+		# Size follows the value: every value above the ramp keeps beyond_tier.
+		for power: int in range(18, MAX_POWER + 1):
+			assert_eq(skin.tier_for(1 << power), skin.beyond_tier, "%s tier for 2^%d" % [skin_id, power])
 		assert_true(skin.beyond_tier > 0, "%s beyond_tier is set" % skin_id)
+
+
+func test_any_13_consecutive_values_have_distinct_fills() -> void:
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		for first: int in range(18, MAX_POWER - WINDOW + 2):
+			var seen: Dictionary[Color, int] = {}
+			for power: int in range(first, first + WINDOW):
+				var fill: Color = skin.fill_for(1 << power)
+				if seen.has(fill):
+					fail("%s 2^%d and 2^%d share a fill" % [skin_id, seen[fill], power])
+				seen[fill] = power
+
+
+func test_validate_checks_the_color_cycle() -> void:
+	var skin: SkinData = SkinCatalog.get_skin(&"slate").duplicate(true) as SkinData
+	skin.tile_cycle = PackedInt32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11, 17])
+	var problems: PackedStringArray = skin.validate()
+	assert_true(problems.has("tile_cycle holds 11 twice"), "a repeat is reported")
+	assert_true(problems.has("tile_cycle holds 17, needs 0 to 16"), "a position outside the ramp is reported")
+	skin.tile_cycle = PackedInt32Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+	assert_true(skin.validate().has("tile_cycle has 12 entries, needs at least 13"), "a short cycle is reported")
 
 
 func test_ramp_index() -> void:

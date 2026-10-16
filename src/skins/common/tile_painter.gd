@@ -24,10 +24,13 @@ var labels: TileLabels = null
 var side: float = 0.0
 var unit: float = 1.0
 
-## Per label index (0 is value 2): fill, number color and tier.
+## Per label index (0 is value 2): fill, number color, tier, and the ramp
+## position the colors come from (DESIGN_SYSTEM.md 3.3). Colors follow the
+## position, size follows the value through the tier.
 var fills: PackedColorArray = PackedColorArray()
 var inks: PackedColorArray = PackedColorArray()
 var tiers: PackedInt32Array = PackedInt32Array()
+var positions: PackedInt32Array = PackedInt32Array()
 var special_from: int = 0
 
 var _reference_side: float = 0.0
@@ -41,11 +44,13 @@ func setup(p_skin: SkinData) -> void:
 	fills.resize(count)
 	inks.resize(count)
 	tiers.resize(count)
+	positions.resize(count)
 	for index: int in count:
 		var value: int = TileLabels.value_of(index)
 		fills[index] = skin.fill_for(value)
 		inks[index] = skin.ink_for(value)
 		tiers[index] = skin.tier_for(value)
+		positions[index] = skin.color_position(value)
 	special_from = int(skin.num(&"special_from"))
 	# The px tokens are drawn for the base canvas width and the game's column
 	# count.

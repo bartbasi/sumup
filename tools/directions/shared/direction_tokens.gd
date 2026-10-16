@@ -83,12 +83,15 @@ var palette: Dictionary[String, Color] = {}
 ## Tile fill and number color for each value from 2 to 131072, in ramp order.
 var tile_fill: Array[Color] = []
 var tile_ink: Array[Color] = []
-## Values above 131072 use these.
-var beyond_fill: Color = Color.BLACK
-var beyond_ink: Color = Color.WHITE
+## The color cycle (DESIGN_SYSTEM.md 3.3, 2026-10-15): ramp positions, in
+## order, that the values above 131072 walk round. Value 2^k with k of 18 or
+## more takes the fill and number of tile_cycle[(k - 18) mod size]. A
+## position may be left out so the pairs across the wrap stay far apart.
+var tile_cycle: PackedInt32Array = PackedInt32Array()
 ## Tier of each ramp value, in ramp order. What a tier changes is per skin
 ## (lip height, shine, slab or block, corona); the skin's tokens.gd says.
 var tile_tier: PackedInt32Array = PackedInt32Array()
+## Tier of every value above 131072. Tiers go by value, not by color.
 var beyond_tier: int = 0
 
 ## Every text color on its background, as drawn on screen. Built with pair().
@@ -148,15 +151,29 @@ static func ramp_index(value: int) -> int:
 	return index
 
 
+## Ramp position whose colors a tile value takes: its ramp index up to
+## 131072, then round tile_cycle. -1 for anything that is not a tile value.
+func color_position(value: int) -> int:
+	var index: int = ramp_index(value)
+	if index < RAMP_SIZE:
+		return index
+	if tile_cycle.is_empty():
+		return -1
+	var power: int = 0
+	var v: int = value
+	while v > 1:
+		v = v >> 1
+		power += 1
+	return tile_cycle[(power - 18) % tile_cycle.size()]
+
+
 ## Tile fill color for a value.
 func fill_for(value: int) -> Color:
-	var index: int = ramp_index(value)
-	if index < 0:
+	var position: int = color_position(value)
+	if position < 0:
 		push_error("%s: %d is not a tile value" % [id, value])
 		return Color.MAGENTA
-	if index >= RAMP_SIZE:
-		return beyond_fill
-	return tile_fill[index]
+	return tile_fill[position]
 
 
 ## Tier for a value (see tile_tier).
@@ -171,13 +188,11 @@ func tier_for(value: int) -> int:
 
 ## Number color for a value.
 func ink_for(value: int) -> Color:
-	var index: int = ramp_index(value)
-	if index < 0:
+	var position: int = color_position(value)
+	if position < 0:
 		push_error("%s: %d is not a tile value" % [id, value])
 		return Color.MAGENTA
-	if index >= RAMP_SIZE:
-		return beyond_ink
-	return tile_ink[index]
+	return tile_ink[position]
 
 
 ## A named palette color. Logs an error for an unknown name.

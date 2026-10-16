@@ -63,6 +63,8 @@ Small tile clearing (GDD D-38) keeps about ten consecutive values on the board. 
 
 For scale: 0.02 is about the smallest visible step, and the Hard Stop 1 complaints were all pairs at 0.07 to 0.12.
 
+These minimums hold for every value from 2 to 2^62, through the color cycle above 131072 (3.3). Further apart than three steps two values may share a hue family, but never a fill: no two of any 13 consecutive values have the same fill.
+
 ### 1.4 Contrast
 
 Every tile number on its fill, and every text color on its background, is at least 4.5:1 (WCAG 2 relative luminance). Text may only be drawn with a pair listed for its skin in section 4, 5 or 6. A new combination needs a new pair here and in the token file first.
@@ -214,9 +216,46 @@ Every skin defines every shared name below. Anything else a skin needs is an **e
 
 | Name | Meaning |
 |---|---|
-| tile_fill[17], tile_ink[17] | fill and number color for 2, 4, 8 ... 131072 |
-| beyond_fill, beyond_ink | for every value above 131072 |
-| tile_tier[17], beyond_tier | an integer per value; what a tier changes is per skin |
+| tile_fill[17], tile_ink[17] | fill and number color for 2, 4, 8 ... 131072 (ramp positions 0 to 16) |
+| tile_cycle | the ramp positions, in order, that the values above 131072 walk round (the color cycle below) |
+| tile_tier[17], beyond_tier | an integer per value; beyond_tier for every value above 131072; what a tier changes is per skin |
+
+**The color cycle (2026-10-15).** A tile of value 2^k takes the fill and the number color of ramp position p(k):
+
+- p(k) = k - 1 for k from 1 to 17 (2 to 131072: the ramp as listed),
+- p(k) = tile_cycle[(k - 18) mod n] for k from 18 to 62, where n is the length of the skin's tile_cycle.
+
+So above 131072 the colors start again from the bottom of the ramp and repeat every n doublings. Fill and number always move together as a pair, so every number on every tile is a pair the contrast check already proves, and the cycle adds no new color.
+
+| Skin | tile_cycle | n | Left out, and why |
+|---|---|---|---|
+| Gumdrop | 0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 | 15 | 2 lemon: 128K gold would sit three steps from it (0.087). 3 sky: it would sit four steps from 32K electric blue (0.042) |
+| Slate | 0 to 16, the whole ramp | 17 | nothing |
+| Nova | 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 | 16 | 1 yellow star: 64K supernova would sit three steps from it (0.081) |
+
+The first values above the ramp, and where each cycle comes round again:
+
+| Value | Gumdrop | Slate | Nova |
+|---|---|---|---|
+| 256K (2^18) | 0 mint | 0 forest slab | 0 red dwarf |
+| 512K (2^19) | 1 lavender | 1 navy slab | 2 blue giant |
+| 1M (2^20) | 4 coral | 2 oxblood slab | 3 aqua nebula |
+| 2M (2^21) | 5 aqua | 3 teal slab | 4 magenta nebula |
+| 4M (2^22) | 6 hot pink | 4 aubergine slab | 5 orange giant |
+| 8M (2^23) | 7 lime | 5 bronze slab | 6 violet |
+| 16M (2^24) | 8 periwinkle | 6 amber | 7 aurora green |
+| last of the first round | 4B (2^32) 16 gold | 16B (2^34) 16 paper | 8B (2^33) 16 white hole |
+| first of the next round | 8B (2^33) 0 mint | 32B (2^35) 0 forest slab | 16B (2^34) 0 red dwarf |
+
+Why: small tile clearing (GDD D-38) keeps the values from the window floor H / 512 up to H on the board, 10 values, and the result of a long chain can stand up to a few steps above H until its clear has played. Before this rule one beyond color covered every value above 131072, so in a long run (H above 2^26) every tile on the board had the same fill (Bart, 2026-10-15). With a cycle of 15 to 17 no two of any 13 consecutive values share a fill, and every pair across the wrap meets the ramp check of 1.3 (tools/ramp_check.gd checks every value from 2 to 2^62).
+
+**Color follows the cycle, size follows the value.**
+
+- Everything that takes a tile's colors uses its ramp position p(k): fill, number, Gumdrop's lip, shine and burst dots, Slate's label plate, Nova's rim, rays, sparks, glow tint and beam glow, merge previews, the mini tiles of the clear notice, the Best tile and highest tile rows, the Info rows, and "tile:<value>" color references in text pairs. They all read fill_for and ink_for, so they follow the cycle with no rule of their own.
+- Everything that says how big a tile is goes by the value: the tier (tile_tier up to 131072, beyond_tier above), the special treatment from `special_from`, the label, and Nova's glow size and strength (6.7). So 256K has the colors of 2 but still looks like a big tile: Gumdrop's deep lip, shine and candy rim, Slate's inner frame, Nova's corona.
+- Two rules used to pick a color by value and now go by ramp position: Slate's marks on light blocks and its special frame (5.7), and Nova's dark rim on the white hole (6.7).
+
+**Retired:** beyond_fill and beyond_ink are no longer used. They are removed from SkinData, the three skin files and the token mirror. beyond_tier stays.
 
 ### 3.4 Type
 
@@ -367,6 +406,8 @@ Tactile candy. Chunky squircle tiles with a darker lip underneath, like keycaps 
 
 Every number is #1C0D2B. Tier 1 is sorbet, tier 2 is candy, tier 3 is neon with a shine, and tier 4 is special with the candy rim. Chroma rises by tier, so the big tiles are the most vivid on the board.
 
+Above 128K the colors come round again by the color cycle (3.3), from mint, while the tier stays 4: a 256K tile is mint with the deep lip, the shine and the candy rim.
+
 | Value | Label | Name | Fill | Contrast | Tier |
 |---|---|---|---|---|---|
 | 2 | 2 | mint | #8FFFD0 | 15.22 | 1 |
@@ -386,9 +427,9 @@ Every number is #1C0D2B. Tier 1 is sorbet, tier 2 is candy, tier 3 is neon with 
 | 32768 | 32K | electric blue | #2FA9FF | 7.22 | 3 |
 | 65536 | 64K | pearl | #FDF1FC | 16.78 | 4 |
 | 131072 | 128K | gold | #F7C243 | 11.17 | 4 |
-| above | 256K and up | gold | #F7C243 | 11.17 | 4 |
+| above | 256K and up | the color cycle (3.3): 0, 1, 4 to 16, then again | as the position | as the position | 4 |
 
-Closest pairs (ramp check): neighbors 0.206, times 4 0.141, times 8 0.210.
+Closest pairs (ramp check, every value from 2 to 2^62 with the color cycle): neighbors 0.194, times 4 0.141, times 8 0.092. Up to 128K alone they were 0.206, 0.141 and 0.210. The closest now come from the cycle: 128K gold next to 256K mint (0.194), and mint three steps from aqua once lemon and sky are left out (0.092).
 
 ### 4.3 Text pairs
 
@@ -502,7 +543,7 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 - *Joinable (D-40):* the tile lifts by `joinable_lift` (lip deeper, face higher) and gets a `joinable_ring` lemon ring with a `target_edge_width` target_edge outline outside it. The outline keeps the ring apart from a light neighboring tile; on the tray it nearly vanishes, and there the lemon ring reads on its own. It eases in over `joinable_in` and moves as the chain changes. Never on a chained tile.
 - *Press feedback (D-43):* while a finger is down on a tile in targeting mode, the tile presses in (lip_pressed) and gets a `target_ring` ring in target with a target_edge outline. It means only "this is the tile under your finger".
 - *Selected (Swap's first tile):* lifted by `target_lift` with the same double ring, wobbling by `wobble_degrees` on the `target_pulse` loop.
-- *Special (64K up):* a candy rim round the face, `special_rim_width` wide, in `special_rim_segments` segments cycling the tier 1 and 2 fills.
+- *Special (64K up):* a candy rim round the face, `special_rim_width` wide, in `special_rim_segments` segments cycling the tier 1 and 2 fills (ramp positions 0 to 9, the same on every special tile).
 
 **Board**
 - A rounded tray in tray (`tray_radius`), `board_padding` inside, `board_gap` between tiles.
@@ -627,6 +668,8 @@ Editorial and exact. Small values are dark slabs with the number in a bright tin
 
 Tier 1 slabs (2 to 64) have a dark fill and a bright number of the same hue, lightness alternating between neighbors. Tier 2 blocks (128 to 16K) are solid color with a black number. Tier 3 (32K up) is a block with an inner hairline frame. Hues from 15 to 55 degrees are kept free for the vermilion accent, so brackets and the hint bar never sit on a tile of their own color.
 
+Above 128K the colors come round again by the color cycle (3.3), from forest slab, while the tier stays 3. So a big tile can be a dark slab with the inner frame: slab or block goes by the color (positions 0 to 5 are slabs, 6 to 16 blocks), the frame by the value (5.7).
+
 | Value | Label | Name | Fill | Number | Contrast | Tier |
 |---|---|---|---|---|---|---|
 | 2 | 2 | forest slab | #115D1C | #95F198 | 5.88 | 1 |
@@ -646,9 +689,9 @@ Tier 1 slabs (2 to 64) have a dark fill and a bright number of the same hue, lig
 | 32768 | 32K | mint | #48FAB4 | #0E0F12 | 14.25 | 3 |
 | 65536 | 64K | lilac | #AF83F6 | #0E0F12 | 6.75 | 3 |
 | 131072 | 128K | paper | #F5F2E9 | #0E0F12 | 17.12 | 3 |
-| above | 256K and up | paper | #F5F2E9 | #0E0F12 | 17.12 | 3 |
+| above | 256K and up | the color cycle (3.3): 0 to 16, then again | as the position | as the position | as the position | 3 |
 
-Closest pairs (ramp check): neighbors 0.210, times 4 0.135, times 8 0.094.
+Closest pairs (ramp check, every value from 2 to 2^62 with the color cycle): neighbors 0.210, times 4 0.135, times 8 0.094, the same as up to 128K alone.
 
 ### 5.3 Text pairs
 
@@ -757,8 +800,8 @@ A committed chain settles in about 0.45 s.
 - *Joinable (D-40):* a `joinable_ring` frame in joinable, inset `frame_inset` like the chain frame, plus a hollow `node_size` square at the center with a `joinable_node_stroke` stroke. It means "the line can come here".
 - *Press feedback (D-43):* four corner brackets in target, `target_ring` thick, arms `target_bracket` of the side, hugging the outside of the tile edge with no offset.
 - *Selected (Swap's first tile):* the same brackets plus a `selected_frame` frame in target just inside the edge (no inset, so it reads as one mark with the brackets). They hold still.
-- *Marks on blocks:* paper vanishes on the light blocks. On tier 2 and 3 tiles the chained frame, the joinable frame and the hollow node draw in ink_dark instead of chain and joinable. Every node, filled or hollow, gets a `line_edge` outline in chain_edge, like the chain line, so it reads on any tile.
-- *Special (32K up):* an inner hairline frame in ink_dark, `hairline` thick, inset `special_inset`.
+- *Marks on blocks:* paper vanishes on the light blocks. On a block (ramp position 6 to 16 by the color cycle, 3.3, whose number is ink_dark) the chained frame, the joinable frame and the hollow node draw in ink_dark instead of chain and joinable. On a slab (positions 0 to 5) they keep chain and joinable, also on a big tile above 128K that takes a slab color. This goes by the color, not the tier (2026-10-15; up to 128K it is the same split). Every node, filled or hollow, gets a `line_edge` outline in chain_edge, like the chain line, so it reads on any tile.
+- *Special (32K up):* an inner hairline frame in the tile's number color (ink_for), `hairline` thick, inset `special_inset`. On a block that is ink_dark, as before; on a big tile above 128K with a slab color it is the slab's bright number, so the frame shows on the dark fill (2026-10-15).
 
 **Board:** no tray and no background. An empty cell shows a `hairline` frame in line.
 
@@ -880,6 +923,8 @@ Tiles are stars. Round orbs float on deep space with no tray. Every value is a d
 
 Tier 1 is 2 to 1K, tier 2 is 2K to 16K (wider glow), and tier 3 is 32K up (corona rays).
 
+Above 128K the colors come round again by the color cycle (3.3), from red dwarf, while the tier stays 3 (corona rays) and the glow stays at its widest (6.7).
+
 | Value | Label | Name | Fill | Number | Contrast | Tier |
 |---|---|---|---|---|---|---|
 | 2 | 2 | red dwarf | #D01D21 | #F7F9FF | 5.14 | 1 |
@@ -899,9 +944,9 @@ Tier 1 is 2 to 1K, tier 2 is 2K to 16K (wider glow), and tier 3 is 32K up (coron
 | 32768 | 32K | deep blue | #0A65AD | #F7F9FF | 5.74 | 3 |
 | 65536 | 64K | supernova | #FEBC72 | #060C20 | 11.70 | 3 |
 | 131072 | 128K | white hole | #FAFCFF | #060C20 | 18.90 | 3 |
-| above | 256K and up | white hole | #FAFCFF | #060C20 | 18.90 | 3 |
+| above | 256K and up | the color cycle (3.3): 0, 2 to 16, then again | as the position | as the position | as the position | 3 |
 
-Closest pairs (ramp check): neighbors 0.194, times 4 0.169, times 8 0.258.
+Closest pairs (ramp check, every value from 2 to 2^62 with the color cycle): neighbors 0.194, times 4 0.169, times 8 0.198. Up to 128K alone the closest times 8 pair was 0.258; now it is 128K white hole and 1M aqua nebula, across the wrap.
 
 ### 6.3 Text pairs
 
@@ -969,12 +1014,12 @@ Reading text takes 400, not Nova's light 300: thin strokes glare in long light o
 
 **Extras:**
 - Orb and rim: `orb_scale` 0.89 (was 0.88, 2.4), `rim_width` 4, `rim_lighten` 0.35.
-- Glow: `glow_alpha_low` 0.10, `glow_alpha_high` 0.55, `glow_spread_low` 1.12, `glow_spread_high` 1.55. Both scale linearly by ramp index.
+- Glow: `glow_alpha_low` 0.10, `glow_alpha_high` 0.55, `glow_spread_low` 1.12, `glow_spread_high` 1.55. Both scale linearly by the value's place from 2 to 131072 and stay at the top above it (6.7), not by the color cycle.
 - Beam: `beam_glow_width` 44, `beam_glow_alpha` 0.28.
 - Orbits: `orbit_offset` 0.10, `joinable_orbit` 0.05, `orbit_dashes` 24, `orbit_dash_fill` 0.55, `orbit_breath` 0.05, `orbit_turn` 0.08.
 - Glow multipliers: `joinable_glow` 1.25, `chain_glow` 1.4, `target_glow` 1.5, `spawn_bloom` 0.6.
 - Corona: `ray_count` 12, `ray_inner` 1.08, `ray_outer` 1.24, `ray_width` 3, `ray_lighten` 0.35, `ray_alpha` 0.6.
-- Dark rim: `dark_rim_from` 131072 (the value from which the chained rim draws in ink_dark).
+- Dark rim: `dark_rim_from` 131072. The chained rim draws in ink_dark on every tile that takes this value's colors, the white hole (ramp position 16): 128K, 8B (2^33), 512T (2^49). Since 2026-10-15 it no longer means "this value and up", because the color cycle puts other colors above it.
 - Ring buttons: `ring_button` 136, `ring_width` 3.
 - Disabled: `disabled_ring_alpha` 0.35, `disabled_ring_dashes` 16, `disabled_icon_alpha` 0.6.
 - Star dust: `star_count` 70, `star_alpha_min` 0.08, `star_alpha_max` 0.35, `star_size_min` 1.5, `star_size_max` 3.5, `star_seed` 20261010, `star_clearance` 24.
@@ -1015,11 +1060,11 @@ A committed chain settles in about 0.65 s; the bloom fades after.
 **Orb**
 - A circle `orb_scale` of the cell pitch, flat fill. A `rim_width` rim in fill lightened by `rim_lighten` sits just inside the edge.
 - The label is centered.
-- The glow sits behind the orb in its fill color. Radius is the orb radius times a lerp from `glow_spread_low` to `glow_spread_high`; alpha a lerp from `glow_alpha_low` to `glow_alpha_high`. Both run by ramp index from 0 (value 2) to 16 (131072), so bigger values glow wider.
+- The glow sits behind the orb in its fill color. Radius is the orb radius times a lerp from `glow_spread_low` to `glow_spread_high`; alpha a lerp from `glow_alpha_low` to `glow_alpha_high`. Both run by the value's place, min(k - 1, 16) for 2^k: from 0 (value 2) to 16 (131072 and every value above), so bigger values glow wider. Not by the color cycle: a 256K orb in red dwarf glows as wide as 128K.
 - The glow is one radial gradient texture made once and drawn tinted.
 
 **Orb states**
-- *Chained:* a `chain_ring` rim in chain and glow times `chain_glow`. From `dark_rim_from` (the white hole) the rim is ink_dark, because a white rim on a white orb vanishes.
+- *Chained:* a `chain_ring` rim in chain and glow times `chain_glow`. On the white hole (every tile with the colors of `dark_rim_from`, 6.5) the rim is ink_dark, because a white rim on a white orb vanishes.
 - *Joinable (D-40):* a thin solid orbit in joinable, `joinable_ring` wide, at radius times (1 + `joinable_orbit`), and glow times `joinable_glow`. It eases in over `joinable_in`.
 - *Press feedback (D-43):* a dashed orbit in target, `target_ring` wide, at radius times (1 + `orbit_offset`), `orbit_dashes` dashes, and glow times `target_glow`.
 - *Selected (Swap's first tile):* the dashed orbit turning `orbit_turn` per loop and breathing by `orbit_breath` on `target_pulse`.
@@ -1597,3 +1642,30 @@ No new tokens, colors, icons or motion names. The SkinData resources do not chan
 - **ui-systems-dev (src/ui/, scenes/ui/):** the splash screen (layout, records, buttons, the entrance sequence with Motion.dialog_in, the board view's `play_spawn` and `set_chain`, and Motion.fade), its wiring in the App, Info (renamed from How to play, with change rows and the booster section icons), the About line, Pause's Info button, the end of run screen's Home button, and the copy.
 - **tile-board-artist:** nothing. The board view and tile view are used through their existing API.
 - **senior-graphic-designer:** the contrast check gains Nova's glow pair (6.3), and the review of the build.
+
+## 12. The 2026-10-15 color cycle
+
+In a long run Bart saw every tile turn the same near white (Gumdrop gold, Slate paper, Nova white hole), because one beyond color covered every value above 131072. Since 2026-10-15 those values walk round the skin's own ramp instead (3.3), so every value on the board has its own color again.
+
+### 12.1 Where it is specified
+
+| Change | Sections |
+|---|---|
+| The rule, tile_cycle per skin, the first values, color by cycle and size by value | 3.3 |
+| The ramp check now covers every value from 2 to 2^62 | 1.3 |
+| The "above" rows and closest pairs of each ramp | 4.2, 5.2, 6.2 |
+| Slate: block marks by color, the special frame in the tile's number color | 5.2, 5.7 |
+| Nova: the dark rim on every white hole, the glow by value | 6.2, 6.5, 6.7 |
+
+No new colors and no new text pairs: every tile pair is a ramp pair the contrast check already proves.
+
+### 12.2 Who builds what
+
+- **tile-board-artist (src/skins/, tests/skins/):**
+  - SkinData: a new `tile_cycle: PackedInt32Array`, checked by validate() (at least 13 entries, each 0 to 16, no repeats). fill_for and ink_for use p(k) of 3.3. beyond_fill and beyond_ink are removed. tier_for does not change.
+  - The three .tres files: tile_cycle as in 3.3, beyond_fill and beyond_ink removed.
+  - Slate painter: block or slab by ramp position (6 to 16 is a block), not by tier; the special frame in the tile's number color.
+  - Nova painter: the dark rim on tiles whose ramp position is that of `dark_rim_from`, not on every value from it. The glow keeps its value based place.
+  - Tests: test_skin_api and test_skin_values follow the new fields (tile_cycle against tools/directions/<id>/tokens.gd, the first values of 3.3, the dark rim and the Slate marks on a big slab colored tile).
+- **senior-graphic-designer (tools/):** the token mirror (tile_cycle, beyond_fill and beyond_ink gone), ramp_check over 2 to 2^62 including that the skins' fill_for and ink_for follow the rule, contrast_check over every value up to 2^62, and the review of the build.
+- **Everyone else:** nothing. Every other place that draws a tile reads fill_for and ink_for.

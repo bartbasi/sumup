@@ -5,13 +5,15 @@ extends "res://src/skins/common/tile_painter.gd"
 ## under the line, the marks (nodes, label plate, number) over it. That gives
 ## the order fills, frames, line, nodes, label plates, numbers.
 ##
-## Marks on blocks: paper vanishes on the light blocks, so on tier 2 and up
-## the chained frame, the joinable frame and the hollow node draw in
-## ink_dark instead.
+## Marks on blocks: paper vanishes on the light blocks, so on a block the
+## chained frame, the joinable frame and the hollow node draw in ink_dark
+## instead. Slab or block goes by the tile's color (its ramp position), not
+## its tier, so a big tile above 128K with a slab color keeps the slab marks.
 
 const CORNER_DETAIL: int = 8
-## First tier drawn as a light block rather than a dark slab.
-const BLOCK_TIER: int = 2
+## First ramp position drawn as a light block rather than a dark slab
+## (DESIGN_SYSTEM.md 5.2: positions 0 to 5 are slabs, 6 to 16 blocks).
+const BLOCK_FROM_POSITION: int = 6
 
 var _fill_box: StyleBoxFlat = null
 ## Swap's selected frame, at the tile edge.
@@ -69,7 +71,6 @@ func _setup() -> void:
 	_edge_color = skin.color(&"chain_edge")
 	_dark = skin.color(&"ink_dark")
 	_paper = skin.color(&"ink")
-	_special_box.border_color = _dark
 	_empty_box.border_color = skin.color(&"line")
 
 
@@ -95,8 +96,9 @@ func draw_empty(canvas: RID, rect: Rect2) -> void:
 	_empty_box.draw(canvas, rect)
 
 
-## Fill, the special inner frame, and the chained or joinable frame, in tile
-## space placed by base. flash shows the paper of the merge flash.
+## Fill, the special inner frame in the tile's number color, and the chained
+## or joinable frame, in tile space placed by base. flash shows the paper of
+## the merge flash.
 func draw_body(canvas: RID, base: Transform2D, value: int, flash: bool, chain: float, join: float) -> void:
 	var index: int = index_of(value)
 	if index < 0:
@@ -106,10 +108,11 @@ func draw_body(canvas: RID, base: Transform2D, value: int, flash: bool, chain: f
 	_fill_box.bg_color = _paper if flash else fills[index]
 	_fill_box.draw(canvas, rect)
 	if value >= special_from and not flash:
+		_special_box.border_color = inks[index]
 		_special_box.draw(canvas, rect.grow(-_special_inset * side))
 	# The chained and joinable frames sit frame_inset inside the edge, so a
 	# band of tile fill keeps an ink_dark frame visible on a light block.
-	var block: bool = tiers[index] >= BLOCK_TIER
+	var block: bool = positions[index] >= BLOCK_FROM_POSITION
 	var framed: Rect2 = rect.grow(-_frame_inset * side)
 	if chain > 0.0:
 		_frame(_inset_frame_box, canvas, framed, _chain_ring * unit, faded(_dark if block else _chain_color, chain))
@@ -140,7 +143,7 @@ func draw_marks(canvas: RID, base: Transform2D, value: int, flash: bool, chain: 
 		var node: float = _node_size * unit
 		var stroke: float = _node_stroke * unit
 		var square: Rect2 = Rect2(Vector2(node, node) * -0.5, Vector2(node, node))
-		var mark: Color = _dark if tiers[index] >= BLOCK_TIER else _joinable_color
+		var mark: Color = _dark if positions[index] >= BLOCK_FROM_POSITION else _joinable_color
 		_outline(canvas, square, stroke + 2.0 * edge, faded(_edge_color, join))
 		_outline(canvas, square, stroke, faded(mark, join))
 	var top_left: Vector2 = _tile_rect().position + Vector2.ONE * _number_inset * side

@@ -7,7 +7,8 @@ extends SceneTree
 ## For every skin in SkinCatalog.IDS it loads the SkinData resource the game
 ## uses (src/skins/<id>/<id>.tres, through SkinCatalog.get_skin) and checks:
 ##   1. every tile fill against its number color, for each value from 2 to
-##      131072, plus the rule for values above 131072
+##      131072, and for every value above it up to 2^62 as the skin draws
+##      it (fill_for and ink_for, the color cycle of DESIGN_SYSTEM.md 3.3)
 ##   2. every text pair the skin lists (text color on background)
 ##   3. the new pairs of the 2026-10-13 additions (ADDED_PAIRS) that the
 ##      skin does not list yet
@@ -21,8 +22,9 @@ extends SceneTree
 
 ## Minimum contrast for tile numbers and all text (WCAG 2 level AA, normal text).
 const MIN_RATIO: float = 4.5
-## A value above the ramp, used to check the rule for values above 131072.
-const BEYOND_SAMPLE: int = 262144
+## Highest power of two a tile can hold (2^62, GDD D-37). Every value from
+## 2^18 to this one is checked through fill_for and ink_for.
+const MAX_POWER: int = 62
 
 ## The new color pairs of the 2026-10-13 additions (stars, free boosters, the
 ## two tone wordmark, How to play, About), DESIGN_SYSTEM.md 4.3, 5.3 and 6.3.
@@ -90,7 +92,9 @@ func _check_skin(skin_id: StringName) -> void:
 		for index: int in SkinData.RAMP_SIZE:
 			_check_pair("tile %d" % value, skin.tile_ink[index], skin.tile_fill[index], MIN_RATIO)
 			value *= 2
-		_check_pair("tiles above 131072 (%d)" % BEYOND_SAMPLE, skin.ink_for(BEYOND_SAMPLE), skin.fill_for(BEYOND_SAMPLE), MIN_RATIO)
+		for power: int in range(SkinData.RAMP_SIZE + 1, MAX_POWER + 1):
+			var big: int = 1 << power
+			_check_pair("tile %s (2^%d)" % [NumberFormat.tile_label(big), power], skin.ink_for(big), skin.fill_for(big), MIN_RATIO)
 	# Text on backgrounds.
 	for entry: Dictionary in skin.text_pairs:
 		_check_text_pair(skin, entry)

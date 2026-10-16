@@ -64,8 +64,10 @@ func _init() -> void:
 	]
 	var dark: Color = Color("#1C0D2B")
 	tile_ink = [dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark, dark]
-	beyond_fill = Color("#F7C243")
-	beyond_ink = dark
+	# The color cycle above 131072 (DESIGN_SYSTEM.md 3.3): every position but
+	# 2 lemon and 3 sky: 128K gold would sit three steps from lemon, and sky
+	# four steps from 32K electric blue.
+	tile_cycle = PackedInt32Array([0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
 	# Tier 1 sorbet (2 to 32), 2 candy (64 to 1K), 3 neon with shine (2K to
 	# 32K), 4 special with the candy rim (64K up). Lip height grows by tier.
 	tile_tier = PackedInt32Array([1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4])

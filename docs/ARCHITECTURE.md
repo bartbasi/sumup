@@ -399,8 +399,7 @@ class_name SkinData extends Resource
 @export var palette: Dictionary[StringName, Color]          # named colors
 @export var tile_fill: PackedColorArray                     # values 2 to 131072, 17 entries
 @export var tile_ink: PackedColorArray                      # number color for each fill
-@export var beyond_fill: Color                              # rule above 131072, as DESIGN_SYSTEM.md defines it
-@export var beyond_ink: Color
+@export var tile_cycle: PackedInt32Array                    # ramp positions that values above 131072 walk round (DESIGN_SYSTEM.md 3.3); at least 13, each 0 to 16, no repeats
 @export var tile_tier: PackedInt32Array                     # tier per value 2 to 131072, 17 entries; what a tier changes is per skin
 @export var beyond_tier: int
 @export var text_pairs: Array[Dictionary]                   # every text color on background pair the screens may use
@@ -410,6 +409,7 @@ class_name SkinData extends Resource
 @export var tile_number_scale: PackedFloat32Array           # tile label size by label length, share of the tile side
 @export var numbers: Dictionary[StringName, float]          # spacing, radii, sizes, shares
 @export var motion: Dictionary[StringName, Dictionary]      # name to {duration, trans, ease, plus extras}
+func color_position(value: int) -> int                      # ramp position whose fill and ink a value takes (DESIGN_SYSTEM.md 3.3); -1 if not a tile value
 func fill_for(value: int) -> Color
 func ink_for(value: int) -> Color
 func tier_for(value: int) -> int

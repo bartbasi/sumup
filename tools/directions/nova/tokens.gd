@@ -63,8 +63,9 @@ func _init() -> void:
 		light, dark, light, dark, light, dark, light, dark, light, dark,
 		light, dark, light, dark, light, dark, dark,
 	]
-	beyond_fill = Color("#FAFCFF")
-	beyond_ink = dark
+	# The color cycle above 131072 (DESIGN_SYSTEM.md 3.3): every position but
+	# 1 yellow star, so 64K supernova never sits three steps from it.
+	tile_cycle = PackedInt32Array([0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
 	# Tier 1 (2 to 1K), 2 (2K to 16K, wider glow), 3 (32K up, corona rays).
 	tile_tier = PackedInt32Array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3])
 	beyond_tier = 3
