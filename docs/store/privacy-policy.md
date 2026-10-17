@@ -40,4 +40,4 @@ If this policy ever changes, the new version will be posted at this address with
 
 ## Contact
 
-Questions about this policy can be sent to Play, Inc. at CONTACT_EMAIL.
+Questions about this policy can be sent to Play, Inc. at bartbasi@gmail.com.

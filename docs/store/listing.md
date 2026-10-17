@@ -52,9 +52,9 @@ SumUp is free software under the GNU GPL version 3. The source code is at github
 
 ## Contact details
 
-- Email (required, shown publicly): CONTACT_EMAIL
+- Email (required, shown publicly): bartbasi@gmail.com
 - Website (optional): leave blank, or the Buy me a coffee page
-- Privacy policy URL (required): PRIVACY_URL
+- Privacy policy URL (required): https://bartbasi.github.io/sumup/privacy/
 
 ## Play Console answers
 
@@ -93,3 +93,7 @@ Recommended: 13 and over. If you include ages under 13, the app falls under Goog
 ## Not in the listing
 
 The listing does not use the name of any other game. The rules are described in SumUp's own words.
+
+## The privacy policy web page
+
+docs/store/site/ is the website at https://bartbasi.github.io/sumup/, served by GitHub Pages from the `gh-pages` branch. That branch holds only these files. When the policy changes, change docs/store/privacy-policy.md and docs/store/site/privacy/index.html together, then the DM copies docs/store/site/ to `gh-pages`.
