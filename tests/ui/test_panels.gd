@@ -380,7 +380,12 @@ func test_splash_arrangement_7_2() -> void:
 			assert_true(button.custom_minimum_size.y >= skin.num(&"button_height"), "%s: button_height tall" % skin_id)
 			assert_eq(button.alignment, HORIZONTAL_ALIGNMENT_LEFT if skin_id == &"slate" else HORIZONTAL_ALIGNMENT_CENTER, "%s: Slate left aligns button text" % skin_id)
 		var layout: Node = splash.find_child("Layout", true, false)
-		assert_eq(buttons.get_parent().get_index(), layout.get_child_count() - 1, "%s: the buttons on the bottom of the safe area" % skin_id)
+		# 2026-10-17: space_xs and the coffee row now sit under the buttons, on
+		# the bottom of the safe area.
+		assert_eq(buttons.get_parent().get_index(), layout.get_child_count() - 3, "%s: the buttons, then space_xs and the coffee row" % skin_id)
+		var coffee: Control = splash.coffee_button()
+		assert_eq(coffee.get_parent().get_index(), layout.get_child_count() - 1, "%s: the coffee row on the bottom of the safe area" % skin_id)
+		assert_near((layout.get_child(layout.get_child_count() - 2) as Control).custom_minimum_size.y, skin.num(&"space_xs"), 0.01, "%s: space_xs above it" % skin_id)
 		var margins: MarginContainer = buttons.get_parent() as MarginContainer
 		assert_eq(margins.get_theme_constant(&"margin_left"), roundi(skin.num(&"board_margin")), "%s: full width less board_margin" % skin_id)
 		# The sum row: the skin's board view chained 2, 2, 4, 8 at 144 px, the

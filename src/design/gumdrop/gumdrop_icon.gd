@@ -97,6 +97,25 @@ func _record(icon_name: StringName) -> void:
 			_pen.line(Vector2(4.0, 12.0), Vector2(15.0, 12.0), _stroke)
 			var head: PackedVector2Array = PackedVector2Array([Vector2(21.0, 12.0), Vector2(14.5, 17.5), Vector2(14.5, 6.5)])
 			_pen.fill(StarShape.fillet(head, 1.0, 1.0))
+		&"coffee":
+			# A candy mug: a filled body, a handle arc tucked into its right
+			# edge, and two steam strokes centered over it.
+			_pen.fill(_mug_body())
+			_pen.arc(Vector2(16.0, 15.5), 3.25, -90.0, 90.0, _stroke)
+			_pen.line(Vector2(7.5, 4.0), Vector2(7.5, 6.5), _stroke)
+			_pen.line(Vector2(11.5, 4.0), Vector2(11.5, 6.5), _stroke)
+
+
+## The coffee mug's body: x 3 to 16, y 10 to 21.5, straight sides, top
+## corners rounded by 1 unit and bottom corners by 4, clockwise from the top
+## left.
+func _mug_body() -> PackedVector2Array:
+	var points: PackedVector2Array = PackedVector2Array()
+	points.append_array(_pen.arc_points(Vector2(4.0, 11.0), 1.0, 180.0, 270.0))
+	points.append_array(_pen.arc_points(Vector2(15.0, 11.0), 1.0, 270.0, 360.0))
+	points.append_array(_pen.arc_points(Vector2(12.0, 17.5), 4.0, 0.0, 90.0))
+	points.append_array(_pen.arc_points(Vector2(7.0, 17.5), 4.0, 90.0, 180.0))
+	return points
 
 
 ## A filled speaker with softened corners.

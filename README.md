@@ -2,6 +2,8 @@
 
 A number merge puzzle game for Android, built with Godot 4. Endless mode, boosters paid with score, built in skins, fully offline.
 
+The game itself sends and receives nothing. The one link out is the Buy me a coffee button, which opens a web page in the phone's browser.
+
 ## Engine
 
 - Godot 4.7.2 stable, exact build `4.7.2.stable.official.ed1daf0bf`. Use the standard build, not the .NET build.
@@ -106,19 +108,23 @@ If adb reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, the copy on the phone was s
 ### What the export contains
 
 - The export preset is named `Android` in `export_presets.cfg`: package `com.bartbasi.sumup`, version code 1, version name taken from the project version (0.1), portrait, arm64-v8a and armeabi-v7a, Godot's prebuilt template (Gradle build off), launcher icons from `launcher/`.
-- It requests no Android permissions, in debug and in release builds.
+- It requests no Android permissions, in debug and in release builds. The Buy me a coffee button hands its web address to the phone's browser, which needs no permission in the game, so the preset asks for none.
 - It leaves out `tools/`, `tests/`, `docs/` and every review and sandbox scene.
 - The export turns the four PNGs in `launcher/` into the Android launcher icons. It also packs `launcher/main_192.png` as a plain file, because `project.godot` uses it as the project icon. The other three PNGs are not packed.
 - It adds three text files that are not Godot resources, so the preset's include filter lists them: `COPYING` and `NOTICE`, which the About screen reads, and the font license `src/design/fonts/OFL.txt`, which has to travel with the font.
 - Debug builds are signed with the debug keystore from Godot's Editor Settings. Release signing is not set up for v1. If keystore paths or passwords are ever typed into the preset, Godot keeps them in `.godot/export_credentials.cfg`, which git ignores. Never put them in `export_presets.cfg`.
 
+## Support
+
+SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can [buy me a coffee](https://buymeacoffee.com/playinc). Never expected, always appreciated.
+
 ## License
 
-Copyright 2026 Bart Basi.
+Copyright 2026 Play, Inc.
 
 SumUp is free software under the GNU General Public License, version 3, with two additional terms under section 7 of that license:
 
-- 7(b): every copy and every modified version keeps the attribution "Copyright 2026 Bart Basi" in its About screen.
+- 7(b): every copy and every modified version keeps the attribution "Copyright 2026 Play, Inc." in its About screen.
 - 7(c): a modified version must be marked as changed from the original.
 
 The full license text is in [COPYING](COPYING). The additional terms, in their exact wording, are in [NOTICE](NOTICE). Both ship inside the app and can be read in its About screen.

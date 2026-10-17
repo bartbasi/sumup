@@ -1,6 +1,6 @@
 # SumUp: Game Design Document
 
-Owner: lead-game-designer. Status: approved by Bart at Hard Stop 1 on 2026-10-10. Decisions D-38 to D-43 were added after Hard Stop 1: they write out the three additions Bart made to v1 scope and close two gaps found in the design review. Decisions D-44 to D-46 were added on 2026-10-13 at Bart's request: How to play, stars and free boosters. On 2026-10-14 Bart replaced the main menu with a splash screen (D-47) and How to play with the INFO guide (D-44, rewritten).
+Owner: lead-game-designer. Status: approved by Bart at Hard Stop 1 on 2026-10-10. Decisions D-38 to D-43 were added after Hard Stop 1: they write out the three additions Bart made to v1 scope and close two gaps found in the design review. Decisions D-44 to D-46 were added on 2026-10-13 at Bart's request: How to play, stars and free boosters. On 2026-10-14 Bart replaced the main menu with a splash screen (D-47) and How to play with the INFO guide (D-44, rewritten). On 2026-10-17 Bart changed the copyright line to "Copyright 2026 Play, Inc." and added a Buy me a coffee button to the splash and About (D-47, section 15.5).
 
 This document turns section 3 of docs/BRIEF.md into exact rules. The rules Bart confirmed are copied unchanged in section 4. Every gap the brief leaves open is settled here as a numbered designer decision (D-01, D-02, ...) with its reasoning and worked examples. Every tunable number lives in one table in section 18. Section 19 is the acceptance test list (AT-01, AT-02, ...) that QA walks and developers turn into unit tests. Section 20 lists the test hooks those tests need from the code. Section 21 holds the exact INFO guide text.
 
@@ -58,7 +58,7 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 | D-44 | INFO (replaces How to play, 2026-10-14): one guide of sixteen short sections of fixed text covering every rule the player meets, four with an example row of real tiles in the current skin. It opens only from INFO on the splash or in Pause, and back returns to where it was opened. | 21 |
 | D-45 | Stars: one star for each value that leaves the spawn window for the first time in a run, from the first 2K tile on. The count is worked out from this run's highest tile and never stored, so Hammer, Undo and loading can never add one twice (128K gives 7 stars). A floor rise that removes no tile still earns its star. Every star move shows the clear notice with the stars earned. | 11.5 |
 | D-46 | Free boosters: every 3 stars earn one, with no cap. While one is held, the next booster used is free whatever the score, and other conditions still apply. Cancelling targeting keeps it, Undo never gives one back, unused ones end with the run. The run saves how many were used. | 13.9 |
-| D-47 | Splash screen (replaces the main menu, 2026-10-14): it shows at every launch of the app, with or without a saved run, and from the end of run screen. It holds the Settings gear, Best Score, Best Tile and three buttons: PLAY continues the saved run or starts a new one, INFO opens the guide, ABOUT opens About. Back on it quits. Coming back to an app still running in the background does not show it. | 15.4 |
+| D-47 | Splash screen (replaces the main menu, 2026-10-14): it shows at every launch of the app, with or without a saved run, and from the end of run screen. It holds the Settings gear, Best Score, Best Tile and three buttons: PLAY continues the saved run or starts a new one, INFO opens the guide, ABOUT opens About. Below them sits a small Buy me a coffee button (2026-10-17, section 15.5). Back on it quits. Coming back to an app still running in the background does not show it. | 15.4 |
 
 ### 1.1 Sign-off
 
@@ -71,6 +71,7 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 - On 2026-10-13 Bart approved fixing every QA Phase 6 finding. In this document: AT-57 now uses Board P (QA Q1); the run saves the Best Score when it began, for the New best badge (12.3, 15.1, QA6-03, AT-145); and a move shows only once its save has finished (D-33, 15.1, QA6-06, AT-146).
 - On 2026-10-13 Bart added three more things to v1 scope: a How to play screen (D-44), stars (D-45) and free boosters (D-46). He also added an About screen in Settings. It holds no game rules, so it has no D number; its acceptance tests are AT-140 to AT-142. D-44 to D-46 go to Bart for review through the DM.
 - On 2026-10-14 Bart replaced the main menu with a splash screen that shows every time the app opens, with PLAY, INFO and ABOUT (D-47, section 15.4). It replaces his 2026-10-11 rule that reopening the app with a saved run goes straight back into the run. INFO is one full guide to the game and replaces How to play everywhere, Pause included (D-44 and section 21, rewritten). Every test that started from the main menu or relied on reopening straight into the run now goes through the splash. New tests AT-147 to AT-153. After QA's SPL-01, 15.1 also says which saved copy of the run loads (the last good copy of SEC-02, which Bart approved), with examples LG1 to LG4, and AT-154 tests it. D-44 and D-47 go to Bart for review through the DM, with one point to confirm: "every time the app opens" is read as every launch, not every return from the background (15.4).
+- On 2026-10-17 Bart incorporated as Play, Inc. The attribution in About now reads "Copyright 2026 Play, Inc." exactly (AT-141). "Made by Bart Basi" stays. The same day he added a Buy me a coffee button at the bottom of the splash and a support block with the same button in About (section 15.5). The button hands one fixed https address to the phone's browser; the game itself still sends and receives nothing. It holds no game rules, so it has no new D number; D-47 now lists it. New tests AT-155 to AT-158. The INFO guide (section 21) says nothing about being offline or collecting no data, so it stays accurate as written.
 
 ### 1.2 Decisions highlighted for Hard Stop 1
 
@@ -1164,6 +1165,7 @@ What it holds:
 - The Settings gear, as on the main menu. Settings opens over the splash and closes back to it. Its About row still opens About (About stays reachable from Settings too).
 - Best Score and Best Tile, as on the main menu (records format, D-32). They are the records after the launch check of 15.1.
 - Three buttons, in this order: PLAY, INFO, ABOUT (Bart's names; the casing in each skin follows DESIGN_SYSTEM.md).
+- Below them, at the bottom, a small "Buy me a coffee" button (Bart, 2026-10-17, section 15.5).
 - Nothing else. No New game, no Continue, and nothing about the saved run. PLAY reads the same with or without a saved run.
 
 What each button does:
@@ -1173,6 +1175,7 @@ What each button does:
 | PLAY | Opens the play screen with the saved run exactly as saved (15.1). The move check runs, so the no moves offer opens if the board has no move (GO7). No confirmation. | Starts a new run (D-14) and opens the play screen. No confirmation. |
 | INFO | Opens the INFO guide (D-44, section 21) over the splash. Back or its close control returns to the splash. | Same. |
 | ABOUT | Opens the About screen (DESIGN_SYSTEM.md 7.10 and 7.13) over the splash. Back or its close control returns to the splash. A license view inside About closes back to About first, as now. | Same. |
+| Buy me a coffee | Opens the Buy Me a Coffee page in the phone's browser (section 15.5). The splash stays as it was. | Same. |
 
 Android back:
 
@@ -1182,7 +1185,7 @@ Android back:
 
 Further rules:
 
-- The splash changes nothing. Showing it, opening INFO, About or Settings from it, and quitting from it leave the saved run, the records and the settings exactly as they were. Only PLAY starts or opens a run, and only the Settings controls change settings.
+- The splash changes nothing. Showing it, opening INFO, About or Settings from it, tapping Buy me a coffee, and quitting from it leave the saved run, the records and the settings exactly as they were. Only PLAY starts or opens a run, and only the Settings controls change settings.
 - A new game while a run is saved is started from Pause, as now (D-34, 15.2).
 - After a run ends, no run is saved, so PLAY on the splash starts a new run.
 - At launch the newest copy of the run that passes the checks is used: a valid temp file, then the main file, then the last good copy, which is one save behind (15.1). PLAY continues that run. Only when no copy passes is the run discarded, and then PLAY starts a new run. The player is not told; the records are kept either way.
@@ -1207,6 +1210,55 @@ Worked examples:
 | SP7 | A run is in progress, the player opens Pause, then INFO, then presses back. | INFO closes to Pause. The run stays paused until Resume. |
 | SP8 | The saved run file is damaged, and its last good copy is valid. The player opens the app. | The splash, with the records kept. PLAY continues the run from the last good copy, at most one move behind (15.1, LG1). |
 | SP9 | The saved run file and its last good copy are both damaged, and there is no valid temp file. The player opens the app. | The splash, with the records kept. PLAY starts a new run (LG2). |
+| SP10 | On the splash with a saved run, the player taps Buy me a coffee, looks at the page, then switches back to the game. | The splash as they left it. PLAY opens the run unchanged (section 15.5). |
+
+### 15.5 Buy me a coffee (Bart, 2026-10-17)
+
+Bart's decision (2026-10-17): a small, quiet "Buy me a coffee" button at the bottom of the splash, below Play, Info and About, and a support block with the same button in About. Tapping opens the address in the phone's browser; nothing else in the app touches the network. The GitHub address stays plain text. It holds no game rules, so it has no D number of its own.
+
+Where it is:
+
+- On the splash, at the bottom, below PLAY, INFO and ABOUT (D-47).
+- In About, as a support block: first this text, exactly as Bart chose it, then the same button:
+  "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated."
+- The button reads "Buy me a coffee" in both places. The casing in each skin follows DESIGN_SYSTEM.md, like every other label.
+- The support block never pushes the attribution "Copyright 2026 Play, Inc." out of About's first screenful.
+- Nowhere else: not on the play screen, in Pause, on the out of moves offer, on the end of run screen, in Settings itself or in INFO.
+- It is drawn in every skin, in that skin's style. Its layout and look are DESIGN_SYSTEM.md's.
+
+What a tap does:
+
+- It hands one fixed https address, the Buy Me a Coffee page, to the phone's system, which opens it in the browser. Both buttons use the same address, written once in the code. Nothing is added to it: no run data, no device data, nothing from the player.
+- The game itself still sends and receives nothing. It opens no connection, asks for no Android permission, and waits for no answer.
+- The "github.com/bartbasi/sumup" line in About stays plain text. Tapping it does nothing.
+- If the phone cannot open the address (for example no browser is installed), nothing happens: no message, and the screen stays as it was.
+
+What it does not do:
+
+- It does not start, end or change a run. The board, score, Undo snapshot, stars, free boosters held, Best Score, Best Tile and settings hold exactly the same values before and after.
+- It does not touch the save. Going to the browser is an ordinary switch away from the app, like the home button. The existing rules for that apply and nothing more (6.5, 13.1, 15.1). If they write the run when the app is paused, the values written are the same ones.
+
+Coming back:
+
+- When the player returns to the app, they see the screen they left: the splash, or About with whatever it was opened over (the splash, or Settings from the splash or from Pause).
+- If the system ended the app while the browser was open, the return is a launch, so the splash shows (D-47) and PLAY continues the saved run.
+
+Reasoning:
+
+- Bart asked for the button and the wording, so the GDD only pins down what a developer would otherwise guess: that it is one fixed address, that it changes nothing in the game, and what the player sees on return.
+- Treating the browser as an ordinary app switch reuses rules that are already tested (AT-153), so the button adds no new save path.
+- Doing nothing when no browser exists keeps the screen simple. A message would be new UI text for a case almost no phone hits.
+
+Worked examples:
+
+| # | Situation | What happens |
+|---|---|---|
+| BC1 | First launch, on the splash, no run saved. The player taps Buy me a coffee. | The browser opens the Buy Me a Coffee page. Back in the game: the splash, Best Score 0. PLAY starts a new run. |
+| BC2 | A run at score 12,400 with Undo enabled and 1 free booster held is saved. On the splash, the player taps Buy me a coffee, then returns. | The splash as left. PLAY opens the run at 12,400, Undo enabled with the same cost, every booster reading Free. |
+| BC3 | During a run, the player opens Pause, Settings, About, scrolls to the support block, taps the button, then returns. | About, still over Settings over Pause. Back three times returns to the paused run, unchanged. |
+| BC4 | Same as BC2, but the system ended the app while the browser was open. | The return is a launch: the splash. PLAY opens the run at 12,400 as saved. |
+| BC5 | In About, the player taps the "github.com/bartbasi/sumup" line. | Nothing happens. No browser opens. |
+| BC6 | A phone with no browser. The player taps Buy me a coffee on the splash. | Nothing happens, no message. The splash stays. |
 
 ## 16. Click sound triggers (D-36)
 
@@ -1805,11 +1857,12 @@ Play setups that need stars or free boosters can use a run file written by hand 
 **AT-140. About opens from Settings and back closes it.** Type: Play. Setup: Settings open, once from the splash and once from Pause. (About also opens straight from the splash: AT-151.) Action: tap About, press Android back; tap About again, use its own close control. Then open About, open a license row, press back; open the row again and use the license view's close control. Expected: About opens from Settings. Back and the close control each return to Settings, which is still open. A second back closes Settings as before. From a license view, back and its close control each return to About. It works in every skin.
 
 **AT-141. About shows what it is and who made it.** Type: Both. Setup: none. Action: open About in each skin, and compare it with the Settings version line. Expected (copy from DESIGN_SYSTEM.md 7.10 and 7.13):
-- The brand block shows the wordmark "SumUp", "Version {version}", "Made by Bart Basi" and "Copyright 2026 Bart Basi".
+- The brand block shows the wordmark "SumUp", "Version {version}", "Made by Bart Basi" and "Copyright 2026 Play, Inc.".
 - The version is the same as on the Settings version line. When no version is set, both leave it out.
-- "Copyright 2026 Bart Basi" reads exactly so in every skin, never cased (Slate included), and is visible in the first screenful without scrolling.
+- "Copyright 2026 Play, Inc." reads exactly so in every skin, never cased (Slate included), and is visible in the first screenful without scrolling.
 - The sections "What it is", "Offline, no data" and "Licenses" follow, with their copy. The second says the game works fully offline and collects no data. The Licenses section ends in three rows: SumUp, Godot Engine and Outfit font.
-- Unit (TH22): the About text contains "Copyright 2026 Bart Basi" exactly, and its version equals the project's version setting.
+- About also holds the support block and its Buy me a coffee button (section 15.5, AT-155 and AT-156).
+- Unit (TH22): the About text contains "Copyright 2026 Play, Inc." exactly, does not contain "Copyright 2026 Bart Basi", and its version equals the project's version setting.
 
 **AT-142. Every license can be read in full.** Type: Both. Setup: none. Action: from About, open each license row in turn: "SumUp license", "Godot Engine" and "Outfit font". Scroll each from its first line to its last. Expected:
 - Unit: each view's text equals its sources with whitespace normalized, in both the view and the source:
@@ -1919,7 +1972,33 @@ Expected:
 - (b) Same setup, but the last good copy is cut off part way too. Load the run. It returns no run, both damaged copies are deleted, and the profile is untouched. In the App, PLAY starts a new run.
 - (c) Same setup as (a), plus a valid temp file holding state B. Load the run. It returns state B: the temp wins.
 
-### 19.16 Coverage
+### 19.16 Added on 2026-10-17: Buy me a coffee and the copyright line (section 15.5)
+
+The attribution itself is tested in AT-141 (now "Copyright 2026 Play, Inc.") and the NOTICE text in AT-142.
+
+**AT-155. The button is on the splash and in About, in every skin.** Type: Play. Setup: 360 x 640 dp and 360 x 720 dp portrait screens. Action: for each skin (Gumdrop, Slate, Nova), select it in Settings, go to the splash, then open About from the splash and from Settings, and scroll About to the end. Expected:
+- The splash shows PLAY, INFO and ABOUT in that order, then a "Buy me a coffee" button below them at the bottom. It is fully visible without scrolling and not clipped.
+- About shows the support block with its "Buy me a coffee" button, whether opened from the splash or from Settings.
+- "Copyright 2026 Play, Inc." is still in About's first screenful without scrolling.
+- The button appears nowhere else: not on the play screen, in Pause, on the out of moves offer, on the end of run screen, in Settings itself or in INFO.
+- The button is drawn in the current skin's style in every case.
+
+**AT-156. The About support text is exact.** Type: Both. Setup: none. Action: open About in each skin and read the support block. Expected:
+- The text reads exactly: "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated."
+- The button follows the text, in the same block.
+- Unit (TH22): the About text contains that sentence group exactly, character for character as written above. The "github.com/bartbasi/sumup" line is plain text with no link.
+
+**AT-157. Both buttons hand off one fixed https address and nothing else.** Type: Both. Setup: (Unit) the splash and About built with the hand off captured (TH24), so no browser opens. (Play) a phone with a browser. Action: (Unit) tap the splash button, then the About button, then each three times more. (Play) tap each button, then tap the GitHub line in About. Expected:
+- Unit: every tap makes exactly one hand off. Every hand off carries the same address, it starts with "https://", and it equals the one address constant in the code. No other network call is made, and the app asks for no permission.
+- Play: each button opens the Buy Me a Coffee page in the browser. The GitHub line opens nothing.
+- With no browser able to open it (Unit: the capture reports failure), nothing changes on screen and no message shows.
+
+**AT-158. Coming back from the browser leaves the run and the save untouched.** Type: Both. Setup: a run in progress right after a chain, with score 12,400, Undo enabled, at least 3 stars and 1 free booster held. Note the board, score, records, run highest tile, stars, free boosters held, Undo cost, skin and sound setting. Close the app fully and reopen it, so the splash shows. Copy the save files aside. Action, in turn: (a) on the splash, tap Buy me a coffee, wait on the page 10 seconds, return to the app from recent apps. (b) Tap ABOUT, tap its button, return the same way. (c) Tap PLAY, open Pause, Settings, About, tap its button, return. (d) As (a), but end the app from recent apps while the browser is open, then open it again. Expected:
+- (a) The splash as it was left. (b) About, still over the splash. (c) About, still over Settings over Pause. Back three times returns to the paused run. (d) The splash, as at any launch (D-47).
+- In every case, PLAY or Resume shows the run exactly as noted: same board, score, records, run highest tile, stars, free boosters held (every booster reads Free) and Undo cost. Undo gives the board from before the last chain. Skin and sound are unchanged.
+- Unit (TH18): the run and profile read from the save after each case are equal, field by field, to the ones read from the copies set aside.
+
+### 19.17 Coverage
 
 | Decision or rule | Tests |
 |---|---|
@@ -1969,8 +2048,9 @@ Expected:
 | D-44 INFO guide (replaced How to play on 2026-10-14) | AT-112 to AT-116, AT-151, AT-153 |
 | D-45 Stars | AT-75, AT-117 to AT-126, AT-138 |
 | D-46 Free boosters | AT-43, AT-75, AT-84, AT-127 to AT-139, AT-143, AT-144 |
-| D-47 Splash screen | AT-44, AT-54, AT-95, AT-112, AT-147 to AT-154 |
-| About screen (no D number) | AT-140 to AT-142, AT-151 |
+| D-47 Splash screen | AT-44, AT-54, AT-95, AT-112, AT-147 to AT-155, AT-157, AT-158 |
+| About screen (no D number) | AT-140 to AT-142, AT-151, AT-155 to AT-158 |
+| Buy me a coffee (no D number, section 15.5) | AT-155 to AT-158 |
 | Confirmed: chain rules | AT-06 to AT-16 |
 | Confirmed: merge and after merge | AT-17, AT-26, AT-29 to AT-31 |
 | Confirmed: score, Best Score and Best Tile kept separately | AT-39 to AT-44 |
@@ -1985,6 +2065,7 @@ Expected:
 | QA Phase 6 fixes (Bart, 2026-10-13) | AT-57, AT-145, AT-146 |
 | 2026-10-14 splash and INFO (Bart) | AT-112 to AT-116, AT-147 to AT-153 |
 | Last good copy of the run (SEC-02, QA SPL-01) | AT-95, AT-154 |
+| 2026-10-17 copyright line and Buy me a coffee (Bart) | AT-141, AT-142, AT-155 to AT-158 |
 
 ## 20. Test hooks the acceptance tests need
 
@@ -2035,8 +2116,9 @@ For the contract in docs/ARCHITECTURE.md. The rules model (core and boosters) mu
 | TH19 | Hit test: finger position and tile pitch give a tile or none. | board | AT-21 |
 | TH20 | A count of click requests made to the audio service. | audio | AT-98 |
 | TH21 | Read the INFO content the screen shows: screen title, section titles, texts, example rows and result tiles. | ui | AT-116 |
-| TH22 | Read the About screen's text and each license text it shows. | ui | AT-141, AT-142 |
+| TH22 | Read the About screen's text and each license text it shows. | ui | AT-141, AT-142, AT-156 |
 | TH23 | Hold back the save writer and release it, and read whether the board view has started showing the last move. | save, ui | AT-146 |
+| TH24 | Capture the address each Buy me a coffee button hands to the system instead of opening a browser, count the hand offs, and make the hand off report failure. | ui | AT-157 |
 
 ## 21. INFO guide (D-44)
 

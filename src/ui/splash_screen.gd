@@ -12,9 +12,13 @@ class_name SplashScreen extends Control
 ## - the records, space_l above the buttons: Best score with the number, then
 ##   Best tile with a mini tile once there is one;
 ## - Play (primary) full width less board_margin each side, space_s, then Info
-##   and About (secondary) side by side, on the bottom of the safe area.
-## The free height between the settings button and the records splits 2 to 3
-## above and below the brand block. Should it ever run out, the sum row's
+##   and About (secondary) side by side;
+## - space_xs, then the Buy me a coffee button (coffee_button.gd), its touch
+##   area on the bottom of the safe area: centered in the column (Slate: its
+##   content starts on the content's left edge). It hands the one address to
+##   the system on a tap and changes nothing else.
+## The free height between the settings button and the records splits 1 to 1
+## above and below the brand block (2026-10-17, was 2 to 3). Should it ever run out, the sum row's
 ## tiles shrink, never below 112 px, and the wordmark follows them.
 ##
 ## The entrance (play_entrance) is decoration and never blocks input: the
@@ -35,6 +39,7 @@ signal settings_chosen()
 
 const UiParts: GDScript = preload("res://src/ui/ui_parts.gd")
 const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
+const CoffeeButton: GDScript = preload("res://src/ui/coffee_button.gd")
 
 ## DESIGN_SYSTEM.md 7.9: the sum row's tiles, the smallest they may shrink
 ## to, and its arrow.
@@ -46,10 +51,11 @@ const SUM_VALUES: Array[int] = [2, 2, 4, 8]
 const SUM_RESULT: int = 16
 ## Side of the Best tile mini tile in the record rows (DESIGN_SYSTEM.md 7.9).
 const MINI_TILE: float = 72.0
-## DESIGN_SYSTEM.md 7.2: the free height splits 2 to 3 above and below the
-## brand block, so the brand sits near the upper golden section.
-const SPLIT_ABOVE_BRAND: float = 2.0
-const SPLIT_BELOW_BRAND: float = 3.0
+## DESIGN_SYSTEM.md 7.2: the free height splits 1 to 1 above and below the
+## brand block (2026-10-17), which keeps the brand where it was before the
+## coffee row took its height.
+const SPLIT_ABOVE_BRAND: float = 1.0
+const SPLIT_BELOW_BRAND: float = 1.0
 
 ## Where the entrance is: at rest, the brand coming in before the spawn, or
 ## the tiles spawning.
@@ -71,6 +77,7 @@ var _settings_button: BaseButton = null
 var _play: Button = null
 var _info: Button = null
 var _about: Button = null
+var _coffee: Control = null
 var _best_score: Label = null
 var _entrance: Entrance = Entrance.REST
 var _entrance_tween: Tween = null
@@ -150,6 +157,13 @@ func setup(skin: SkinData, records: Records) -> void:
 	_about = _button(skin, &"SecondaryButton", Copy.ABOUT, "About", about_chosen)
 	_about.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pair.add_child(_about)
+	_layout_root.add_child(UiParts.spacer(skin.num(&"space_xs")))
+	var coffee_margin: MarginContainer = _margins(_layout_root, margin)
+	_coffee = CoffeeButton.new()
+	_coffee.call(&"setup", skin)
+	_coffee.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if UiParts.align_start(skin) else Control.SIZE_SHRINK_CENTER
+	coffee_margin.add_child(_coffee)
+	_coffee.resized.connect(_update_clear_rects)
 	_layout()
 
 
@@ -199,6 +213,11 @@ func best_score_text() -> String:
 ## The brand block's global rect, for layout checks.
 func brand_rect() -> Rect2:
 	return _brand_slot.get_global_rect() if _brand_slot != null else Rect2()
+
+
+## The Buy me a coffee button. For tests.
+func coffee_button() -> Control:
+	return _coffee
 
 
 ## The parts of the brand block. For tests.
@@ -276,13 +295,14 @@ func _brand_height() -> float:
 
 
 ## The splash's content height with no free space: the settings row, the
-## brand block, the records, space_l and the buttons. Worked out from the
+## brand block, the records, space_l, the buttons and the coffee row. Worked out from the
 ## tokens, so it holds before the containers have sorted.
 func _content_height(brand_height: float) -> float:
 	var rows: int = 2 if _records != null and _records.best_tile > 0 else 1
 	var records: float = float(rows) * _skin.num(&"row_height") + float(rows - 1) * _skin.num(&"hairline")
 	var buttons: float = 2.0 * _skin.num(&"button_height") + _skin.num(&"space_s")
-	return _skin.num(&"touch_min") + brand_height + records + _skin.num(&"space_l") + buttons
+	var coffee: float = _skin.num(&"space_xs") + _skin.num(&"touch_min")
+	return _skin.num(&"touch_min") + brand_height + records + _skin.num(&"space_l") + buttons + coffee
 
 
 ## The brand block fills its slot's width; its own boxes center it (Slate:
@@ -376,11 +396,14 @@ func _fit_best_score(width: float) -> void:
 
 
 ## Keeps the backdrop's decoration clear of the settings button, the brand
-## block (its resting rect), the records and the three buttons.
+## block (its resting rect), the records, the three buttons and the coffee
+## button with the reach of its pressed fill.
 func _update_clear_rects() -> void:
 	if _backdrop == null or _brand_slot == null or not is_inside_tree():
 		return
-	var clear: Array[Rect2] = [_brand_slot.get_global_rect(), _records_box.get_global_rect(), _play.get_global_rect(), _info.get_global_rect(), _about.get_global_rect(), _settings_button.get_global_rect()]
+	var reach: float = _skin.num(&"space_s")
+	var coffee: Rect2 = _coffee.get_global_rect().grow_individual(reach, 0.0, reach, 0.0)
+	var clear: Array[Rect2] = [_brand_slot.get_global_rect(), _records_box.get_global_rect(), _play.get_global_rect(), _info.get_global_rect(), _about.get_global_rect(), coffee, _settings_button.get_global_rect()]
 	_backdrop.set_clear_rects(clear)
 
 

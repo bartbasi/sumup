@@ -123,6 +123,16 @@ func _record(icon_name: StringName) -> void:
 			_pen.line(Vector2(5.0, 12.0), Vector2(19.5, 12.0), w)
 			_pen.chevron(Vector2(19.5, 12.0), 0.0, 4.0, 4.0, w)
 			_pen.disc(Vector2(2.5, 12.0), _spark)
+		&"coffee":
+			# An open cup with light rising from it: a U body, a handle arc,
+			# one steam stroke and a spark.
+			var cup: PackedVector2Array = PackedVector2Array([Vector2(5.5, 10.0)])
+			cup.append_array(_pen.arc_points(Vector2(10.5, 15.5), 5.0, 180.0, 0.0))
+			cup.append(Vector2(15.5, 10.0))
+			_pen.polyline(cup, w)
+			_pen.arc(Vector2(15.5, 13.5), 2.75, -90.0, 90.0, w)
+			_pen.line(Vector2(9.0, 7.5), Vector2(9.0, 4.5), w)
+			_pen.disc(Vector2(12.5, 5.0), _spark)
 
 
 ## A point on the circle of radius round the grid center.

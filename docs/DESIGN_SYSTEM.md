@@ -1,6 +1,6 @@
 # SumUp Design System
 
-Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5). The 2026-10-14 splash screen, the Info guide that replaces How to play, and the source code line on About are specified in place too; section 11 lists where.
+Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5). The 2026-10-14 splash screen, the Info guide that replaces How to play, and the source code line on About are specified in place too; section 11 lists where. The 2026-10-17 copyright line ("Copyright 2026 Play, Inc.") and the Buy me a coffee button are specified in place too; section 13 lists where.
 
 This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the SkinData resources (src/skins/<id>/<id>.tres) from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
 
@@ -37,6 +37,8 @@ If this document and a token file or a SkinData resource disagree, this document
 9. Launcher icon
 10. The 2026-10-13 additions
 11. The 2026-10-14 splash screen and Info
+12. The 2026-10-15 color cycle
+13. The 2026-10-17 copyright line and Buy me a coffee
 
 ---
 
@@ -266,7 +268,7 @@ Why: small tile clearing (GDD D-38) keeps the values from the window floor H / 5
 | label_fit | widest label, fraction of the tile side |
 | display_fit_min | smallest size a score of up to 13 characters may shrink to (a longer score goes below it, see 2.6) |
 
-**Names keep their capitals.** A case rule never touches the wordmark "SumUp", a person's name, or a product or license name: "Made by Bart Basi" and "Copyright 2026 Bart Basi" sit in the body role (as written in every skin), and where a name sits in a lowercase label role (Nova's About rows) it is shown as written. Capitals (Slate) keep every letter and may apply.
+**Names keep their capitals.** A case rule never touches the wordmark "SumUp", a person's or company's name, or a product or license name: "Made by Bart Basi" and "Copyright 2026 Play, Inc." sit in the body role (as written in every skin), and where a name sits in a lowercase label role (Nova's About rows) it is shown as written. Capitals (Slate) keep every letter and may apply.
 
 Outfit is a variable font: weights are set on its `wght` axis by integer tag (the string key "wght" is ignored in Godot 4.7). The system font is a SystemFont asking for Roboto, then Segoe UI, then sans-serif. Phones then use Roboto and Windows uses Segoe UI; plain sans-serif alone gives Arial on Windows.
 
@@ -456,6 +458,15 @@ Closest pairs (ramp check, every value from 2 to 2^62 with the color cycle): nei
 
 The additions also use these existing pairs: the star pill count (ink on surface), the free pill, the notice's "+n" and star (badge_ink on badge), headings and reading text on section cards (ink and ink_muted on surface), license text and the About brand block on the backdrop (ink and ink_muted on bg), pressed rows (ink and ink_muted on surface_raised), the arrow and chevron (ink_muted on surface or bg).
 
+The 2026-10-17 Buy me a coffee button (7.2, 7.13) needs no new pair. Its label and cup icon are ink_muted, on:
+
+| Where | Pair | Ratio |
+|---|---|---|
+| Splash, at rest | ink_muted on bg | 11.20 |
+| Splash, pressed | ink_muted on surface_raised | 7.32 |
+| About, on the section card, at rest | ink_muted on surface | 9.36 |
+| About, on the section card, pressed | ink_muted on surface_raised | 7.32 |
+
 ### 4.4 Type (Outfit)
 
 | Role | Size | Weight | Tracking | Case |
@@ -612,11 +623,16 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 
 **Icons**
 - Chunky candy pictograms: strokes `icon_stroke` on a 24 unit grid, round caps and joins, filled where it helps.
-- Set: hammer, swap, shuffle, double (x2 drawn as strokes), undo, pause, settings, sound on, sound off, close, check, and since 2026-10-13 star, chevron and arrow.
+- Set: hammer, swap, shuffle, double (x2 drawn as strokes), undo, pause, settings, sound on, sound off, close, check, since 2026-10-13 star, chevron and arrow, and since 2026-10-17 coffee.
 - *Star:* five points, one up. Center (12, 12.9), outer radius 11, inner radius 0.50 of the outer: a plump candy star. Points rounded with a 1.8 unit radius, valleys with 1.0. The filled star is the icon; the counter draws its outline band, 2.5 units wide, plus the progress fill (counter star above).
 - *Chevron* (rows that open a screen): (9.5, 6) to (15.5, 12) to (9.5, 18), `icon_stroke`, round caps and join.
 - *Arrow* (Info example rows and the splash's sum row): a shaft (4, 12) to (15, 12), `icon_stroke`, round caps, and a filled head with its tip at (21, 12) and its back corners at (14.5, 6.5) and (14.5, 17.5), all three corners rounded by 1 unit (the rounded tip ends near 20.5). The shaft's round cap ends inside the head. Approved as built (2026-10-13 review).
-- Colors: ink normally, ink_dark on accent, disabled_ink when disabled. The chevron and arrow draw in ink_muted.
+- *Coffee* (the Buy me a coffee button, 7.2 and 7.13, 2026-10-17): a candy mug, filled like the star.
+  - Body: a filled shape from x 3 to 16, top edge y 10, bottom edge y 21.5, straight upright sides; top corners rounded by 1 unit, bottom corners by 4.
+  - Handle: an arc, `icon_stroke`, round caps, center (16, 15.5), radius 3.25, from straight up round the right to straight down (-90 to 90 degrees), so both ends tuck into the body's right edge.
+  - Steam: two strokes, `icon_stroke`, round caps, (7.5, 4) to (7.5, 6.5) and (11.5, 4) to (11.5, 6.5), centered over the body, their caps 1.75 units clear of its top.
+  - It spans about x 3 to 21 and y 2.25 to 21.5.
+- Colors: ink normally, ink_dark on accent, disabled_ink when disabled. The chevron, arrow and coffee draw in ink_muted.
 - Reference: docs/design/additions/gumdrop-icons.png (the star empty, a third, two thirds and full, at 216 px, the counter size and the cost size; the chevron and arrow).
 
 **Sound toggle**
@@ -713,6 +729,13 @@ Closest pairs (ramp check, every value from 2 to 2^62 with the color cycle): nei
 | Free cost and its star, pressed column | accent on surface | 5.55 |
 
 The additions also use these existing pairs: the counter star, the free count, the Free cost and the wordmark "Up" (accent on bg), the counter's "STARS" caption and count, headings and reading text (ink_muted and ink on bg), the counter's paper flash (ink on bg), the notice's "+n" and star (badge_ink on badge), the disabled Free cost (disabled_ink on bg), pressed rows (ink and ink_muted on surface).
+
+The 2026-10-17 Buy me a coffee button (7.2, 7.13) needs no new pair. Its label and cup icon are ink_muted, on:
+
+| Where | Pair | Ratio |
+|---|---|---|
+| Splash and About, at rest | ink_muted on bg | 7.91 |
+| Splash and About, pressed | ink_muted on surface | 7.05 |
 
 The disabled pair also covers disabled buttons and chips: they have no fill, so their text sits on bg. A disabled control never sits on surface or surface_raised (disabled_ink reaches only 4.40 and 3.97 there).
 
@@ -869,7 +892,12 @@ A committed chain settles in about 0.45 s.
 - *Star:* five points, one up, sharp: center (12, 12.9), outer radius 11, inner radius 0.42 of the outer, no rounding. The filled star is the icon (a data mark, so it may fill like the chain nodes); the counter draws its outline band, 2 units wide with mitered points, plus the progress fill.
 - *Chevron:* (9, 5) to (16, 12) to (9, 19), `icon_stroke`, square caps, mitered.
 - *Arrow:* a shaft (3, 12) to (20, 12) and a chevron head (15, 7) to (20, 12) to (15, 17), `icon_stroke`, square caps.
-- The chevron and arrow draw in ink_muted.
+- *Coffee* (2026-10-17): a straight sided cup, no fill, every stroke `icon_stroke`, square caps, mitered corners.
+  - Rim: (2, 10) to (17, 10).
+  - Body: (4, 10) to (4, 21) to (15, 21) to (15, 10).
+  - Handle: (15, 12.5) to (20, 12.5) to (20, 17.5) to (15, 17.5).
+  - Steam: (7.5, 3.5) to (7.5, 7) and (11.5, 3.5) to (11.5, 7).
+- The chevron, arrow and coffee draw in ink_muted.
 - Reference: docs/design/additions/slate-icons.png.
 
 **Sound toggle (fixes "does not show whether it is on")**
@@ -972,6 +1000,14 @@ Closest pairs (ramp check, every value from 2 to 2^62 with the color cycle): nei
 | Wordmark "Sum" where the glow reaches it, same worst case | ink on the glow | 8.42 |
 
 The 2026-10-13 additions need no new pair. They use: the counter star, the free count, the Free cost and the wordmark "Up" (accent on bg_glow), the star count and reading text (ink_muted on bg_glow), headings, the About brand block and license text (ink on bg_glow), the notice's "+n" and star (badge_ink on badge), the disabled Free cost (disabled_ink on bg_glow), pressed rows (ink and ink_muted on surface_raised), the About row in Settings (ink and ink_muted on surface).
+
+The 2026-10-17 Buy me a coffee button (7.2, 7.13) needs no new pair. Its label and cup icon are ink_muted, on:
+
+| Where | Pair | Ratio |
+|---|---|---|
+| Splash and About, at rest, on the darkest backdrop (the splash's bottom on a phone) | ink_muted on bg | 9.93 |
+| Splash and About, at rest, on the lightest backdrop (the glow reaches the splash's bottom on a wide screen) | ink_muted on bg_glow | 8.33 |
+| Splash and About, pressed | ink_muted on surface_raised | 7.35 |
 
 Disabled buttons and chips have no fill (a faint ring), so their text sits on whatever is under them: the backdrop (bg, bg_glow) or a sheet (surface). A disabled control never sits on surface_raised (disabled_ink reaches only 4.38 there).
 
@@ -1132,8 +1168,12 @@ A committed chain settles in about 0.65 s; the bloom fades after.
 - *Star:* five points, one up, slender: center (12, 12.9), outer radius 11, inner radius 0.40 of the outer, points rounded 0.5 units, valleys 0.3. The filled star is the icon; the counter draws its outline band, `icon_stroke` wide, plus the progress fill. Not fitted to `icon_fit`: the star fills its box like a glyph.
 - *Chevron:* (10, 6.5) to (15.5, 12) to (10, 17.5), round caps and join.
 - *Arrow:* a shaft (5, 12) to (19.5, 12), a chevron head (15.5, 8) to (19.5, 12) to (15.5, 16), round caps, and a spark dot (`icon_spark`) at (2.5, 12), like a tail of light.
-- The chevron and the arrow are fitted to `icon_fit` like every Nova icon; only the star fills its box (approved as built, 2026-10-13 review).
-- The chevron and arrow draw in ink_muted.
+- *Coffee* (2026-10-17): an open cup with light rising from it, round caps and joins.
+  - Body: one stroke from (5.5, 10) down to (5.5, 15.5), round the bottom on an arc of radius 5 centered at (10.5, 15.5) (lowest point (10.5, 20.5)), and up from (15.5, 15.5) to (15.5, 10). The top stays open.
+  - Handle: an arc centered at (15.5, 13.5), radius 2.75, from straight up round the right to straight down (-90 to 90 degrees).
+  - Steam: one stroke (9, 7.5) to (9, 4.5), and a spark dot (`icon_spark`) at (12.5, 5), like the arrow's tail of light.
+- The chevron, the arrow and the coffee are fitted to `icon_fit` like every Nova icon; only the star fills its box (approved as built, 2026-10-13 review).
+- The chevron, arrow and coffee draw in ink_muted.
 - Reference: docs/design/additions/nova-icons.png.
 
 **Sound toggle**
@@ -1197,15 +1237,24 @@ The splash replaces the main menu. It shows every time the app opens, and after 
 4. The buttons:
    - **Play** (primary), the full width less `board_margin` each side, `button_height` tall;
    - `space_s`;
-   - **Info** and **About** (secondary) side by side in one row, sharing that width with `space_s` between them, each `button_height` tall. This row sits on the bottom of the safe area.
+   - **Info** and **About** (secondary) side by side in one row, sharing that width with `space_s` between them, each `button_height` tall.
    - Play is the one big target, with the two look-up screens under it in the thumb zone. Each half is about 490 px wide (163 dp at 20:9), far above `touch_min`. Slate left aligns the text in all three, as every Slate button (section 7, Alignment).
+5. `space_xs`, then the **Buy me a coffee** button (2026-10-17, below), whose `touch_min` tall touch area sits on the bottom of the safe area. It is centered in the column (Slate: its content starts on the content's left edge, under the text of Info). It shows and takes input from the first frame, like the other buttons, and the entrance does not move it.
 
-The free height between the settings button's touch area and the records still splits 2 to 3 above and below the brand block, so the brand sits near the upper golden section. Worked out at 1080 x 2400 with a 120 / 66 px safe area, the brand block's center lands at about 37% of the screen height (Gumdrop; the others within a point), inside the 35 to 42% of the 2026-10-13 screens review. The build is measured against that range. The band under the sum row is meant to be the larger one (3 parts against 2, about 520 px at 1080 x 2400): the brand floats high and the records and buttons sit as one group in the thumb zone. It is not filled with anything; on 16:9 phones it shrinks to about 300 px (2026-10-14 review, as built). The backdrop's clear rects cover the brand block, the records, the three buttons and the settings button.
+The free height between the settings button's touch area and the records splits **1 to 1** above and below the brand block (2026-10-17; it was 2 to 3). The coffee row takes 172 px (168 in Slate) out of the free height. Kept at 2 to 3, that would lift the brand block's center to 33.4 to 33.9% of the screen height once a best tile exists, below the 35 to 42% of the 2026-10-13 screens review. At 1 to 1 it stays where Bart approved it on his phone. Worked out from the built splash's own content height at 1080 x 2400 with a 120 / 66 px safe area:
+
+| Skin | Center before (2 to 3, no coffee row), best tile shown | After (1 to 1, coffee row), best tile shown | After, no best tile yet |
+|---|---|---|---|
+| Gumdrop | 36.7% | 36.5% | 39.5% |
+| Slate | 36.4% | 36.3% | 39.1% |
+| Nova | 36.3% | 36.1% | 39.0% |
+
+The build is measured against the 35 to 42% range. The two bands are now equal (about 310 to 325 px each at 1080 x 2400 with a best tile): the brand still floats high and the records and buttons still sit as one group in the thumb zone. The bands are not filled with anything. The backdrop's clear rects cover the brand block, the records, the three buttons, the coffee button and the settings button.
 
 **Fit on every screen (2.4, 2.8).**
 - *Width:* the canvas is never narrower than 1080 px (a narrower phone, such as the Fold5 cover screen, makes it taller instead), so the content inside the margins is at least 1008 px (Gumdrop) or 992 px (Slate, Nova), and the sum row (902 to 951 px) always fits at its full size. On the Fold5 inner screen and on 16:9 phones the column is wider, and the brand keeps its phone size, centered (Slate: on the column's left margin).
-- *Height:* the splash content is about 1,450 to 1,600 px tall, and the shortest supported safe area (16:9 with a 48 dp button bar) is about 2,130 px, so about 500 px stay free for the two spacers. The Fold5 cover screen is taller than 20:9 and has more room.
-- *Fallback:* should the free height ever reach zero (a phone outside the 2.4 list), the sum row's tile side shrinks, never below 112 px, and the wordmark follows it, since it is fitted to the row. The records and the buttons never shrink.
+- *Height:* with the coffee row the splash content is about 1,420 to 1,590 px tall (worked out from the built splash: 1,569 to 1,589 px with a best tile), and the shortest supported safe area (16:9 with a 48 dp button bar) is about 2,130 px, so about 540 px stay free for the two spacers. The Fold5 cover screen is taller than 20:9 and has more room.
+- *Fallback:* should the free height ever reach zero (a phone outside the 2.4 list), the sum row's tile side shrinks, never below 112 px, and the wordmark follows it, since it is fitted to the row. The records, the buttons and the coffee button never shrink, and the content height the fallback works from counts the coffee row (`space_xs` plus `touch_min`).
 
 **The sum row.** The Info chain row (7.12) at a larger size: one line, everything vertically centered on it:
 1. The chain 2, 2, 4, 8, drawn by the skin's own board view as a one row board, all four cells chained in order, no preview and no highlight (`SkinCatalog.make_board_view(skin)`, `setup(skin, 4, 1)`, `set_board`, `set_chain(cells, Vector2(-1, -1))`). So it shows the skin's real chained look and chain line: Gumdrop's rope in its little tray, Slate's ruled line with nodes and label plates, Nova's beam. Tiles 144 px (7.9): width 4 x 144 + 3 x `board_gap` + 2 x `board_padding` (Nova: 4 x 144 / `orb_scale`), height its `preferred_height(width)`.
@@ -1239,7 +1288,16 @@ Measured with the built board views: the row is 948 px wide in Gumdrop (tray 660
 
 That ends near 0.76 s in Gumdrop, 0.38 s in Slate and 1.04 s in Nova. It is decoration: the records and the three buttons show and take input from the first frame, and a tap on Play during it leaves at once (the entrance stops with the splash). The backdrop's clear rects use the brand block's final rect, not its moving one.
 
-**Copy.** Bart's PLAY, INFO and ABOUT, cased like every other button: the copy is "Play", "Info" and "About", set in the body role, which is as written in every skin. Slate sets capitals only in its label and heading roles (5.4), so its buttons read "Play" like its "New game" and "Resume", and Nova's read "Play", not lowercase. The same holds for Info in Pause and Home on the end of run screen.
+**Copy.** Bart's PLAY, INFO and ABOUT, cased like every other button: the copy is "Play", "Info" and "About", set in the body role, which is as written in every skin. Slate sets capitals only in its label and heading roles (5.4), so its buttons read "Play" like its "New game" and "Resume", and Nova's read "Play", not lowercase. The same holds for Info in Pause and Home on the end of run screen, and for "Buy me a coffee" (body role, as written in every skin: never "BUY ME A COFFEE" in Slate, never "buy me a coffee" in Nova).
+
+**The Buy me a coffee button (2026-10-17).** One quiet button, the same on the splash and in About (7.13). It must never compete with Play: no face, no outline, no accent, no lip, no glow, a muted label, and only as wide as its content.
+- *Content, on one line, vertically centered:* the coffee icon (4.7, 5.7, 6.7) in a square box the body role's font size (46 px Gumdrop, 44 Slate, 44 Nova), centered on the label's cap middle; a gap of 0.25 of that font size (12, 11, 11 px); then "Buy me a coffee" in the body role, ink_muted (the Theme's MutedLabel). Icon and label are both ink_muted. Content width measured: 388 px (Gumdrop), 374 (Slate, Segoe UI), 363 (Nova).
+- *Touch area:* `touch_min` (160 px) tall, and as wide as the content plus `space_s` on each side, so far wider than `touch_min`. The whole area is the target.
+- *Look:* the Theme's RowButton look (7.11), the same as a row that opens a screen. At rest nothing is drawn behind it. Pressed, it fills behind its content, reaching `space_s` past it on both sides, over the whole touch height: surface_raised with `radius_chip` corners (Gumdrop, Nova) or surface with square corners (Slate). No scale, no lip, no bounce: it stays quieter than the buttons above it. Focus: the skin's focus look, as RowButton.
+- *Never disabled.* No chevron: it does not open a screen in the game.
+- *Tap:* the tap rule of a row that opens a screen (7.11): finger down and up on it, moving less than the 24 px deadzone, with no scroll in between. In About's scroll area a drag that starts on it scrolls the page. On the splash there is nothing to scroll, and the same rule holds.
+- *What a tap does* (GDD 15.5): it hands one fixed https address, written once in the code, to the phone's system, which opens it in the browser. The address is never shown on screen. If the phone cannot open it, nothing happens and no message shows (GDD BC6). Every tap hands it off exactly once.
+- *Its pairs* are listed per skin (4.3, 5.3, 6.3). None is new.
 
 Android back on the splash quits after saving, as it did on the main menu.
 
@@ -1330,6 +1388,7 @@ These numbers are the same in every skin and are not tokens. The components hold
 | Wordmark: Nova glow | alpha 0.25; Up's box grown by 0.30 of the size | 7.2 |
 | Wordmark: Nova star | box 0.18, gap 0.03, drawn width added 0.21 of the size; center on the cap top, 0.70 of the size above the baseline | 7.2 |
 | Star in the notice and in a Free cost | box = the text role's font size; gap 0.25 of it | 4.7 |
+| Coffee icon in the Buy me a coffee button | box = the body role's font size; gap 0.25 of it before the label | 7.2 |
 | Reading screen scroll deadzone | 24 px (8 dp, Android's touch slop) | 7.11 |
 | Scroll indicator, shortest | 96 px | 7.11 |
 
@@ -1357,17 +1416,20 @@ These numbers are the same in every skin and are not tokens. The components hold
 | Info | screen title "Info"; the sixteen section titles and texts are GDD 21.2 (IN1 to IN16), word for word |
 | About, source code line | "Source code: github.com/bartbasi/sumup" (plain text, not a link; never cased) |
 | About, header | "About" |
-| About, brand block | "SumUp"; "Version {version}" from `application/config/version` (the line is left out when no version is set); "Made by Bart Basi"; "Copyright 2026 Bart Basi" (exactly, never cased) |
+| About, brand block | "SumUp"; "Version {version}" from `application/config/version` (the line is left out when no version is set); "Made by Bart Basi"; "Copyright 2026 Play, Inc." (exactly, with the comma and the period, never cased; 2026-10-17, was "Copyright 2026 Bart Basi") |
 | About, section "What it is" | "SumUp is a number merge puzzle. Join touching tiles of the same number into bigger ones and see how high you can go." |
-| About, section "Offline, no data" | "SumUp works fully offline. It collects no data, has no ads or accounts and asks for no permissions." |
+| About, section "Offline, no data" | "SumUp works fully offline. It collects no data, has no ads or accounts and asks for no permissions. The Buy me a coffee button only opens a web page in your phone's browser, and the game itself sends nothing." (the last sentence added 2026-10-17) |
 | About, section "Licenses" | "SumUp is free software: you can share and change it under the GNU General Public License, version 3, with two additional terms. Every copy keeps the attribution above, and changed versions are marked as changed. SumUp comes with no warranty." |
 | About, license rows (title, detail) | "SumUp", "GNU GPL version 3, two added terms"; "Godot Engine", "MIT license and its parts"; "Outfit font", "SIL Open Font License 1.1" |
 | License views, titles | "SumUp license", "Godot Engine", "Outfit font" |
 | License views, headings | SumUp: "Notice", "GNU General Public License". Godot: "Godot Engine license", "Third party parts", "License texts". Outfit: none |
 | Godot parts | each copyright line as "Copyright {line}"; each license as "License: {name}" |
+| **2026-10-17 Buy me a coffee** | |
+| Splash and About button | "Buy me a coffee" (body role, as written in every skin) |
+| About, section "Supporting SumUp" | heading "Supporting SumUp"; text, Bart's wording, exactly: "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated." |
 | License view, a file that cannot be read (missing, or not itself) | "This text could not be read in this copy of SumUp. Installing the game again should bring it back." In the reading role, in place of that file's paragraphs; the headings around it stay (approved as built, 2026-10-13 review) |
 
-The About and license wording covers the legal notices the GPL asks for (a copyright notice, no warranty, that the user may share it under the license, and how to read the license). Bart approved it as written on 2026-10-13.
+The About and license wording covers the legal notices the GPL asks for (a copyright notice, no warranty, that the user may share it under the license, and how to read the license). Bart approved it as written on 2026-10-13. On 2026-10-17 the attribution became "Copyright 2026 Play, Inc." (Bart), the support section was added with Bart's own text, and the "Offline, no data" section gained its last sentence (asked for by the DM; the sentence and the heading "Supporting SumUp" wait for Bart's look at the build).
 
 ### 7.11 Reading screens (Info, About, license texts)
 
@@ -1448,10 +1510,16 @@ Info replaces How to play everywhere: one full guide to the game, in the reading
 ### 7.13 About
 
 - Opened by **About** on the splash (7.2) or by the About row in Settings. Title "About". It shows (GDD AT-141): what the game is, the version, who made it, that it is offline and collects no data, the attribution, and the licenses.
-- **Brand block**, on the backdrop in every skin (no card even in Gumdrop: it is the screen's masthead, like the splash's): the wordmark (7.2), drawn in the skin's style (Gumdrop's lip and step, Nova's glow and star) at the display role's size, not fitted; "Version 0.1" in the label role, ink_muted; `space_m`; "Made by Bart Basi" and "Copyright 2026 Bart Basi", each in the body role, ink; then the source code line (below). The whole block is left aligned at the content's left edge in every skin, like the sections under it (approved as built, 2026-10-13 review).
-- **Source code line (2026-10-14).** Right under "Copyright 2026 Bart Basi", `space_m` below it, the last line of the brand block: "Source code: github.com/bartbasi/sumup" in the body role, ink_muted, left aligned like the rest of the block, in every skin. Plain text: no underline, no accent, no touch, not a link (the game has no network). Never cased, so Slate never sets the address in capitals and Nova never lowers "Source". On one line it measures 866 px (Gumdrop), 830 (Slate, Segoe UI) and 801 (Nova), inside the 1008 and 992 px text width, so it fits a 1080 px canvas. If it ever wraps, it breaks only at the space after "Source code:", never inside the address. Its pair is listed in every skin (ink_muted on bg; Nova on bg_glow). Nothing else in 7.10's approved About wording changes.
-- **The attribution's weight.** "Copyright 2026 Bart Basi" is a license term (NOTICE, term 1), so it is set like a statement, not like fine print: the body role in ink, the same weight as "Made by Bart Basi", never muted, never in a label role, never cased, never truncated. It sits in the first screenful on every supported phone (about 700 px down a 2400 px screen) and needs no scrolling to find.
-- Then three sections (7.11): "What it is", "Offline, no data" and "Licenses" with the copy of 7.10. The Licenses section ends in three rows that open a screen (7.11), one per license, each with its title and detail line (7.10), split by dividers.
+- **Brand block**, on the backdrop in every skin (no card even in Gumdrop: it is the screen's masthead, like the splash's): the wordmark (7.2), drawn in the skin's style (Gumdrop's lip and step, Nova's glow and star) at the display role's size, not fitted; "Version 0.1" in the label role, ink_muted; `space_m`; "Made by Bart Basi" and "Copyright 2026 Play, Inc.", each in the body role, ink; then the source code line (below). The whole block is left aligned at the content's left edge in every skin, like the sections under it (approved as built, 2026-10-13 review).
+- **Source code line (2026-10-14).** Right under "Copyright 2026 Play, Inc.", `space_m` below it, the last line of the brand block: "Source code: github.com/bartbasi/sumup" in the body role, ink_muted, left aligned like the rest of the block, in every skin. Plain text: no underline, no accent, no touch, not a link (the game has no network). Never cased, so Slate never sets the address in capitals and Nova never lowers "Source". On one line it measures 866 px (Gumdrop), 830 (Slate, Segoe UI) and 801 (Nova), inside the 1008 and 992 px text width, so it fits a 1080 px canvas. If it ever wraps, it breaks only at the space after "Source code:", never inside the address. Its pair is listed in every skin (ink_muted on bg; Nova on bg_glow). Nothing else in 7.10's approved About wording changes.
+- **The attribution (2026-10-17: "Copyright 2026 Play, Inc.", exactly, with the comma and the period).** Measured on one line in the body role it is 525 px (Gumdrop), 493 (Slate, Segoe UI) and 486 (Nova), a few px narrower than the old "Copyright 2026 Bart Basi" (532, 495, 491) and far inside the 1008 and 992 px text width at 1080 px, so it stays on one line in every skin. Never cased: "Play, Inc." keeps its capitals in every skin (3.4).
+- **The attribution's weight.** "Copyright 2026 Play, Inc." is a license term (NOTICE, term 1), so it is set like a statement, not like fine print: the body role in ink, the same weight as "Made by Bart Basi", never muted, never in a label role, never cased, never truncated. It sits in the first screenful on every supported phone (about 700 px down a 2400 px screen) and needs no scrolling to find.
+- Then four sections (7.11): "What it is", "Offline, no data", "Supporting SumUp" (2026-10-17) and "Licenses", with the copy of 7.10. The Licenses section ends in three rows that open a screen (7.11), one per license, each with its title and detail line (7.10), split by dividers.
+- **The support section (2026-10-17).** "Supporting SumUp" is an ordinary 7.11 section in each skin (Gumdrop's card, Slate's ruled section, Nova's open section), with nothing to set it apart: no accent, no badge, no icon by the heading, no larger type. It reads like the sections round it, a calm note rather than a pitch.
+  - *Place:* after "Offline, no data" and before "Licenses". That keeps it below the brand block and the attribution, which stay in the first screenful exactly as before, and above the license rows and texts. It follows the sentence that says the button only opens the browser, so the two read together.
+  - *Inside, top to bottom:* the heading (heading role, ink; Slate in capitals, "SUPPORTING SUMUP", as every Slate heading: 3.4 lets Slate's capitals apply to a name); `space_xs`; Bart's text in the reading role, ink_muted, with `reading_line_spacing`, word for word (7.10), never cased; `space_xs`; the Buy me a coffee button (7.2). The button's touch area adds about 50 px of its own room above and below its label, so the gap the eye sees from the text to the label is about 60 px.
+  - *Alignment:* left aligned in every skin, like every section. The icon's left edge sits on the text's left edge; the pressed fill reaches `space_s` past it into the card's padding (Gumdrop, 36 px) or the page margin (Slate and Nova, 44 px), so it never touches the screen edge or the card edge.
+  - Its pairs are listed per skin (4.3, 5.3, 6.3): Gumdrop's label sits on the section card (ink_muted on surface), Slate's and Nova's on the backdrop.
 - *Slate:* the brand block counts as its first section, so a `hairline` divider in line closes it before "What it is", as between its other sections: the masthead ends on a rule, like a magazine page. Approved as built (2026-10-13 review; the mockup shows it too). Gumdrop and Nova put nothing between the brand block and the first section.
 - Reference: docs/design/additions/<skin>-about.png.
 
@@ -1669,3 +1737,29 @@ No new colors and no new text pairs: every tile pair is a ramp pair the contrast
   - Tests: test_skin_api and test_skin_values follow the new fields (tile_cycle against tools/directions/<id>/tokens.gd, the first values of 3.3, the dark rim and the Slate marks on a big slab colored tile).
 - **senior-graphic-designer (tools/):** the token mirror (tile_cycle, beyond_fill and beyond_ink gone), ramp_check over 2 to 2^62 including that the skins' fill_for and ink_for follow the rule, contrast_check over every value up to 2^62, and the review of the build.
 - **Everyone else:** nothing. Every other place that draws a tile reads fill_for and ink_for.
+
+## 13. The 2026-10-17 copyright line and Buy me a coffee
+
+Bart incorporated as Play, Inc., so the attribution in About reads "Copyright 2026 Play, Inc." exactly ("Made by Bart Basi" stays). The same day he added a quiet Buy me a coffee button at the bottom of the splash and a support section with the same button in About (GDD 15.5). No mockup round: Bart reviews the build on his phone.
+
+### 13.1 Where it is specified
+
+| Change | Sections |
+|---|---|
+| The attribution, its width, never cased | 3.4, 7.10, 7.13 |
+| The splash: the coffee row, the 1 to 1 split, fit, clear rects | 7.2 |
+| The Buy me a coffee button: content, touch, look, tap, behavior | 7.2 |
+| The coffee icon in each skin | 4.7, 5.7, 6.7 |
+| Its color pairs (none new) | 4.3, 5.3, 6.3 |
+| Icon box and gap | 7.9 |
+| Copy: the button, the support section, the added "Offline, no data" sentence | 7.10 |
+| About: the support section and its place | 7.13 |
+
+No new tokens, colors, type roles, Theme variations or motion names. The SkinData resources do not change. The button uses the existing RowButton look and MutedLabel, and every pair it needs is already listed and checked by tools/contrast_check.gd.
+
+### 13.2 Who builds what
+
+- **ui-motion-artist (src/design/):** the coffee icon in the three skins (4.7, 5.7, 6.7), added to SkinIcon's ICON_NAMES. Brief: docs/design/briefs/ui-systems-dev-coffee.md, section "For ui-motion-artist".
+- **ui-systems-dev (src/ui/, tests/ui/):** the button on the splash and in About, the support section, the added sentence, the one address constant and its hand off, the attribution text, and the tests. Brief: docs/design/briefs/ui-systems-dev-coffee.md.
+- **tile-board-artist:** nothing.
+- **senior-graphic-designer:** the review of the build.

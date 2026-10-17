@@ -239,7 +239,7 @@ func test_at_151_info_about_and_settings_over_the_splash_return_to_it() -> void:
 		splash.about_chosen.emit()
 		var about: AboutPanel = app.top_panel() as AboutPanel
 		assert_not_null(about, "%s (b): About straight from the splash" % skin_id)
-		assert_true(about.info_text().contains("Copyright 2026 Bart Basi"), "%s (b): the same content" % skin_id)
+		assert_true(about.info_text().contains("Copyright 2026 Play, Inc."), "%s (b): the same content" % skin_id)
 		_back(app)
 		assert_true(app.open_panels().is_empty(), "%s (b): back to the splash" % skin_id)
 		splash.about_chosen.emit()

@@ -4,15 +4,15 @@ extends SkinIcon
 ## changes, so _draw() allocates nothing. Each skin's icon extends this and
 ## gives _record() (the drawing), _look_color() (its colors) and its STAR.
 ##
-## The chevron and the arrow are quiet marks (rows that open a screen, How to
-## play's example rows): in the normal look they draw in ink_muted in every
-## skin (DESIGN_SYSTEM.md 4.7, 5.7, 6.7).
+## The chevron, the arrow and the coffee are quiet marks (rows that open a
+## screen, the Info example rows, the Buy me a coffee button): in the normal
+## look they draw in ink_muted in every skin (DESIGN_SYSTEM.md 4.7, 5.7, 6.7).
 
 const IconPen: GDScript = preload("res://src/design/shared/icon_pen.gd")
 const StarShape: GDScript = preload("res://src/design/shared/star_shape.gd")
 
 ## Icons whose normal look is ink_muted.
-const MUTED_ICONS: Array[StringName] = [&"chevron", &"arrow"]
+const MUTED_ICONS: Array[StringName] = [&"chevron", &"arrow", &"coffee"]
 
 var _skin: SkinData = null
 var _icon: StringName = &""

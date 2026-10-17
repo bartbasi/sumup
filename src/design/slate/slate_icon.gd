@@ -88,6 +88,13 @@ func _record(icon_name: StringName) -> void:
 		&"arrow":
 			_pen.line(Vector2(3.0, 12.0), Vector2(20.0, 12.0), _stroke)
 			_pen.polyline(PackedVector2Array([Vector2(15.0, 7.0), Vector2(20.0, 12.0), Vector2(15.0, 17.0)]), _stroke)
+		&"coffee":
+			# A straight sided cup: rim, body, handle and two steam strokes.
+			_pen.line(Vector2(2.0, 10.0), Vector2(17.0, 10.0), _stroke)
+			_pen.polyline(PackedVector2Array([Vector2(4.0, 10.0), Vector2(4.0, 21.0), Vector2(15.0, 21.0), Vector2(15.0, 10.0)]), _stroke)
+			_pen.polyline(PackedVector2Array([Vector2(15.0, 12.5), Vector2(20.0, 12.5), Vector2(20.0, 17.5), Vector2(15.0, 17.5)]), _stroke)
+			_pen.line(Vector2(7.5, 3.5), Vector2(7.5, 7.0), _stroke)
+			_pen.line(Vector2(11.5, 3.5), Vector2(11.5, 7.0), _stroke)
 
 
 ## One slider track at row y with a square knob centered at knob_x.

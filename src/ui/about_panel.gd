@@ -8,18 +8,23 @@ class_name AboutPanel extends "res://src/ui/reading_screen.gd"
 ##   code line in the body role, ink_muted, plain text and never cased. The
 ##   attribution is a license term: never cased, muted, shrunk or truncated,
 ##   and in the first screenful;
-## - the sections "What it is", "Offline, no data" and "Licenses", the last
-##   ending in three rows that open a license text, split by the divider.
+## - four sections: "What it is", "Offline, no data", "Supporting SumUp"
+##   (Bart's text, then space_xs and the Buy me a coffee button,
+##   coffee_button.gd, its icon's left edge on the text's left edge) and
+##   "Licenses", ending in three rows that open a license text, split by the
+##   divider.
 ## A license row opens that license's text inside this screen
 ## (license_view.gd). Android back closes the text first, then About.
 
 const LicenseTexts: GDScript = preload("res://src/ui/license_texts.gd")
 const LicenseView: GDScript = preload("res://src/ui/license_view.gd")
+const CoffeeButton: GDScript = preload("res://src/ui/coffee_button.gd")
 
 var _license: Control = null
 var _rows: Dictionary[StringName, Control] = {}
 var _copyright: Label = null
 var _source: Label = null
+var _coffee: Control = null
 
 
 func setup(skin: SkinData) -> void:
@@ -29,12 +34,17 @@ func setup(skin: SkinData) -> void:
 		_license = null
 	_frame(skin, Copy.ABOUT)
 	_rows = {}
+	_coffee = null
 	_brand(skin)
 	for index: int in Copy.ABOUT_SECTIONS.size():
 		var section: Dictionary = Copy.ABOUT_SECTIONS[index]
 		var column: VBoxContainer = _add_section()
 		column.add_child(_heading(String(section["title"])))
 		column.add_child(_reading(String(section["text"])))
+		if bool(section.get("coffee", false)):
+			_coffee = CoffeeButton.new()
+			_coffee.call(&"setup", skin)
+			column.add_child(_coffee)
 		if index == Copy.ABOUT_SECTIONS.size() - 1:
 			column.add_child(UiParts.spacer(skin.num(&"space_m") - skin.num(&"space_xs")))
 			_license_rows(column)
@@ -61,6 +71,8 @@ func info_text() -> String:
 	for section: Dictionary in Copy.ABOUT_SECTIONS:
 		lines.append(_skin.cased(&"heading", String(section["title"])))
 		lines.append(String(section["text"]))
+		if bool(section.get("coffee", false)):
+			lines.append(_skin.cased(&"body", Copy.COFFEE))
 	return "\n".join(lines)
 
 
@@ -117,6 +129,11 @@ func license_rows() -> Dictionary[StringName, Control]:
 ## The attribution label. For tests: never cased, in the first screenful.
 func copyright_label() -> Label:
 	return _copyright
+
+
+## The Buy me a coffee button in "Supporting SumUp". For tests.
+func coffee_button() -> Control:
+	return _coffee
 
 
 ## The source code line. For tests: never cased, never a link.

@@ -372,7 +372,7 @@ func test_at_141_about_shows_what_it_is_and_who_made_it() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var panel: AboutPanel = _about(skin_id)
 		var info: String = panel.info_text()
-		assert_true(info.contains("Copyright 2026 Bart Basi"), "%s: the exact attribution" % skin_id)
+		assert_true(info.contains("Copyright 2026 Play, Inc."), "%s: the exact attribution" % skin_id)
 		assert_true(info.begins_with("SumUp"), "%s: the game's name first" % skin_id)
 		assert_true(info.contains("Made by Bart Basi"), "%s: who made it" % skin_id)
 		assert_true(info.contains("works fully offline") and info.contains("collects no data"), "%s: offline and no data" % skin_id)
@@ -381,10 +381,13 @@ func test_at_141_about_shows_what_it_is_and_who_made_it() -> void:
 		assert_true(Copy.version_line().ends_with(version), "the Settings line shows it")
 		assert_true(info.to_lower().contains("version %s" % version), "%s: About shows the same version" % skin_id)
 		var copyright: Label = panel.copyright_label()
-		assert_eq(copyright.text, "Copyright 2026 Bart Basi", "%s: never cased" % skin_id)
+		assert_eq(copyright.text, "Copyright 2026 Play, Inc.", "%s: never cased" % skin_id)
 		assert_eq(copyright.theme_type_variation, &"BodyLabel", "%s: in the body role, never muted" % skin_id)
 		assert_eq(copyright.text_overrun_behavior, TextServer.OVERRUN_NO_TRIMMING, "%s: never truncated" % skin_id)
 		assert_false(copyright.has_theme_font_size_override(&"font_size"), "%s: never shrunk" % skin_id)
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var width: float = skin.font(&"body").get_string_size(copyright.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, skin.font_size(&"body")).x
+		assert_true(width <= 1080.0 - 2.0 * skin.num(&"board_margin") - 2.0 * skin.num(&"space_m"), "%s: the attribution fits one line on a 1080 px canvas (%d px)" % [skin_id, roundi(width)])
 
 
 func test_at_141_attribution_is_in_the_first_screenful() -> void:
@@ -428,7 +431,7 @@ func test_about_source_code_line() -> void:
 		assert_eq(source.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s: plain text, not a link" % skin_id)
 		var width: float = skin.font(&"body").get_string_size(source.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, skin.font_size(&"body")).x
 		assert_true(width <= 1080.0 - 2.0 * skin.num(&"board_margin") - 2.0 * skin.num(&"space_m"), "%s: it fits one line on a 1080 px canvas (%d px)" % [skin_id, roundi(width)])
-		assert_true(panel.info_text().contains("Copyright 2026 Bart Basi
+		assert_true(panel.info_text().contains("Copyright 2026 Play, Inc.
 Source code: github.com/bartbasi/sumup"), "%s: right under the attribution (TH22)" % skin_id)
 
 

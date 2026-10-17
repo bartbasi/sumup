@@ -595,7 +595,7 @@ func _about() -> void:
 	brand.add_child(UiParts.label(_skin, &"CaptionLabel", "Version %s" % version))
 	brand.add_child(Kit.spacer(_skin.num(&"space_m") - _skin.num(&"space_xs")))
 	brand.add_child(UiParts.label(_skin, &"BodyLabel", "Made by Bart Basi"))
-	brand.add_child(UiParts.label(_skin, &"BodyLabel", "Copyright 2026 Bart Basi"))
+	brand.add_child(UiParts.label(_skin, &"BodyLabel", "Copyright 2026 Play, Inc."))
 	_add_section(column, brand_panel)
 	var texts: Array[Array] = [
 		["What it is", "SumUp is a number merge puzzle. Join touching tiles of the same number into bigger ones and see how high you can go."],

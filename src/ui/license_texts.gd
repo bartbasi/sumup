@@ -29,7 +29,7 @@ const _REPLACEMENT_CHAR: int = 0xFFFD
 
 ## What each file must begin with and hold to count as itself.
 const _CHECKS: Dictionary[String, Array] = {
-	NOTICE_PATH: ["SumUp", "Copyright 2026 Bart Basi"],
+	NOTICE_PATH: ["SumUp", "Copyright 2026 Play, Inc."],
 	COPYING_PATH: ["GNU GENERAL PUBLIC LICENSE", "Version 3, 29 June 2007"],
 	OFL_PATH: ["Copyright", "SIL OPEN FONT LICENSE Version 1.1"],
 }

@@ -2,7 +2,10 @@ extends Control
 ## Review page for the production screens, 1080 by 2400, for the
 ## senior-graphic-designer. Each scene in scenes/ui/review/ sets the skin and
 ## the page:
-##   splash      the splash screen with records, at rest
+##   splash      the splash screen with records, at rest; prints the brand
+##               block's center as a share of the screen height and the
+##               coffee button's rect
+##   splash_first  the same with no best tile yet
 ##   play        the play screen mid game
 ##   pause       Pause over the play screen
 ##   settings    Settings over the play screen
@@ -25,6 +28,8 @@ extends Control
 ##               off; prints the longest frame from the tap until the guide
 ##               is built and faded in, then quits (QA SPL-02)
 ##   about       About
+##   about_support  About scrolled to "Offline, no data", so the added
+##               sentence, "Supporting SumUp" and its button show together
 ##   license_game, license_godot, license_outfit
 ##               a license text inside About; prints the time to build it
 ##   license_godot_rules  Godot's text scrolled to the FreeType license, to
@@ -134,10 +139,14 @@ func _ready() -> void:
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 			get_tree().process_frame.connect(_time_info_open)
 			return
-		"splash":
+		"splash", "splash_first":
 			var splash: SplashScreen = SPLASH_SCENE.instantiate() as SplashScreen
 			add_child(splash)
-			splash.setup(_skin, _records())
+			var records: Records = _records()
+			if page == "splash_first":
+				records.best_tile = 0
+			splash.setup(_skin, records)
+			_shown = splash
 		"play":
 			_game(_board(MID_GAME), SCORE, null)
 		"pause":
@@ -154,7 +163,7 @@ func _ready() -> void:
 			_game(_board(NO_MOVES), FINAL_SCORE, null, FREE_RUN_HIGHEST)
 		"info", "info_end", "info_boosters":
 			(_panel(INFO_SCENE) as InfoPanel).setup(_skin)
-		"about":
+		"about", "about_support":
 			(_panel(ABOUT_SCENE) as AboutPanel).setup(_skin)
 		"license_game", "license_godot", "license_outfit", "license_godot_rules":
 			var about: AboutPanel = _panel(ABOUT_SCENE) as AboutPanel
@@ -227,6 +236,13 @@ func _measure() -> void:
 			scroll.scroll_vertical = roundi(scroll.get_v_scroll_bar().max_value)
 		elif page == "info_boosters":
 			_scroll_to_text(reading, _skin.cased(&"heading", "Hammer"))
+		elif page == "about_support":
+			_scroll_to_text(reading, _skin.cased(&"heading", "Offline, no data"))
+	if _shown is SplashScreen:
+		var splash_shown: SplashScreen = _shown as SplashScreen
+		var brand: Rect2 = splash_shown.brand_rect()
+		print("%s: brand block center %.1f%% of the screen height" % [tag, brand.get_center().y / screen.y * 100.0])
+		print("%s: coffee button %s" % [tag, splash_shown.coffee_button().get_global_rect()])
 	if page == "about" and _shown is AboutPanel:
 		var copyright: Rect2 = (_shown as AboutPanel).copyright_label().get_global_rect()
 		print("%s: the attribution ends %.0f px down the screen" % [tag, copyright.end.y])

@@ -20,6 +20,10 @@ extends Control
 ##     the HUD (QA6-04): the notice on the board's top edge and the star
 ##     rising (Slate: only the notice). They draw on a notice layer, as the
 ##     play screen does.
+##   coffee: the 2026-10-17 coffee icon at 216 px in the normal, active and
+##     disabled looks on the fill each look sits on, then at the body font
+##     size next to "Buy me a coffee" in ink_muted, as the button draws it
+##     (DESIGN_SYSTEM.md 7.2), on the page and at twice that size.
 ## Small captions in the skin's CaptionLabel name each sample. Every text,
 ## icon and button rect is kept clear of Nova's star dust.
 ##
@@ -64,6 +68,8 @@ func _ready() -> void:
 			_stars_page()
 		"flight":
 			_flight_page()
+		"coffee":
+			_coffee_page()
 		_:
 			_play_page()
 	# Containers lay out on the next frames; then the text rects are final.
@@ -285,6 +291,65 @@ func _free_statuses(active: int) -> Array[BoosterStatus]:
 	for status: BoosterStatus in statuses:
 		status.free = true
 	return statuses
+
+
+# Coffee page
+
+const FontMetrics: GDScript = preload("res://src/design/shared/font_metrics.gd")
+
+
+func _coffee_page() -> void:
+	_caption("coffee at 216 px: normal, active, disabled")
+	var side: float = 216.0
+	var pad: float = _skin.num(&"space_xs")
+	var cell: float = floorf((CANVAS.x - _margin * 2.0) / 3.0)
+	var looks: Array[int] = [SkinIcon.LOOK_NORMAL, SkinIcon.LOOK_ACTIVE, SkinIcon.LOOK_DISABLED]
+	for l: int in looks.size():
+		var box: Rect2 = Rect2(_margin + cell * float(l) + (cell - side) * 0.5 - pad, _y, side + pad * 2.0, side + pad * 2.0)
+		var fill: Color = _look_fill(looks[l])
+		if fill.a > 0.0:
+			var swatch: ColorRect = ColorRect.new()
+			swatch.color = fill
+			swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_place(swatch, box.position, box.size)
+		var icon: SkinIcon = UiKit.make_icon(_skin)
+		icon.set_icon(&"coffee")
+		icon.set_look(looks[l])
+		_place(icon, box.position + Vector2(pad, pad), Vector2(side, side))
+		_texts.append(icon)
+	_y += side + pad * 2.0 + _gap * 2.0
+	_caption("the button's content at the body font size")
+	_coffee_row(1.0)
+	_y += _gap * 2.0
+	_caption("the same, twice as large, to check the fit")
+	_coffee_row(2.0)
+
+
+## The Buy me a coffee button's content (7.2) at zoom times its size: the
+## icon in a box the body font size, centered on the label's cap middle, a
+## gap of 0.25 of the font size, then the label in MutedLabel.
+func _coffee_row(zoom: float) -> void:
+	var font: Font = _skin.font(&"body")
+	var font_size: int = roundi(float(_skin.font_size(&"body")) * zoom)
+	var box: float = float(font_size)
+	var label: Label = Label.new()
+	label.theme_type_variation = &"MutedLabel"
+	label.text = _skin.cased(&"body", "Buy me a coffee")
+	label.add_theme_font_size_override(&"font_size", font_size)
+	var height: float = font.get_height(font_size)
+	var x: float = _margin
+	if skin_id != &"slate":
+		var width: float = box + box * 0.25 + font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+		x = (CANVAS.x - width) * 0.5
+	var cap_middle: float = _y + font.get_ascent(font_size) - box * FontMetrics.CAP_HEIGHT * 0.5
+	var icon: SkinIcon = UiKit.make_icon(_skin)
+	icon.set_icon(&"coffee")
+	icon.set_color(_skin.color(&"ink_muted"))
+	_place(icon, Vector2(x, cap_middle - box * 0.5), Vector2(box, box))
+	_texts.append(icon)
+	_place(label, Vector2(x + box * 1.25, _y), Vector2(CANVAS.x - x - box * 1.25, height))
+	_texts.append(label)
+	_y += height
 
 
 # Parts page

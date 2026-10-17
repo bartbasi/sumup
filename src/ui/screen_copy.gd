@@ -42,13 +42,19 @@ const INFO: String = "Info"
 const ABOUT: String = "About"
 ## About's source code line (7.13): plain text, not a link, never cased.
 const SOURCE_CODE: String = "Source code: github.com/bartbasi/sumup"
+## The one address the Buy me a coffee buttons hand to the system (GDD 15.5).
+## Written once, never built from anything, never shown on screen.
+const COFFEE_URL: String = "https://buymeacoffee.com/playinc"
+## The Buy me a coffee button (DESIGN_SYSTEM.md 7.2): body role, as written.
+const COFFEE: String = "Buy me a coffee"
 const VERSION: String = "Version %s"
 const MADE_BY: String = "Made by Bart Basi"
 ## A license term (NOTICE, term 1): shown exactly, never cased.
-const COPYRIGHT: String = "Copyright 2026 Bart Basi"
+const COPYRIGHT: String = "Copyright 2026 Play, Inc."
 const ABOUT_SECTIONS: Array[Dictionary] = [
 	{"title": "What it is", "text": "SumUp is a number merge puzzle. Join touching tiles of the same number into bigger ones and see how high you can go."},
-	{"title": "Offline, no data", "text": "SumUp works fully offline. It collects no data, has no ads or accounts and asks for no permissions."},
+	{"title": "Offline, no data", "text": "SumUp works fully offline. It collects no data, has no ads or accounts and asks for no permissions. The Buy me a coffee button only opens a web page in your phone's browser, and the game itself sends nothing."},
+	{"title": "Supporting SumUp", "text": "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated.", "coffee": true},
 	{"title": "Licenses", "text": "SumUp is free software: you can share and change it under the GNU General Public License, version 3, with two additional terms. Every copy keeps the attribution above, and changed versions are marked as changed. SumUp comes with no warranty."},
 ]
 ## The license rows, in order: id, title, detail line.

@@ -18,7 +18,7 @@ const LOOK_DISABLED: int = 2
 const ICON_NAMES: Array[StringName] = [
 	&"hammer", &"swap", &"shuffle", &"double", &"undo", &"pause",
 	&"settings", &"sound_on", &"sound_off", &"close", &"check",
-	&"star", &"chevron", &"arrow",
+	&"star", &"chevron", &"arrow", &"coffee",
 ]
 
 

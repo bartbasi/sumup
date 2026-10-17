@@ -544,7 +544,7 @@ const LOOK_NORMAL: int = 0
 const LOOK_ACTIVE: int = 1
 const LOOK_DISABLED: int = 2
 func setup(skin: SkinData) -> void
-func set_icon(icon_name: StringName) -> void              # names listed in DESIGN_SYSTEM.md; ICON_NAMES gains star, chevron and arrow
+func set_icon(icon_name: StringName) -> void              # names listed in DESIGN_SYSTEM.md; ICON_NAMES gains star, chevron, arrow and coffee (2026-10-17)
 func set_look(look: int) -> void
 func set_color(color: Color) -> void
 

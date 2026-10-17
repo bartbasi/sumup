@@ -75,7 +75,7 @@ src/ui/, scenes/ui/, tests/ui/, and docs/design/review/prod-screens-*.png.
      - the two tone wordmark at the display size, not fitted;
      - "Version {version}" (CaptionLabel), the same version as the Settings line;
      - `space_m`;
-     - "Made by Bart Basi" and "Copyright 2026 Bart Basi", each in BodyLabel.
+     - "Made by Bart Basi" and "Copyright 2026 Play, Inc." (2026-10-17, was "Copyright 2026 Bart Basi"), each in BodyLabel.
    - The attribution is never cased, muted, shrunk or truncated, and must be visible without scrolling.
    - Then the sections "What it is", "Offline, no data" and "Licenses", with the 7.10 copy.
    - The Licenses section ends in three two line RowButtons, split by the Hairline. The detail line is RowDetailLabel: Slate capitals; Nova keeps the names' capitals (3.4).
@@ -110,7 +110,7 @@ src/ui/, scenes/ui/, tests/ui/, and docs/design/review/prod-screens-*.png.
 
 - All tests pass: `godot --headless --path . --script res://tests/run_tests.gd`, with new tests for:
   - TH21 (the How to play content equals GDD 21.2);
-  - TH22 (the About text holds "Copyright 2026 Bart Basi" exactly, and each license text matches its source as above);
+  - TH22 (the About text holds "Copyright 2026 Play, Inc." exactly (2026-10-17), and each license text matches its source as above);
   - back order and row taps (a drag on a row does not open it);
   - the menu, Pause and Settings arrangements.
   Name the tests.
