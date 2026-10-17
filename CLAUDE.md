@@ -14,7 +14,7 @@ SumUp is a number merge puzzle game (same core mechanic as "2248") for Android, 
 - Skins: built in only for v1. No import of any kind.
 - Level goals: not in v1. Keep game rules separate from UI so they can be added later, but build nothing for them.
 - Boosters are paid from the current run's score. Score can never go below zero.
-- Out of scope: level goals, player-made skins, file import, anything online, ads, in-app purchases, iOS, Windows and Linux builds, store listings, release signing keys, Play Console work.
+- Out of scope: level goals, player-made skins, file import, anything online, ads, in-app purchases, iOS, Windows and Linux builds, release signing keys, Play Console work. Store listing material is in scope since 2026-10-17 (see below).
 
 ## Ownership
 
@@ -27,6 +27,8 @@ Each agent edits only what it owns, plus any path its task brief from the DM exp
 | README.md, project.godot, export_presets.cfg, .gitignore, scripts/ (build and install scripts) | platform-dev |
 | docs/GDD.md (rules, balance, acceptance test list) | lead-game-designer |
 | docs/DESIGN_SYSTEM.md, docs/ASSETS.md, docs/design/, tools/, launcher/ (written only by tools/launcher_icon.gd) | senior-graphic-designer |
+| docs/store/ (text: privacy policy, listing) | DM |
+| docs/store/graphics/ | senior-graphic-designer |
 | docs/reviews/qa-*.md | qa-reviewer |
 | docs/reviews/security-*.md | security-reviewer |
 | src/core/, tests/core/ | core-logic-dev |
@@ -64,6 +66,8 @@ Autoload and input map entries in project.godot are added by the DM during integ
 - 2026-10-15: Bart tested the splash build on his Fold5 (splash, Info, About, home and back, swipe away) and approved it fully as built, including the button labels "Play", "Info" and "About" in normal case. SEC-04 and SEC-05 were fixed overnight under the security first rule.
 - 2026-10-17: Copyright. Bart incorporated as Play, Inc. The attribution everywhere (NOTICE, README, About, the 7(b) term) becomes "Copyright 2026 Play, Inc." "Made by Bart Basi" stays in About. Bart signed the copyright assignment to Play, Inc. the same day.
 - 2026-10-17: Buy Me a Coffee, in the app for everyone (Bart accepted the Google Play payments policy risk outside the US after the DM flagged it). A small, quiet "Buy me a coffee" button at the bottom of the splash, below Play, Info and About, and a support block with the same button in About. Tapping opens https://buymeacoffee.com/playinc in the phone's browser; nothing else in the app touches the network. The GitHub address stays plain text. The link also goes in README; the store listing is Bart's. About text (Bart chose this wording): "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated."
+- 2026-10-17: Bart tested the coffee button on his Fold5 ("worked great") and approved the "Supporting SumUp" heading and the added Offline sentence as built.
+- 2026-10-17: Store material, added to scope at Bart's request: a privacy policy page, the Play Store listing text and the store graphics (icon, feature graphic, screenshots), all in docs/store/. The DM writes the text; the senior-graphic-designer makes the graphics in code with tools/. Play Console work itself, release signing and publishing still need Bart's go ahead. The listing waits on a DUNS number for Play, Inc.
 - 2026-10-13: Bart approved the About and license wording in DESIGN_SYSTEM.md 7.10 as written. On his Fold5 cover screen the camera hole does not cover the score (QA's Q2), so nothing changes for it.
 
 ## Rules for every session and agent

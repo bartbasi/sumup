@@ -13,7 +13,12 @@ extends Node
 ##     adaptive_monochrome_432.png  the foreground silhouettes in white, labels
 ##                                  cut out, for Android 13 themed icons
 ## and a review sheet to docs/design/review/launcher-icon-check.png, which git
-## ignores.
+## ignores. It also writes the Google Play store icon (2026-10-17):
+##     docs/store/graphics/icon_512.png  512 by 512, 32 bit RGBA, opaque: the
+##                                  same 72 dp square as main_192.png, full
+##                                  square with no rounded corners and no
+##                                  shadow, since Play adds its own mask
+## The store icon is held back too when the safe circle check fails.
 ##
 ## Every color comes from the Gumdrop SkinData (src/skins/gumdrop/gumdrop.tres)
 ## through SkinCatalog, as do the tile corner radius, the lip darkening, the
@@ -67,6 +72,9 @@ const SUPERSAMPLE: int = 4
 const WAIT_FRAMES: int = 4
 
 const OUTPUT_DIR: String = "res://launcher"
+## The Play store icon: 512 px, the visible 72 dp square, square corners.
+const STORE_ICON_SIZE: int = 512
+const STORE_ICON_PATH: String = "res://docs/store/graphics/icon_512.png"
 const REVIEW_PATH: String = "res://docs/design/review/launcher-icon-check.png"
 
 ## Review sheet colors. Not part of the icon.
@@ -227,7 +235,8 @@ func _run() -> int:
 	var silhouette: PackedFloat32Array = await _render(IconArt.SILHOUETTE, Vector2.ZERO, layer_px, LAYER_SIZE)
 	var labels: PackedFloat32Array = await _render(IconArt.LABELS, Vector2.ZERO, layer_px, LAYER_SIZE)
 	var legacy_front: PackedFloat32Array = await _render(IconArt.COLOR, visible_origin, VISIBLE_SIDE, LEGACY_SIZE)
-	for pixels: PackedFloat32Array in [foreground, silhouette, labels, legacy_front]:
+	var store_front: PackedFloat32Array = await _render(IconArt.COLOR, visible_origin, VISIBLE_SIDE, STORE_ICON_SIZE)
+	for pixels: PackedFloat32Array in [foreground, silhouette, labels, legacy_front, store_front]:
 		if pixels.is_empty():
 			print("launcher icon: FAIL a layer did not render at the expected size")
 			return 1
@@ -259,8 +268,14 @@ func _run() -> int:
 			var path: String = ProjectSettings.globalize_path(OUTPUT_DIR.path_join(file_name))
 			if not _save(files[file_name], path):
 				failed += 1
+		# Opaque, but kept RGBA: Play asks for a 32 bit PNG.
+		var store: PackedFloat32Array = _over(store_front, _background(visible_origin, VISIBLE_SIDE, STORE_ICON_SIZE))
+		var store_path: String = ProjectSettings.globalize_path(STORE_ICON_PATH)
+		DirAccess.make_dir_recursive_absolute(store_path.get_base_dir())
+		if not _save(_to_image(store, STORE_ICON_SIZE, false), store_path):
+			failed += 1
 	else:
-		print("launcher/ left as it was, because the foreground leaves the safe circle")
+		print("launcher/ and the store icon left as they were, because the foreground leaves the safe circle")
 
 	var sheet: Image = _review_sheet(foreground, background, files["main_192.png"], monochrome)
 	var review_path: String = ProjectSettings.globalize_path(REVIEW_PATH)
