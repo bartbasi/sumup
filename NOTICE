@@ -1,33 +1,49 @@
 SumUp
 Copyright 2026 Play, Inc.
 
+Designed and written by Bart Basi, with assistance from Claude.
+
 SumUp is free software: you can redistribute it and/or modify it under the
 terms of the GNU General Public License, version 3, as published by the Free
-Software Foundation, with the additional terms below.
+Software Foundation, with the additional terms below. The full license is in
+the file COPYING.
 
 SumUp is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with
-SumUp, in the file COPYING. If not, see <https://www.gnu.org/licenses/>.
+Source code: https://github.com/bartbasi/sumup
+Feedback: bartbasi@gmail.com
 
 
-Additional terms under section 7 of the GNU General Public License, version 3
+Additional terms (GNU General Public License, version 3, section 7)
 
-These terms are permitted by section 7(b) and section 7(c) of the license.
-They apply to every copy of SumUp and to every modified version of it.
+These terms apply to all of SumUp: its code, shaders, visuals, icons, sounds
+and documents.
 
-1. Attribution (section 7(b)). You must keep the copyright attribution
-   "Copyright 2026 Play, Inc." in the Appropriate Legal Notices shown in the
-   About screen. A modified version, and any work that contains SumUp or a
-   substantial part of it, must show this attribution in its own About
-   screen, or in the place where it shows its Appropriate Legal Notices.
+1. Author attribution (section 7(b)). Any work based on SumUp, in whole or in
+   part, must keep this author attribution, which credits Bart Basi as the
+   creator of the original SumUp and Play, Inc. as its copyright holder:
 
-2. Marking modified versions (section 7(c)). A modified version must be
-   marked in reasonable ways as different from the original. Its About
-   screen must say that it is a modified version of SumUp, and it must not
-   misrepresent the changed material as the original.
+       Based on SumUp, designed and written by Bart Basi, with assistance
+       from Claude. Copyright 2026 Play, Inc.
+
+   (a) in its source code, by keeping this NOTICE file or its full text; and
+   (b) if the work has an interactive user interface, among the Appropriate
+       Legal Notices it displays (for example on an About, Credits or License
+       screen), where its users can readily see it.
+
+2. Marking modified versions (sections 7(c) and 7(d)). A modified version
+   must be marked as changed from the original and must not be presented as
+   the original SumUp. Beyond the attribution in term 1, the names Play, Inc.
+   and Bart Basi may not be used to promote a modified version or to suggest
+   that it was made or endorsed by Play, Inc. or Bart Basi.
+
+3. Name and icon (sections 7(c) and 7(e)). This license grants no rights under
+   trademark law to the name "SumUp" or to the SumUp icon. A modified version
+   you distribute is marked as different from the original by using its own
+   name and icon instead of them. Saying that your work is "based on SumUp"
+   is allowed, and term 1 requires it.
 
 
 Third party parts

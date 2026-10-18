@@ -122,10 +122,11 @@ SumUp is free, with no ads and no tracking, and it always will be. If you'd like
 
 Copyright 2026 Play, Inc.
 
-SumUp is free software under the GNU General Public License, version 3, with two additional terms under section 7 of that license:
+SumUp is free software under the GNU General Public License, version 3, with three additional terms under section 7 of that license. They cover all of SumUp: its code, shaders, visuals, icons, sounds and documents.
 
-- 7(b): every copy and every modified version keeps the attribution "Copyright 2026 Play, Inc." in its About screen.
-- 7(c): a modified version must be marked as changed from the original.
+1. Author attribution, 7(b): any work based on SumUp, in whole or in part, keeps the attribution "Based on SumUp, designed and written by Bart Basi, with assistance from Claude. Copyright 2026 Play, Inc." in its source code (by keeping the NOTICE file or its full text) and, if it has a user interface, among the legal notices it shows, such as an About screen.
+2. Marking modified versions, 7(c) and 7(d): a modified version is marked as changed from the original and is not presented as the original SumUp. Beyond the attribution in term 1, it may not use the names Play, Inc. or Bart Basi to promote it or to suggest that they made or endorsed it.
+3. Name and icon, 7(c) and 7(e): the license grants no trademark rights to the name SumUp or to the SumUp icon. A modified version you distribute uses its own name and icon instead. Saying it is "based on SumUp" is allowed, and term 1 requires it.
 
 The full license text is in [COPYING](COPYING). The additional terms, in their exact wording, are in [NOTICE](NOTICE). Both ship inside the app and can be read in its About screen.
 
