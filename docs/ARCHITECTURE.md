@@ -780,7 +780,7 @@ class_name InfoPanel extends Control                         # D-44, GDD section
 signal closed()
 func setup(skin: SkinData) -> void
 func apply_skin(skin: SkinData) -> void
-## TH21. One Dictionary per section IN1 to IN16, in order: {"title": String, "text": String,
+## TH21. One Dictionary per section IN1 to IN17, in order: {"title": String, "text": String,
 ## "example": PackedInt64Array (the joined tiles, or the one changed tile for a change row; empty for none),
 ## "result": int (0 for none), "row": StringName (&"chain", &"change" or &"" for none),
 ## "icon": StringName (the booster icon name for IN9 to IN13, &"" for none)}.
@@ -908,3 +908,72 @@ Built on the `additions` branch, in `C:\bart\sumup-work`.
    - tile-board-artist: Gumdrop's draw calls for 64K and up (QA6-02), plus any new SkinData tokens;
    - board-input-dev: `set_show_gate` (QA6-06).
 3. **Wave C:** ui-systems-dev wires the HUD, the clear notice change (and its place while the offer is open, QA6-04), the gate, the content column and the new panels (the end of run screen gets no stars row, DESIGN_SYSTEM.md 7.6). Then the design review, then QA and security re-review.
+
+## 17. Unlimited numbers (2026-10-21)
+
+Bart reached the 64 bit score limit in real play, so every chain was refused (CLAUDE.md, 2026-10-21). From now on the score has no 64 bit limit and tiles keep doubling past 2^62. This section overrides every earlier signature and rule it names. Where an earlier line says `int` for a tile value or a score, read it as below. GDD D-31, D-32 and D-37 (rewritten by the lead-game-designer for this change) give the rules; this section gives the types.
+
+### The two rules
+
+1. **Every int that held a tile value now holds the tile's exponent k** (the tile is 2^k). 2 is 1, 1024 is 10, 2^56 is 56. 0 still means "empty" or "none". This applies to boards (`cells`, `cells_before`, `cells_after`, `snapshot_cells`, `spawn_values`), `run_highest`, `highest()`, `merge_result`, `result_value`, `spawn_window`, `window_floor`, `draw_value`, `floor_before`, `floor_after`, `cleared_values`, `notice_values`, `Records.best_tile`, `RunSummary.best_tile` and `run_highest`, `cost_basis` (B), `BoosterStatus.cost`, `preview_value`, `chain_changed`'s preview, every board view and skin method that takes a value (`set_board`, `set_preview`, `play_spawn`, `play_merge`, `play_value_change`, `play_rearrange`, `set_value`, `color_position`, `fill_for`, `ink_for`, `tier_for`), and `show_clear_notice`'s values. Boards stay `PackedInt64Array` so the shapes do not change. Equal values are equal exponents, and "double" is exponent plus 1.
+2. **Every int that held a score, points or a charged amount is now a `BigNum`**: `RunState.score`, `snapshot_points`, `best_at_start` (null means unknown, replacing -1), `Records.best_score`, `MoveResult.points` and `cost` (the amount charged, zero when free), `RunSummary.final_score` and `best_score`, `Hud.set_scores`, `Motion.count_up`'s from and to.
+
+`GameConfig.label_full_max` is now an exponent (10). Nothing else in GameConfig holds a value.
+
+### BigNum (src/core/big_num.gd, core-logic-dev)
+
+A whole number of 0 or more with no fixed limit. Immutable: every operation returns a new BigNum and never changes its inputs.
+
+```gdscript
+class_name BigNum extends RefCounted
+static func zero() -> BigNum
+static func from_int(value: int) -> BigNum          # value 0 or more; push_error and zero() for a negative (a programming error)
+static func pow2(exponent: int) -> BigNum           # 2^exponent, exponent 0 or more
+## Decimal digits only, no sign, no leading zero unless the text is "0", at most max_digits characters. null for anything else.
+static func parse(text: String, max_digits: int) -> BigNum
+func add(other: BigNum) -> BigNum
+func sub(other: BigNum) -> BigNum                   # null when other is larger; callers check affordability first
+func compare(other: BigNum) -> int                  # -1, 0 or 1
+func equals(other: BigNum) -> bool
+func is_zero() -> bool
+func bit_length() -> int                            # 0 for zero; 2^k has bit_length k + 1
+func to_decimal() -> String                         # "0", "41286"
+func fits_int() -> bool                             # 2^63 - 1 or less
+func to_int() -> int                                # only when fits_int(); push_error otherwise
+```
+
+Merge result (D-02) is the exponent `sum.bit_length() - 1`, where the sum is the BigNum sum of `pow2(k)` over the chain. Costs stay powers of two, so a cost is an exponent until it is compared with or taken from the score as `BigNum.pow2(k)`.
+
+### The ceiling (replaces "Overflow" and "One fit test" in section 3)
+
+Kept only so a tampered save cannot hand the game an absurd number. Real play never comes near it (GDD D-37 gives the numbers).
+
+- `GameConfig.max_exponent: int = 65535`: no tile may pass 2^max_exponent.
+- `GameConfig.max_score_bits: int = 65600`: no score may reach 2^max_score_bits.
+- The fit test keeps its shape with these limits: a tile does not join when the chain's merge result would pass `max_exponent`; a pair counts as a move only when its result fits; Double needs a target below `max_exponent`; a chain whose points would take the score to `max_score_bits` is refused. `pair_fits(exponent: int, score: BigNum, config: GameConfig) -> bool` replaces the old one: the pair's result fits under `max_exponent` and the score plus the pair's sum stays below 2^max_score_bits (GDD D-37 "fits"). Joining, the highlight, the commit and the move check all use the score test too; leaving it out is exactly how Bart's run got stuck. Shuffle's fallback measures with the score after Shuffle is paid. Every rule that SEC-01 made agree must still agree.
+
+### NumberFormat (replaces section 4's NumberFormat)
+
+```gdscript
+static func tile_label(exponent: int, config: GameConfig = null) -> String   # D-31: 1024, 2K, 64Q (accepts up to max_exponent + 1, the largest Double cost)
+static func score(value: BigNum) -> String                                    # D-32: 1,234,567 or 9,221,253,119B
+```
+
+### Save (section 10)
+
+The run stays format 2 and the profile format 1, because they already store exponents and digit strings. Only the ranges widen: exponents 1 to `max_exponent` (best_tile 0 to `max_exponent`), digit strings 1 to the number of digits of 2^max_score_bits, parsed with `BigNum.parse`. Every save written by an earlier build, Bart's phone save included, loads unchanged and gives the same game. The 64 bit checks in SaveCodec go. A run file at the ceiling holds about 60 KB of digits, so the file size cap (AT-95 (k)) rises to 256 KB for the run and the profile.
+
+### Order
+
+1. **Wave 1, specs:** lead-game-designer (GDD D-31, D-32, D-37, the letter scheme, acceptance tests) and senior-graphic-designer (DESIGN_SYSTEM: label and score widths, colors past the ramp already walk `tile_cycle`).
+2. **Wave 2:** core-logic-dev (BigNum, exponents through all of src/core/, NumberFormat, tests).
+3. **Wave 3, once core is committed:** boosters-dev, ui-systems-dev (save, records, App, screens), board-input-dev, tile-board-artist, ui-motion-artist (HUD, count_up), each converting its own area.
+4. **Wave 4:** QA and security review, with Bart's real save as a fixture (tests/save/fixtures/, his board at a score of 9,221,253,119,629,040,934 must play a chain).
+
+### Section 17 additions (after core, 2026-10-21)
+
+- The score is a **required** argument (no default) of `can_join`, `step_chain`, `joinable_cells`, `is_valid_chain`, `has_valid_move` and `pair_fits`. Every caller passes the run's current score (`state.score`), so the highlight, the move check and the commit always measure the same thing. Booster and board code must never pass a placeholder.
+- `RunState.create(cells, score: BigNum, snapshot_cells, snapshot_points: BigNum = null, run_highest, columns, free_used, best_at_start: BigNum = null)`. A null snapshot_points means no snapshot points.
+- GameConfig: new `label_letters`, `score_full_max_digits = 10`, `max_exponent`, `max_score_bits`; `label_suffixes` is K, M, B, T, Q. `spawn_top_min`, `spawn_top_divisor`, `cost_basis_min` and `label_step` stay plain values (16, 64, 128, 1024); core reads their exponents.
+- `merge_result` has no ceiling of its own; joining and commit enforce it. `tile_label` of 0 or less is "0".
+- Tests for one area: `godot --headless --path . --script res://tests/run_tests.gd -- --only=boosters` (a comma list works too).

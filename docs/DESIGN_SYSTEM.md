@@ -1,6 +1,6 @@
 # SumUp Design System
 
-Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5). The 2026-10-14 splash screen, the Info guide that replaces How to play, and the source code line on About are specified in place too; section 11 lists where. The 2026-10-17 copyright line ("Copyright 2026 Play, Inc.") and the Buy me a coffee button are specified in place too; section 13 lists where.
+Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5). The 2026-10-14 splash screen, the Info guide that replaces How to play, and the source code line on About are specified in place too; section 11 lists where. The 2026-10-17 copyright line ("Copyright 2026 Play, Inc.") and the Buy me a coffee button are specified in place too; section 13 lists where. The 2026-10-21 unlimited numbers (longer tile labels and scores, colors by exponent up to 2^65535) are specified in place too; section 14 lists where and gives the measurements.
 
 This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the SkinData resources (src/skins/<id>/<id>.tres) from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
 
@@ -11,7 +11,7 @@ How the code reads skins (class names, methods, signals, file layout) is in docs
 ```bash
 godot --headless --path . --script res://tools/contrast_check.gd   # every number on its tile, every text pair: 4.5:1 or better
 godot --headless --path . --script res://tools/ramp_check.gd       # neighboring tile colors look different (section 1.3)
-godot --headless --path . --script res://tools/label_check.gd      # labels fit, digits 12 dp or more
+godot --headless --path . --script res://tools/label_check.gd      # labels and scores fit, digits as large as 14.1 asks
 ```
 
 The Phase 1 token files `tools/directions/<skin>/tokens.gd` still mirror this document for the prototypes, and the skin tests in tests/skins/ prove that every SkinData resource holds exactly those values.
@@ -39,6 +39,7 @@ If this document and a token file or a SkinData resource disagree, this document
 11. The 2026-10-14 splash screen and Info
 12. The 2026-10-15 color cycle
 13. The 2026-10-17 copyright line and Buy me a coffee
+14. The 2026-10-21 unlimited numbers
 
 ---
 
@@ -133,14 +134,24 @@ To get there, Gumdrop's HUD and dock were slimmed (section 8) and Nova's display
 
 ### 2.5 Tile labels (GDD D-31)
 
-- Label rule: the full number up to 1024. From 2048 up, a number from 1 to 512 followed by K, M, B or T in steps of 1024: 2K, 64K, 128K, 1M, 1B, 1T. At most 4 characters up to 2^49.
-- Size: `tile_number_scale[length - 1]` times the tile side (Nova: the orb diameter). The label never grows wider than `label_fit` times the side. If a phone's font renders wider than measured, shrink that label until it fits.
-- Labels are data, not prose: never apply a case rule to them ("2K" never becomes "2k").
-- Costs, the merge preview and Best Tile use the tile label format (D-32). The score is shown in full with commas.
+- Label rule (GDD 14.1, rewritten 2026-10-21): the full number up to 1024. From 2048 up, a number from 1 to 512 followed by a suffix in steps of 1024: K, M, B, T, Q (2K, 64K, 1M, 64Q), then two lowercase letters (1aa, 128aa, 512zz), then three (1aaa, 32kiv). At most 4 characters up to 512Q (2^59), 5 from 128aa (2^67), 6 from 128aaa (2^5827).
+- Size: `tile_number_scale[min(length, 4) - 1]` times the tile side (Nova: the orb diameter), so a 5 or 6 character label starts from the 4 character size. The label never grows wider than `label_fit` times the side: a label that would, shrinks until it fits (SkinData.tile_font_size, unchanged). That shrink is what sizes every label with suffix letters; there is no new token. The sizes it gives, and why they are accepted, are in 14.1.
+- Labels are data, not prose: never apply a case rule to them, in any skin, on a tile or in text ("2K" never becomes "2k", "64aa" never becomes "64AA", not even in Slate's capitals). The same holds for a cost, the merge preview, Best Tile, the highest tile, clear notice values and the letters of a score.
+- Costs, the merge preview, Best Tile and the clear notice values use the tile label format (D-32). The score follows 2.6.
 
 ### 2.6 The score fits
 
-The score must fit 13 characters (GDD 14.2: 9,999,999,999). It is set in the display role. When it is too wide for its slot, its size shrinks until it fits, never below `display_fit_min`. Only a hand edited save can hold a longer score (up to 25 characters, 9,223,372,036,854,775,807). Past 13 characters the score keeps shrinking until it fits its slot, even below `display_fit_min`, and no panel that shows it (end of run screen, out of moves offer) is ever wider than the screen column. Up to 13 characters nothing changes. Counting up (`score_count`) uses the final value's size for the whole count, so the number never jumps in size while it runs.
+The score (GDD 14.2, rewritten 2026-10-21) shows in full with commas up to 10 digits (9,999,999,999, 13 characters). Past that, whole groups of three digits are dropped and a suffix from the tile sequence says how many: 12,345,678K, 9,221,253,119B, 10,000,000aa. So a score has at most 14 characters with one capital, **15 with two lowercase letters** (9,999,999,999zz, the longest normal play reaches) and 16 with three (only from a score of 1,754 digits or more).
+
+- It is set in the display role. When it is too wide for its slot, its size shrinks until it fits, never below `display_fit_min`. `display_fit_min` is now sized for 15 characters: every score of up to 15 characters fits every slot at that size or larger (measured in 14.2). Slate's goes from 96 to 76 for this (5.4).
+- A 16 character score keeps shrinking below `display_fit_min` until it fits, exactly as the longer scores of a hand edited save did before (the QA6-10 rule, kept). No panel that shows a score (end of run, out of moves offer, splash) is ever wider than the content column.
+- Up to 13 characters nothing changes.
+- The Best score number (HUD, splash, end of run, offer) shrinks the same way to fit its place (14.2 lists each). It is in the body role, so it has no `display_fit_min`; Gumdrop's HUD Best pill has a floor of the label role size (4.7).
+- The suffix letters are part of the number: same role, size, color and baseline as the digits, no gap, never cased.
+- **Counting up (`score_count`).** The HUD sizes the score for its final text first, and the count keeps that size throughout, so the number never jumps in size while it runs. What counts:
+  - When the score before and after the chain show the same suffix (or none), the shown digits count from the old shown digits to the new ones on `score_count`, each step formatted with commas and the suffix appended unchanged ("9,221,253,119B" rolls to "9,223,504,919B"). The shown digits are at most 10, so the count is a plain int and never touches the BigNum.
+  - When the suffix changes (9,999,999,999 to 10,000,000K, or B to T), the new text shows at once, with no count. That happens about once in every thousandfold rise of the score, and a roll from "9,999,999,999" to "10,000,000K" would read as the score falling.
+  - The count lands exactly on NumberFormat.score of the final BigNum, as today.
 
 ### 2.7 Touch
 
@@ -222,10 +233,12 @@ Every skin defines every shared name below. Anything else a skin needs is an **e
 | tile_cycle | the ramp positions, in order, that the values above 131072 walk round (the color cycle below) |
 | tile_tier[17], beyond_tier | an integer per value; beyond_tier for every value above 131072; what a tier changes is per skin |
 
-**The color cycle (2026-10-15).** A tile of value 2^k takes the fill and the number color of ramp position p(k):
+**The color cycle (2026-10-15, keyed by exponent since 2026-10-21).** A tile of value 2^k, whose exponent k is what the game now holds (ARCHITECTURE.md 17), takes the fill and the number color of ramp position p(k):
 
 - p(k) = k - 1 for k from 1 to 17 (2 to 131072: the ramp as listed),
-- p(k) = tile_cycle[(k - 18) mod n] for k from 18 to 62, where n is the length of the skin's tile_cycle.
+- p(k) = tile_cycle[(k - 18) mod n] for k from 18 to `max_exponent` (65535), where n is the length of the skin's tile_cycle.
+
+The rule only ever needed k, never the value, so it holds unchanged past 2^62: the cycle keeps going round (Gumdrop about 4,368 times up to 2^65535). tools/ramp_check.gd and tools/contrast_check.gd check every exponent up to `max_exponent` once the skins take exponents (14.3).
 
 So above 131072 the colors start again from the bottom of the ramp and repeat every n doublings. Fill and number always move together as a pair, so every number on every tile is a pair the contrast check already proves, and the cycle adds no new color.
 
@@ -254,7 +267,7 @@ Why: small tile clearing (GDD D-38) keeps the values from the window floor H / 5
 **Color follows the cycle, size follows the value.**
 
 - Everything that takes a tile's colors uses its ramp position p(k): fill, number, Gumdrop's lip, shine and burst dots, Slate's label plate, Nova's rim, rays, sparks, glow tint and beam glow, merge previews, the mini tiles of the clear notice, the Best tile and highest tile rows, the Info rows, and "tile:<value>" color references in text pairs. They all read fill_for and ink_for, so they follow the cycle with no rule of their own.
-- Everything that says how big a tile is goes by the value: the tier (tile_tier up to 131072, beyond_tier above), the special treatment from `special_from`, the label, and Nova's glow size and strength (6.7). So 256K has the colors of 2 but still looks like a big tile: Gumdrop's deep lip, shine and candy rim, Slate's inner frame, Nova's corona.
+- Everything that says how big a tile is goes by the value, that is by k: the tier (tile_tier[k - 1] for k up to 17, beyond_tier above), the special treatment (k at least log2 of `special_from`), the label, and Nova's glow size and strength (6.7; by k from 1 to 17, held at the top above). So 256K has the colors of 2 but still looks like a big tile: Gumdrop's deep lip, shine and candy rim, Slate's inner frame, Nova's corona.
 - Two rules used to pick a color by value and now go by ramp position: Slate's marks on light blocks and its special frame (5.7), and Nova's dark rim on the white hole (6.7).
 
 **Retired:** beyond_fill and beyond_ink are no longer used. They are removed from SkinData, the three skin files and the token mirror. beyond_tier stays.
@@ -264,9 +277,9 @@ Why: small tile clearing (GDD D-38) keeps the values from the window floor H / 5
 | Name | Meaning |
 |---|---|
 | type roles | display (score), title, body (buttons, rows), label (small labels, costs), tile (numbers), heading (section headings on reading screens, 7.11), reading (paragraphs and long text, 7.11). Each has size (px; not for tile), weight (100 to 900), tracking (px between glyphs) and case (none, upper, lower) |
-| tile_number_scale[4] | tile label size as a fraction of the tile side, for 1, 2, 3 and 4 characters |
+| tile_number_scale[4] | tile label size as a fraction of the tile side, for 1, 2, 3 and 4 characters; 5 and 6 characters start from the 4 character size (2.5) |
 | label_fit | widest label, fraction of the tile side |
-| display_fit_min | smallest size a score of up to 13 characters may shrink to (a longer score goes below it, see 2.6) |
+| display_fit_min | smallest size a score of up to 15 characters may shrink to (a 16 character score goes below it, see 2.6) |
 
 **Names keep their capitals.** A case rule never touches the wordmark "SumUp", a person's or company's name, or a product or license name: "Made by Bart Basi" and "Copyright 2026 Play, Inc." sit in the body role (as written in every skin), and where a name sits in a lowercase label role (Nova's About rows) it is shown as written. Capitals (Slate) keep every letter and may apply.
 
@@ -583,7 +596,7 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 - A badge pill, `notice_height` tall, in badge with a badge_lip lip. It is centered horizontally on the board's top edge, overlapping the seam between HUD and board, so it never covers the rows the player works in.
 - Content: a mini tile (`notice_tile_scale` of `notice_height`) of each value the notice names with a `notice_strike` px badge_ink strike line across it, corner to corner from bottom left to top right, then the text in the body role, badge_ink. Padding `space_s` left and right, items `space_xs` apart. In every skin the strike runs the same way.
 - Which values (GDD D-45): every value that left the spawn window in this move, from the floor before the move up to half the new floor, whether or not a tile of it was on the board. The notice shows when the move removed tiles or earned a star; a floor rise that removed nothing and earned nothing shows none.
-- Text: "No more 2s" for one value, "No more 2s or 4s" for two, "No more 2s to 8s" for three or more. Values use the tile label format ("No more 2Ks").
+- Text: "No more 2s" for one value, "No more 2s or 4s" for two, "No more 2s to 8s" for three or more. Values use the tile label format ("No more 2Ks"). A value whose label ends in a lowercase letter takes no plural "s": "No more 64aa", "No more 128aa to 512aa" (7.10).
 - **Stars earned:** when the move earned stars, the copy is followed by `space_s`, then "+1" (the number of stars) in the same role and badge_ink, a gap of 0.25 of the role's font size, then the star icon (filled) in badge_ink, its box the role's font size, centered on the copy's cap middle. The pill widens to fit; its padding stays. The star earned effect leaves from this star.
 - Motion: it springs in (`clear_notice`, from `from_scale`), holds `hold` seconds, fades out over `out` on the `screen_fade` curve (3.6). It never blocks input.
 
@@ -598,7 +611,7 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 - *Star pill:* in the top row, `space_s` right of the pause button's face but never inside the pause button's touch area: with `touch_min` 160 (2.7) it starts at the touch area's right edge, 164 px. Surface with a surface_lip lip, `pill_height` tall, `pill_radius` corners, its face centered on the pause face like the Best pill. Inside, padded `space_s`: the counter star (`star_icon` box, centered on the face), `space_xs`, then this run's star count in the body role, ink, on the Best pill's baseline rule. It shows "0" from the start of a run, which tells a new player that stars exist.
 - *Free pill:* while at least one free booster is held, `space_xs` right of the star pill: badge with a badge_lip lip, `pill_height` tall, `pill_radius` corners, "1 free" (the number held) in the body role, badge_ink, padded `space_s`. It is gone while none is held.
 - *Counter star:* the star icon's outline in badge, filled in badge from the bottom by the progress to the next free booster (count mod 3): nothing at 0, a third of its area at 1, two thirds at 2. On these shapes the fill line sits at 35% and 55% of the star's height above its lowest points (measured: 35.3% and 54.8%). The tile lip is not used here: the pill carries it.
-- *Fit:* at the 1080 px canvas, the star pill spans 164 to 308 px and the free pill ends at 482 px ("1 free"), about 540 px with two digit counts (measured in the mockups). The Best pill starts at 764 px for "Best 96,520" and never left of 622 px (a 13 character best score), so the top row never crowds. The HUD's height does not change, so section 2.4 stands.
+- *Fit:* at the 1080 px canvas, the star pill spans 164 to 308 px and the free pill ends at 482 px ("1 free"), about 540 px with two digit counts (measured in the mockups). The Best pill starts at 764 px for "Best 96,520" and never left of 622 px (a 13 character best score), so the top row never crowds. A 15 character best score (2.6) would start the pill at about 530 px, into the free pill, so the Best number shrinks to fit: the pill's left edge stays at least `space_s` right of the free pill's end (the star pill's end when no free pill shows), its number shrinking from the body size, never below the label role size (34). With two digit star and free counts the worst 15 character best score fits at 40 px (14.2); best scores up to 13 characters keep the body size. The HUD's height does not change, so section 2.4 stands.
 
 **Star earned effect (3.6)**
 - A lemon star (the star icon in badge, filled, on a `target_edge_width` edge in badge_ink, 3.6) appears on the notice's star at `from_scale`, `delay` after the notice starts, and flies `star_earn` to the counter star, growing to full size.
@@ -753,7 +766,7 @@ The disabled pair also covers disabled buttons and chips: they have no fill, so 
 
 Slate's section heading is an editorial kicker, the HUD's "SCORE" caption made bold: small capitals in ink over the paragraph.
 
-`label_fit` 0.78 (was 0.84): 1 minus twice `number_inset`, so the label keeps the same 0.11 margin on the right as on the left and never reaches the special frame at `special_inset` 0.06. Up to 2^49 only 128M, 256M and 512M shrink (to about 93%, digits 12.1 dp on the 59.6 dp tile at 18:9). `display_fit_min` 96. The display and title tracking eased from -6 and -2 to -4 and -1: Roboto sits slightly tighter than the Segoe UI of the Phase 1 renders.
+`label_fit` 0.78 (was 0.84): 1 minus twice `number_inset`, so the label keeps the same 0.11 margin on the right as on the left and never reaches the special frame at `special_inset` 0.06. Up to 2^49 only 128M, 256M and 512M shrink (to about 93%, digits 12.1 dp on the 59.6 dp tile at 18:9). `display_fit_min` 76 (96 until 2026-10-21: a 15 character score beside a 15 character BEST column fits at 79 px, 14.2). The display and title tracking eased from -6 and -2 to -4 and -1: Roboto sits slightly tighter than the Segoe UI of the Phase 1 renders.
 
 ### 5.5 Shape and sizes
 
@@ -1377,7 +1390,7 @@ These numbers are the same in every skin and are not tokens. The components hold
 |---|---|---|
 | Splash sum row tiles (the old menu's decorative tiles were 160) | 144 px side, shrinking to 112 only if a screen has no room | 7.2 |
 | Splash sum row arrow | 72 px icon box | 7.2 |
-| Record row mini tiles (splash and end of run) | 72 px side | 7.2, 7.6 |
+| Record row mini tiles (splash and end of run) | 96 px side (72 until 2026-10-21, 14.1); the rows stay `row_height` tall | 7.2, 7.6 |
 | Skin choice preview tiles | 72 px side | 7.7 |
 | Skin choice swatch padding | 0.22 of the preview tile side | 7.7 |
 | Skin choice swatch hairline edge | 2 px | 7.7 |
@@ -1396,7 +1409,7 @@ These numbers are the same in every skin and are not tokens. The components hold
 
 | Where | Copy |
 |---|---|
-| Clear notice | "No more {v}s" / "No more {a}s or {b}s" / "No more {low}s to {high}s" (Slate in capitals, Nova lowercase) |
+| Clear notice | "No more {v}s" / "No more {a}s or {b}s" / "No more {low}s to {high}s" (Slate in capitals, Nova lowercase, values never cased). The plural "s" follows a value only when its label ends in a digit or a capital: "No more 64Qs", but "No more 64aa" and "No more 128aa to 512aa", because an "s" after a lowercase suffix reads as one more suffix letter ("1as" would read as the label 1as) |
 | Suggested badge | "Suggested" |
 | New best badge | "New best" |
 | Targeting hints | "Tap a tile to smash it" (Hammer), "Tap two tiles to swap them" (Swap), "Tap a tile to double it" (Double) |
@@ -1763,3 +1776,88 @@ No new tokens, colors, type roles, Theme variations or motion names. The SkinDat
 - **ui-systems-dev (src/ui/, tests/ui/):** the button on the splash and in About, the support section, the added sentence, the one address constant and its hand off, the attribution text, and the tests. Brief: docs/design/briefs/ui-systems-dev-coffee.md.
 - **tile-board-artist:** nothing.
 - **senior-graphic-designer:** the review of the build.
+
+## 14. The 2026-10-21 unlimited numbers
+
+Bart reached the 64 bit score limit in real play, so the score now has no fixed size and tiles keep doubling past 2^62, up to a far ceiling of 2^65535 (CLAUDE.md, 2026-10-21; ARCHITECTURE.md 17; GDD D-31, D-32, D-37). Visually that means longer tile labels (up to 5 characters in any real run, 6 near the ceiling), longer scores (15 characters in any real run, 16 near the ceiling) and colors keyed by exponent. Every number below is measured by tools/label_check.gd in each skin's own font, on the 1080 px canvas (the narrowest every phone gets, 2.1) and on each skin's smallest tile of 2.4.
+
+### 14.1 Tile labels
+
+**No new size rule.** Every label is sized by SkinData.tile_font_size as before: the size for its length (5 and 6 characters start from the 4 character size), shrunk until it is no wider than `label_fit` of the side. A smaller suffix (letters drawn below the digit size) was measured and rejected: even at 65% of the digit size it gains only about 2 dp on a 5 character label and still misses 12 dp, too little to pay for a second size on every tile. Raising `label_fit` is not possible either: Gumdrop's lip and corners, Slate's special frame and Nova's orb already set it.
+
+Digit height of the worst label of each kind (the widest suffix letters, "mm" and "mmm"), in dp, on each skin's smallest full spec tile (Gumdrop 56.9, Slate 59.6, Nova 56.3 dp) and smallest 16:9 tile (46.9, 49.3, 48.0 dp):
+
+| Labels | First reached | Gumdrop | Slate | Nova | 16:9: Gumdrop, Slate, Nova |
+|---|---|---|---|---|---|
+| up to 4 characters, no letter or one capital (2 to 512Q) | always | 12.6 | 12.1 | 12.4 | 10.5, 10.3, 10.6 |
+| 3 characters, two letters (1aa) | 2^60 | 14.5 | 13.5 | 13.8 | 12.1, 11.2, 11.7 |
+| 4 characters, two letters (16aa) | 2^64 | 11.9 | 11.0 | 11.0 | 9.8, 9.1, 9.4 |
+| 5 characters, two letters (128aa) | 2^67 | 10.0 | 9.1 | 9.4 | 8.3, 7.7, 8.0 |
+| 4 characters, three letters (1aaa) | 2^5820 | 10.7 | 9.8 | 10.1 | 8.8, 8.2, 8.4 |
+| 5 characters, three letters (16aaa) | 2^5824 | 9.3 | 8.4 | 8.4 | 7.6, 7.0, 7.3 |
+| 6 characters, three letters (128aaa) | 2^5827 | 8.1 | 7.2 | 7.5 | 6.7, 6.1, 6.3 |
+
+Every label of every kind fits inside `label_fit` with no clipping, on both screen shapes, in all three skins.
+
+**The rule the check holds (tools/label_check.gd):**
+- No letter or one capital (every label up to 512Q): digits at least 12 dp on the full spec tile, and the same share of the side on 16:9 (2.4: the same proportions). As before; nothing changes for these labels.
+- Two lowercase letters: digits at least 15% of the tile side on every phone (measured: 15% in Slate, 16% in Nova, 17% in Gumdrop for the worst 5 character label). That is 8.5 dp on a 56 dp tile.
+- Three letters (from 2^5820, years of play past Bart's run): they fit; no size floor.
+
+**This does not meet GDD 14.1 as written for every 4 character label.** GDD A-1 asks for 12 dp on labels of up to 4 characters, and the 4 character labels with letters (16aa to 64zz, 1aaa to 8zzz) reach only 9.8 to 11.9 dp at the worst pair "mm". The letters take the width the digits had. Meeting 12 dp would need a smaller label set or a larger tile, both outside this design. The recommendation, passed to the lead-game-designer through the DM: the 12 dp floor applies to labels with no suffix letters or one capital, which is every label up to 512Q, and labels with lowercase letters follow the 15% rule above. Until that is settled the label check holds the rule above.
+
+**Casing.** Suffix letters are lowercase in every skin, on tiles and in text, Slate's capitals and Nova's lowercase included (2.5). In Slate a value inside capitals reads "NO MORE 128aa TO 512aa"; the lowercase is what tells a letter suffix from a word, so it stays.
+
+**Where else a label shows:**
+
+| Place | Size | 5 character worst case | Decision |
+|---|---|---|---|
+| Record row mini tiles: Best tile on the splash, Best tile and this run's highest tile on the end of run | 96 px (was 72) | digits 5.7 dp (Gumdrop), 4.9 (Slate), 5.4 (Nova) | Grown, so a 5 character record reads as large as a 4 character one did at 72 px. The rows stay `row_height` tall (144 to 148 px), so no layout moves |
+| Merge preview | `preview_scale` of the tile: 79, 105, 91 px | 4.5, 5.6, 4.9 dp | Kept. It is a glance during a drag, its color is the result's, and the result lands on the board at full size a moment later |
+| Clear notice mini tiles | `notice_tile_scale` of `notice_height`: 53, 56, 48 px | 3.1, 3.0, 2.6 dp | Kept. The notice's text names the same values in the body role ("No more 128aa to 512aa"); the mini tiles are color reminders |
+| Info example tiles | 112 px | not reached | The Info rows use fixed small values |
+| Booster costs (label role) | 34, 30, 32 px | widest 6 character cost "256mmm" 152, 150, 150 px | Fits the cost line's room (163, 158, 174 px) at full size; no shrink needed |
+| Out of moves buy button ("Shuffle for 512aa") | body role | at most two characters longer than today's longest ("Shuffle for 512T") | Fits; the button spans the column |
+| Clear notice text | body role | "No more 128aa to 512aa" is no longer than "No more 128Ks to 512Ks" | Fits as today. No plural "s" after a lowercase suffix (7.10) |
+
+### 14.2 Scores
+
+The longest score normal play reaches is 15 characters (10 digits, 3 commas, two letters). Its widest form in each font, "4,444,444,444mm" in Outfit and "1,111,111,111mm" in Segoe UI, fitted as the game fits it, in px:
+
+| Place | Gumdrop | Slate | Nova |
+|---|---|---|---|
+| HUD score: slot | 1008 | 609 (left of a 15 character BEST column) | 776 |
+| HUD score: 13, 15 and 16 characters fit at | 120, 116, 106 | 100, 79, 71 | 121, 95, 86 |
+| `display_fit_min` | 76 | 76 (was 96) | 80 |
+| HUD Best | The pill's number shrinks to fit beside the star and free pills: 40 px at worst, floor 34 (4.7) | BEST column 363 px in the body role, at full size | "best 4,444,444,444mm" 386 px, 259 px free each side for the counter and the free count |
+| End of run score: slot, and 13, 15, 16 characters | 936: 120, 108, 98 | 912: 146, 115, 104 | 904: 141, 111, 101 |
+| Record rows (splash, end of run with the New best badge, offer) | 391 px of 472 | 363 of 459 | 359 of 443 |
+
+So every score of up to 15 characters fits every place at or above `display_fit_min`, and a 16 character score fits by shrinking further (2.6). Record rows keep the body size; their existing fit to the row (QA6-10) stays as the guard. The counting up rule is in 2.6.
+
+### 14.3 Colors and the checks
+
+- Colors are keyed by exponent (3.3) and continue to `max_exponent`. No new color and no new text pair: every tile pair is a ramp pair the contrast check already proves.
+- Tokens that name a tile value keep their written value: `special_from` (65536, 32768, 32768), Nova's `dark_rim_from` (131072), and color references such as "tile:65536" in text pairs. They all lie inside the ramp, so the code compares exponents with their log2 (special when k is at least 16 in Gumdrop and 15 in Slate and Nova; the dark rim on ramp position 16). No .tres value changes for this.
+- tools/number_api.gd lets the three checks follow the change in either order: they detect whether NumberFormat.tile_label and each skin's methods take a value or an exponent. Once both take exponents, the ramp and contrast checks cover every exponent up to `max_exponent`, and the label check every real label from 2^1 to 2^65535.
+
+### 14.4 Where it is specified
+
+| Change | Sections |
+|---|---|
+| The label rule, sizes for 5 and 6 characters, no casing | 2.5, 3.4, 14.1 |
+| The score rule, `display_fit_min` for 15 characters, 16 characters, Best numbers, counting up | 2.6, 3.4, 14.2 |
+| Slate `display_fit_min` 76 | 5.4 |
+| Gumdrop's HUD Best pill fit | 4.7 |
+| Record row mini tiles 96 px | 7.9 |
+| The clear notice's plural | 4.7, 7.10 |
+| Colors by exponent | 3.3, 14.3 |
+
+### 14.5 Who builds what
+
+Brief: docs/design/briefs/unlimited-numbers.md.
+
+- **tile-board-artist (src/skins/, tests/skins/):** the skin methods by exponent (ARCHITECTURE.md 17) with the color rule of 3.3, value tokens compared by exponent (14.3), Slate `display_fit_min` 76, and the tests.
+- **ui-motion-artist (src/design/):** the count up of 2.6, Gumdrop's HUD Best pill fit (4.7), the clear notice plural (7.10), and the HUDs and booster bars on BigNum and exponents.
+- **ui-systems-dev (src/ui/, tests/ui/):** record row mini tiles at 96 px (7.9) on the splash and the end of run.
+- **senior-graphic-designer:** tools/label_check.gd, ramp_check.gd and contrast_check.gd after each wave, and the review of the build.

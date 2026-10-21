@@ -1,7 +1,7 @@
 class_name RunRandom extends RefCounted
 ## The run's one random number generator (GDD 9.5), used for the starting
 ## board, spawns and Shuffle in the order the moves happen, plus every test
-## override (TH5 to TH8).
+## override (TH5 to TH8). Every value it hands out is a tile exponent.
 
 var start_attempts: int = 0             # TH7: attempts the last new_run used
 var shuffle_attempts: int = 0           # TH8: attempts the last Shuffle used

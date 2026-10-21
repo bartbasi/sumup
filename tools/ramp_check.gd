@@ -14,7 +14,9 @@ extends SceneTree
 ##
 ## For every skin in SkinCatalog.IDS this loads the SkinData resource the game
 ## uses (through SkinCatalog.get_skin) and measures the OKLab distance between
-## the fills that rule gives, over every value from 2 to 2^62:
+## the fills that rule gives, over every tile from 2 to 2^62 (after the
+## 2026-10-21 change, every exponent up to GameConfig.max_exponent; see
+## tools/number_api.gd):
 ##   - neighbors (one value and its double) at least 0.17
 ##   - two steps apart (times 4) at least 0.12
 ##   - three steps apart (times 8) at least 0.09
@@ -30,6 +32,7 @@ extends SceneTree
 
 const Directions: GDScript = preload("res://tools/directions/shared/directions.gd")
 const DirectionTokens: GDScript = preload("res://tools/directions/shared/direction_tokens.gd")
+const NumberApi: GDScript = preload("res://tools/number_api.gd")
 
 const MIN_BY_STEP: PackedFloat32Array = [0.17, 0.12, 0.09]
 ## Further apart than three steps, two fills only need to differ visibly.
@@ -37,15 +40,13 @@ const MIN_DIFFERENT: float = 0.02
 ## Values on the board at once, at most (floor H/512 to H plus a long chain).
 const WINDOW: int = 13
 const MIN_AGAINST_BG: float = 0.15
-## Highest power of two a tile can hold (2^62, GDD D-37).
-const MAX_POWER: int = 62
 
 var _checked: int = 0
 var _failed: int = 0
 
 
 func _initialize() -> void:
-	print("Ramp distinctness check, OKLab distance between tile fills, values 2 to 2^%d." % MAX_POWER)
+	print("Ramp distinctness check, OKLab distance between tile fills, from 2 up to each skin's highest tile.")
 	print("Needed: neighbors %.2f, times 4 %.2f, times 8 %.2f, 4 to %d steps apart %.2f, against the background %.2f." % [MIN_BY_STEP[0], MIN_BY_STEP[1], MIN_BY_STEP[2], WINDOW - 1, MIN_DIFFERENT, MIN_AGAINST_BG])
 	for skin_id: StringName in SkinCatalog.IDS:
 		_check(skin_id)
@@ -55,7 +56,7 @@ func _initialize() -> void:
 
 
 static func label(power: int) -> String:
-	return NumberFormat.tile_label(1 << power)
+	return NumberApi.tile_label(power)
 
 
 func _check(skin_id: StringName) -> void:
@@ -71,22 +72,26 @@ func _check(skin_id: StringName) -> void:
 	if tokens == null or tokens.tile_cycle.size() < WINDOW:
 		_record(false, "  %s: the color cycle in tokens.gd is missing or shorter than %d" % [skin_id, WINDOW], true)
 		return
-	print("%s (%s), color cycle %s" % [skin.display_name, skin.resource_path, tokens.tile_cycle])
+	var max_power: int = NumberApi.highest_power(skin)
+	print("%s (%s), color cycle %s, tiles 2 to 2^%d" % [skin.display_name, skin.resource_path, tokens.tile_cycle, max_power])
 	var positions: PackedInt32Array = PackedInt32Array()
-	positions.resize(MAX_POWER + 1)
-	for power: int in range(1, MAX_POWER + 1):
-		positions[power] = tokens.color_position(1 << power)
+	positions.resize(max_power + 1)
+	for power: int in range(1, max_power + 1):
+		positions[power] = NumberApi.rule_position(power, SkinData.RAMP_SIZE, tokens.tile_cycle)
+	# The rule as written here agrees with the token mirror's own lookup.
+	for power: int in range(1, NumberApi.OLD_MAX_POWER + 1):
+		_record(positions[power] == tokens.color_position(1 << power), "  %s: the token mirror gives ramp position %d" % [label(power), tokens.color_position(1 << power)], false)
 	var bg: Vector3 = oklab(skin.color(&"bg"))
 	for i: int in skin.tile_fill.size():
 		var a: Vector3 = oklab(skin.tile_fill[i])
 		_record(a.distance_to(bg) >= MIN_AGAINST_BG, "  %s against the background: %.3f" % [label(i + 1), a.distance_to(bg)], false)
 	var worst: PackedFloat32Array = [INF, INF, INF, INF]
 	var first_wrap: int = SkinData.RAMP_SIZE + tokens.tile_cycle.size()
-	for power: int in range(1, MAX_POWER + 1):
+	for power: int in range(1, max_power + 1):
 		var a: Vector3 = oklab(skin.tile_fill[positions[power]])
 		for step: int in range(1, WINDOW):
 			var other: int = power + step
-			if other > MAX_POWER:
+			if other > max_power:
 				break
 			var distance: float = a.distance_to(oklab(skin.tile_fill[positions[other]]))
 			var needed: float = MIN_BY_STEP[step - 1] if step <= 3 else MIN_DIFFERENT
@@ -98,14 +103,14 @@ func _check(skin_id: StringName) -> void:
 	print("  closest: neighbors %.3f, times 4 %.3f, times 8 %.3f, 4 to %d steps %.3f" % [worst[0], worst[1], worst[2], WINDOW - 1, worst[3]])
 	# The game's own lookups must follow the rule.
 	var off: int = 0
-	for power: int in range(1, MAX_POWER + 1):
+	for power: int in range(1, max_power + 1):
 		var position: int = positions[power]
-		var value: int = 1 << power
+		var value: int = NumberApi.skin_arg(skin, power)
 		var same: bool = skin.fill_for(value) == skin.tile_fill[position] and skin.ink_for(value) == skin.tile_ink[position]
 		_record(same, "  %s: fill_for and ink_for give ramp position %d" % [label(power), position], false)
 		if not same:
 			off += 1
-	print("  fill_for and ink_for follow the rule for %d of %d values" % [MAX_POWER - off, MAX_POWER])
+	print("  fill_for and ink_for follow the rule for %d of %d tiles" % [max_power - off, max_power])
 
 
 ## Counts a check. Shown pairs and failures are printed; the rest only count.

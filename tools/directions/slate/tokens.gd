@@ -108,7 +108,7 @@ func _init() -> void:
 		"board_padding": 0.0,
 		"tile_radius": 0.032,        # fraction of the tile side, 6 px at 190 px
 		"label_fit": 0.78,
-		"display_fit_min": 96.0,
+		"display_fit_min": 76.0,     # 96 until 2026-10-21: a 15 character score fits (DESIGN_SYSTEM.md 14.2)
 		"preview_scale": 0.59,       # preview tile in the header, fraction of the board tile
 		"special_from": 32768.0,
 		"chain_width": 8.0,

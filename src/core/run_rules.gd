@@ -7,7 +7,7 @@ class_name RunRules extends RefCounted
 ## D-14. New run: score 0, no snapshot, records updated from the board. Sets rng.start_attempts.
 ## Draws whole boards from the starting window until one has a valid move, at
 ## most START_BOARD_MAX_ATTEMPTS times. If none has, the last attempt gets the
-## second cell of the bottom row set to the value of the first, so (0,7) and
+## second cell of the bottom row set to the exponent of the first, so (0,7) and
 ## (1,7) match. run_highest starts at the board's highest tile (D-41).
 static func new_run(rng: RunRandom, records: Records, config: GameConfig) -> RunState:
 	var board: PackedInt64Array = PackedInt64Array()
@@ -16,44 +16,44 @@ static func new_run(rng: RunRandom, records: Records, config: GameConfig) -> Run
 	while not found and (attempts == 0 or attempts < config.start_board_max_attempts):
 		board = rng.start_board_attempt(config)
 		attempts += 1
-		found = CoreRules.has_valid_move(board, config)
+		found = CoreRules.has_valid_move(board, BigNum.zero(), config)
 	if not found and board.size() == config.cell_count() and config.columns >= 2:
 		var bottom: int = config.rows - 1
 		var first: int = CoreRules.index_of(Vector2i(0, bottom), config.columns)
 		var second: int = CoreRules.index_of(Vector2i(1, bottom), config.columns)
 		board[second] = board[first]
 	rng.start_attempts = attempts
-	var state: RunState = RunState.create(board, 0, PackedInt64Array(), 0, 0, config.columns)
+	var state: RunState = RunState.create(board, BigNum.zero(), PackedInt64Array(), BigNum.zero(), 0, config.columns)
 	records.update_from(state)
 	return state
 
 
 ## D-09 steps 1 to 7 and the valid move check. Refuses with &"invalid_chain" if the chain breaks any rule (TH10).
-## Also refuses a chain whose sum, or the score after it, would not fit in a
-## signed 64 bit integer, so the score can never wrap below zero. Both use
-## the same fit test as joining and the move check (CoreRules._fits_sum).
+## That includes the fit test (D-37, section 17): a merge result above
+## max_exponent, or points that would take the score to 2^max_score_bits.
+## It is the same test joining, the highlight and the move check use, given
+## the run's score, so a chain the player can drag always commits.
 static func commit_chain(state: RunState, records: Records, chain: Array[Vector2i], rng: RunRandom, config: GameConfig) -> MoveResult:
 	var result: MoveResult = MoveResult.new()
 	result.kind = MoveResult.Kind.CHAIN
 	result.chain = chain.duplicate()
 	result.cells_before = state.cells.duplicate()
 	result.cells_after = state.cells.duplicate()
-	var points: int = -1
-	if _fits(state, config) and CoreRules.is_valid_chain(state.cells, chain, config):
-		points = CoreRules._sum_of(_values_of(state, chain, config))
-	if points < 0 or not CoreRules._fits_sum(state.score, points):
+	if not _fits(state, config) or not CoreRules.is_valid_chain(state.cells, state.score, chain, config):
 		result.refusal = &"invalid_chain"
-		result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
+		result.has_valid_move = CoreRules.has_valid_move(state.cells, state.score, config)
 		return result
 
+	var values: PackedInt64Array = _values_of(state, chain, config)
+	var points: BigNum = CoreRules._points_of(values)
 	var floor_before: int = CoreRules.window_floor(CoreRules.highest(state.cells), config)
 	var last: Vector2i = chain[chain.size() - 1]
-	var value: int = CoreRules.merge_result(_values_of(state, chain, config))
+	var value: int = CoreRules.merge_result(values)
 	# Step 1: the Undo snapshot replaces any older one.
 	state.snapshot_cells = state.cells.duplicate()
 	state.snapshot_points = points
 	# Step 2: the score.
-	state.score += points
+	state.score = state.score.add(points)
 	# Steps 3 and 4: the result on the last cell, the other chain cells emptied.
 	var board: PackedInt64Array = state.cells.duplicate()
 	board[CoreRules.index_of(last, config.columns)] = value
@@ -74,12 +74,12 @@ static func commit_chain(state: RunState, records: Records, chain: Array[Vector2
 	result.result_cell = last
 	result.result_value = value
 	result.cells_after = state.cells.duplicate()
-	result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
+	result.has_valid_move = CoreRules.has_valid_move(state.cells, state.score, config)
 	return result
 
 
 ## D-38. Empties every cell below the new floor and records them in result. Used by commit_chain and by Double.
-## floor_before is the window floor of the board before the move. The new
+## Floors and values are exponents. floor_before is the window floor of the board before the move. The new
 ## floor comes from the board as it is now, after the result is placed or the
 ## tile doubled. Only a floor that went up clears anything. Records
 ## floor_before, floor_after and the notice values (D-45: every value that
@@ -158,10 +158,10 @@ static func update_records(state: RunState, records: Records, result: MoveResult
 		state.run_highest = top
 	result.stars_earned = CoreRules.stars(state.run_highest, rules) - stars_before
 	result.free_earned = CoreRules.free_earned(state.run_highest, rules) - free_before
-	var old_score: int = records.best_score
+	var old_score: BigNum = records.best_score
 	var old_tile: int = records.best_tile
 	records.update_from(state)
-	result.new_best_score = records.best_score > old_score
+	result.new_best_score = records.best_score.compare(old_score) > 0
 	result.new_best_tile = records.best_tile > old_tile
 
 

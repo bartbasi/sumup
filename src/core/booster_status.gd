@@ -7,7 +7,7 @@ class_name BoosterStatus extends RefCounted
 enum Usability { USABLE, CANNOT_AFFORD, NO_SNAPSHOT, NO_TARGET }
 
 var id: StringName
-var cost: int             # the price, free or not (AT-56)
+var cost: int             # the price as an exponent (the price is 2^cost), free or not (AT-56)
 var usable: bool
 var reason: Usability
 var active: bool          # this booster is in targeting mode

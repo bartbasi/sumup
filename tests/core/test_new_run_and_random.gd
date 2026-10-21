@@ -4,6 +4,8 @@ extends "res://tests/base_test.gd"
 
 const F := preload("res://tests/core/core_fixtures.gd")
 const START_WINDOW: PackedInt64Array = [2, 4, 8, 16]
+## The starting window as exponents, the way RunRandom takes it.
+const START: PackedInt64Array = [1, 2, 3, 4]
 
 var config: GameConfig
 
@@ -20,9 +22,9 @@ func test_at_01_board_size_and_starting_values() -> void:
 	assert_eq(state.columns, 5, "5 columns")
 	assert_eq(state.cells.size() / state.columns, 8, "8 rows")
 	assert_true(F.all_in(state.cells, START_WINDOW), "every value is 2, 4, 8 or 16 and no cell is empty")
-	assert_eq(state.score, 0, "score 0")
+	assert_true(state.score.is_zero(), "score 0")
 	assert_false(state.has_snapshot(), "no Undo snapshot, so Undo is not usable")
-	assert_eq(state.snapshot_points, 0, "no snapshot points")
+	assert_true(state.snapshot_points.is_zero(), "no snapshot points")
 
 
 func test_at_02_starting_board_always_has_a_move() -> void:
@@ -40,9 +42,9 @@ func test_at_03_starting_board_fallback() -> void:
 	var state: RunState = RunRules.new_run(rng, Records.new(), config)
 	assert_eq(rng.start_attempts, 100, "exactly 100 attempts")
 	assert_eq(state.cells, F.changed(F.board_d(), {Vector2i(1, 7): 8}), "Board D with (1,7) = 8")
-	assert_true(CoreRules.has_valid_move(state.cells, config), "it has a valid move")
+	assert_true(CoreRules.has_valid_move(state.cells, BigNum.zero(), config), "it has a valid move")
 	var pair: Array[Vector2i] = [Vector2i(0, 7), Vector2i(1, 7)]
-	assert_true(CoreRules.is_valid_chain(state.cells, pair, config), "(0,7) and (1,7) are a valid move")
+	assert_true(CoreRules.is_valid_chain(state.cells, BigNum.zero(), pair, config), "(0,7) and (1,7) are a valid move")
 
 
 func test_starting_board_fallback_follows_the_attempt_limit() -> void:
@@ -82,7 +84,7 @@ func test_at_04_starting_value_mix() -> void:
 	for seed_value: int in range(1, 2501):
 		var state: RunState = RunRules.new_run(F.seeded(seed_value), records, config)
 		for value: int in state.cells:
-			counts[value] += 1
+			counts[F.v(value)] += 1
 			tiles += 1
 	assert_eq(tiles, 100000, "100,000 tiles")
 	var shares: Dictionary[int, float] = {2: 40.0, 4: 30.0, 8: 20.0, 16: 10.0}
@@ -94,7 +96,7 @@ func test_at_05_best_tile_from_the_starting_board() -> void:
 	var records: Records = Records.new()
 	var state: RunState = RunRules.new_run(F.seeded(5), records, config)
 	assert_eq(records.best_tile, state.highest(), "Best Tile equals the starting board's highest tile")
-	assert_eq(records.best_score, 0, "Best Score is 0")
+	assert_true(records.best_score.is_zero(), "Best Score is 0")
 
 
 ## RH1 and RH7: the run highest tile starts from the new board, records stay.
@@ -102,9 +104,9 @@ func test_new_run_sets_run_highest_and_keeps_higher_records() -> void:
 	var records: Records = F.records(96520, 16384)
 	var state: RunState = RunRules.new_run(F.seeded(7), records, config)
 	assert_eq(state.run_highest, state.highest(), "run highest is the board's highest tile")
-	assert_true(state.run_highest <= 16, "at most 16")
-	assert_eq(records.best_tile, 16384, "Best Tile never drops")
-	assert_eq(records.best_score, 96520, "Best Score never drops")
+	assert_true(state.run_highest <= F.e(16), "at most 16")
+	assert_eq(records.best_tile, F.e(16384), "Best Tile never drops")
+	assert_eq(records.best_score.to_int(), 96520, "Best Score never drops")
 
 
 ## D-39: making the starting board is not a move, so nothing clears even when
@@ -116,17 +118,17 @@ func test_starting_board_never_clears_small_tiles() -> void:
 	var records: Records = Records.new()
 	var state: RunState = RunRules.new_run(rng, records, config)
 	assert_eq(state.cells, board, "the 2s and 4s stay")
-	assert_eq(state.run_highest, 4096, "run highest from the board")
-	assert_eq(records.best_tile, 4096, "Best Tile from the board")
+	assert_eq(state.run_highest, F.e(4096), "run highest from the board")
+	assert_eq(records.best_tile, F.e(4096), "Best Tile from the board")
 
 
 func test_new_run_never_uses_scripted_spawns() -> void:
 	var rng: RunRandom = F.seeded(8)
-	rng.script_spawns(PackedInt64Array([1024, 2048]))
+	rng.script_spawns(F.ev(PackedInt64Array([1024, 2048])))
 	var state: RunState = RunRules.new_run(rng, Records.new(), config)
 	assert_true(F.all_in(state.cells, START_WINDOW), "the start board ignores scripted values")
-	assert_eq(rng.next_spawn(START_WINDOW, config), 1024, "the scripted values are still waiting for next_spawn")
-	assert_eq(rng.next_spawn(START_WINDOW, config), 2048, "in order")
+	assert_eq(F.v(rng.next_spawn(START, config)), 1024, "the scripted values are still waiting for next_spawn")
+	assert_eq(F.v(rng.next_spawn(START, config)), 2048, "in order")
 
 
 # Seeds and state (TH5)
@@ -153,28 +155,28 @@ func test_different_seeds_give_different_boards() -> void:
 
 func test_state_can_be_read_and_restored() -> void:
 	var rng: RunRandom = F.seeded(9)
-	rng.next_spawn(START_WINDOW, config)
+	rng.next_spawn(START, config)
 	var saved: int = rng.get_state()
 	var first: PackedInt64Array = PackedInt64Array()
 	for draw: int in 50:
-		first.append(rng.next_spawn(START_WINDOW, config))
+		first.append(rng.next_spawn(START, config))
 	var shuffled_first: PackedInt64Array = rng.shuffle_attempt(F.board_d())
 	rng.set_state(saved)
 	assert_eq(rng.get_state(), saved, "the state reads back")
 	var second: PackedInt64Array = PackedInt64Array()
 	for draw: int in 50:
-		second.append(rng.next_spawn(START_WINDOW, config))
+		second.append(rng.next_spawn(START, config))
 	assert_eq(second, first, "the same draws after restoring")
 	assert_eq(rng.shuffle_attempt(F.board_d()), shuffled_first, "the same arrangement after restoring")
 
 
 func test_a_restored_state_moves_to_another_generator() -> void:
 	var source: RunRandom = F.seeded(10)
-	source.next_spawn(START_WINDOW, config)
+	source.next_spawn(START, config)
 	var other: RunRandom = F.seeded(999)
 	other.set_state(source.get_state())
 	for draw: int in 20:
-		assert_eq(other.next_spawn(START_WINDOW, config), source.next_spawn(START_WINDOW, config), "draw %d" % draw)
+		assert_eq(other.next_spawn(START, config), source.next_spawn(START, config), "draw %d" % draw)
 
 
 func test_use_random_seed_gives_a_working_generator() -> void:
@@ -184,18 +186,18 @@ func test_use_random_seed_gives_a_working_generator() -> void:
 	assert_ne(rng.get_state(), before, "a fresh seed")
 	var state: RunState = RunRules.new_run(rng, Records.new(), config)
 	assert_true(F.all_in(state.cells, START_WINDOW), "it still draws from the window")
-	assert_true(CoreRules.has_valid_move(state.cells, config), "and the board has a move")
+	assert_true(CoreRules.has_valid_move(state.cells, BigNum.zero(), config), "and the board has a move")
 
 
 # Scripted spawns (TH6)
 
 func test_scripted_spawns_come_first_then_random_draws() -> void:
 	var rng: RunRandom = F.seeded(11)
-	var window: PackedInt64Array = PackedInt64Array([4, 8, 16, 32])
-	rng.script_spawns(PackedInt64Array([2, 1024]))
+	var window: PackedInt64Array = F.ev(PackedInt64Array([4, 8, 16, 32]))
+	rng.script_spawns(F.ev(PackedInt64Array([2, 1024])))
 	var saved: int = rng.get_state()
-	assert_eq(rng.next_spawn(window, config), 2, "first scripted value, even below the window")
-	assert_eq(rng.next_spawn(window, config), 1024, "second scripted value")
+	assert_eq(F.v(rng.next_spawn(window, config)), 2, "first scripted value, even below the window")
+	assert_eq(F.v(rng.next_spawn(window, config)), 1024, "second scripted value")
 	assert_eq(rng.get_state(), saved, "scripted values use no draws")
 	for draw: int in 20:
 		assert_true(window.has(rng.next_spawn(window, config)), "then random draws from the window")
@@ -204,31 +206,31 @@ func test_scripted_spawns_come_first_then_random_draws() -> void:
 
 func test_script_spawns_replaces_and_can_stop() -> void:
 	var rng: RunRandom = F.seeded(12)
-	rng.script_spawns(PackedInt64Array([1024, 1024]))
-	rng.script_spawns(PackedInt64Array([2048]))
-	assert_eq(rng.next_spawn(START_WINDOW, config), 2048, "a new script replaces the old one")
-	rng.script_spawns(PackedInt64Array([4096]))
+	rng.script_spawns(F.ev(PackedInt64Array([1024, 1024])))
+	rng.script_spawns(F.ev(PackedInt64Array([2048])))
+	assert_eq(F.v(rng.next_spawn(START, config)), 2048, "a new script replaces the old one")
+	rng.script_spawns(F.ev(PackedInt64Array([4096])))
 	rng.script_spawns(PackedInt64Array())
-	assert_true(START_WINDOW.has(rng.next_spawn(START_WINDOW, config)), "an empty script stops scripting")
+	assert_true(START.has(rng.next_spawn(START, config)), "an empty script stops scripting")
 
 
 func test_scripted_values_are_copied() -> void:
 	var rng: RunRandom = F.seeded(13)
-	var values: PackedInt64Array = PackedInt64Array([64])
+	var values: PackedInt64Array = F.ev(PackedInt64Array([64]))
 	rng.script_spawns(values)
-	values[0] = 128
-	assert_eq(rng.next_spawn(START_WINDOW, config), 64, "later changes to the caller's array do not count")
+	values[0] = F.e(128)
+	assert_eq(F.v(rng.next_spawn(START, config)), 64, "later changes to the caller's array do not count")
 
 
 func test_shuffle_attempt_never_uses_scripted_spawns() -> void:
 	var rng: RunRandom = F.seeded(14)
-	rng.script_spawns(PackedInt64Array([1024]))
+	rng.script_spawns(F.ev(PackedInt64Array([1024])))
 	var arranged: PackedInt64Array = rng.shuffle_attempt(F.board_d())
 	var sorted_before: PackedInt64Array = F.board_d()
 	sorted_before.sort()
 	arranged.sort()
 	assert_eq(arranged, sorted_before, "the same values")
-	assert_eq(rng.next_spawn(START_WINDOW, config), 1024, "the scripted value is still waiting")
+	assert_eq(F.v(rng.next_spawn(START, config)), 1024, "the scripted value is still waiting")
 
 
 # Start board and Shuffle attempts (TH7, TH8)
@@ -241,17 +243,17 @@ func test_start_board_attempt_fills_in_fill_order() -> void:
 	for column: int in 5:
 		for row: int in 8:
 			var expected: int = copy.next_spawn(window, config)
-			assert_eq(F.at(board, Vector2i(column, row)), expected, "one draw per cell, column by column, top down (%d, %d)" % [column, row])
+			assert_eq(board[row * 5 + column], expected, "one draw per cell, column by column, top down (%d, %d)" % [column, row])
 
 
 func test_force_start_board_returns_copies_until_turned_off() -> void:
 	var rng: RunRandom = F.seeded(16)
 	var forced: PackedInt64Array = F.board_e()
 	rng.force_start_board(forced)
-	forced[0] = 1024
+	forced[0] = F.e(1024)
 	var first: PackedInt64Array = rng.start_board_attempt(config)
 	assert_eq(first, F.board_e(), "the forced board, copied when set")
-	first[0] = 2048
+	first[0] = F.e(2048)
 	assert_eq(rng.start_board_attempt(config), F.board_e(), "each attempt is a fresh copy")
 	rng.force_start_board(PackedInt64Array())
 	assert_true(F.all_in(rng.start_board_attempt(config), START_WINDOW), "an empty board turns forcing off")

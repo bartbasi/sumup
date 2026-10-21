@@ -51,6 +51,17 @@ func _run_all() -> int:
 	var files: PackedStringArray = PackedStringArray()
 	_collect_test_files(TESTS_ROOT, files)
 	files.sort()
+	# `-- --only=core,save` runs only those areas (folders under tests/).
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--only="):
+			var areas: PackedStringArray = argument.trim_prefix("--only=").split(",", false)
+			var kept: PackedStringArray = PackedStringArray()
+			for path: String in files:
+				for area: String in areas:
+					if path.begins_with(TESTS_ROOT.path_join(area) + "/"):
+						kept.append(path)
+						break
+			files = kept
 	var total: int = 0
 	var failed: int = 0
 	for path: String in files:

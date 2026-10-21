@@ -1,7 +1,8 @@
 class_name Records extends RefCounted
 ## Best Score and Best Tile (D-16, D-17). They outlive runs and never go down.
+## best_tile is an exponent (0 for none); best_score is a BigNum.
 
-var best_score: int = 0
+var best_score: BigNum = BigNum.zero()
 var best_tile: int = 0
 
 
@@ -9,7 +10,7 @@ var best_tile: int = 0
 ## Best Tile the larger of itself and H. Returns true when either record rose.
 func update_from(state: RunState) -> bool:
 	var rose: bool = false
-	if state.score > best_score:
+	if state.score.compare(best_score) > 0:
 		best_score = state.score
 		rose = true
 	var top: int = state.highest()
