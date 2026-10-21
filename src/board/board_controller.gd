@@ -57,11 +57,16 @@ class_name BoardController extends Control
 ## still playing, with move_started first. So a move is never lost from the
 ## session and never shown twice.
 ##
+## Values. Every tile value the board passes on (boards, the preview, merge
+## results, spawns, value changes) is the tile's exponent, as core gives it
+## (docs/ARCHITECTURE.md section 17). The board never reads them.
+##
 ## The drag path allocates nothing per pointer event: work that allocates
 ## (step_chain, the preview, the joinable highlight) runs only when the
 ## finger enters a new tile.
 
 ## Every tile added or removed, and every commit and cancel (empty chain, 0).
+## preview_value is the merge result's exponent (section 17), 0 for none.
 signal chain_changed(chain: Array[Vector2i], preview_value: int)
 ## After the last effect of a move.
 signal animation_finished()
@@ -344,7 +349,9 @@ func _visit(cell: Vector2i, local: Vector2) -> void:
 	_hover = cell
 	if cell == NO_CELL:
 		return
-	var stepped: Array[Vector2i] = CoreRules.step_chain(_session.state.cells, _chain, cell, _session.config)
+	# The run's real score: joining, the highlight and the commit all measure
+	# the chain against it (docs/ARCHITECTURE.md section 17), so they agree.
+	var stepped: Array[Vector2i] = CoreRules.step_chain(_session.state.cells, _session.state.score, _chain, cell, _session.config)
 	if stepped.size() == _chain.size():
 		return
 	var added: bool = stepped.size() > _chain.size()

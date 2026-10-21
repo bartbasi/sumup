@@ -17,6 +17,8 @@ const UiCopy: GDScript = preload("res://src/design/shared/ui_copy.gd")
 const FontMetrics: GDScript = preload("res://src/design/shared/font_metrics.gd")
 ## The gap between "+n" and the star, as a share of the font size (7.9).
 const STAR_GAP: float = 0.25
+## The longest label a mini tile draws (4.7).
+const MINI_LABEL_MAX: int = 3
 
 ## The copy shown, cased. For tests and for screens' accessibility.
 var text: String = ""
@@ -46,7 +48,8 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## Builds the notice for values (ascending) with the skin's tokens.
+## Builds the notice for values (tile exponents, ascending) with the skin's
+## tokens.
 ##   role: the type role of the copy (body for Gumdrop, label for the others)
 ##   box: the badge box, drawn over the whole control
 ##   height: notice_height; lip: the part of it under the face (0 for none)
@@ -147,8 +150,13 @@ func tiles() -> Array[Control]:
 
 
 ## A mini tile from the skin's own tile view (already set up by the factory).
+## A mini tile of the exponent value. Its label shows only when it has 3
+## characters or fewer (2, 512, 64K, 4aa); a longer one would be 2.6 to 4 dp
+## tall under the strike, so the tile is a color chip and the copy beside it
+## names the value (DESIGN_SYSTEM.md 4.7, 14.1).
 func _make_tile(skin: SkinData, value: int) -> SkinTileView:
 	var tile: SkinTileView = SkinCatalog.make_tile_view(skin)
+	tile.set_label_shown(NumberFormat.tile_label(value).length() <= MINI_LABEL_MAX)
 	tile.set_value(value)
 	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tile

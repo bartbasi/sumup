@@ -48,15 +48,15 @@ func _apply(data: Variant) -> PackedStringArray:
 func _assert_defaults(message: String) -> void:
 	assert_true(_settings.sound_on, "%s: sound default" % message)
 	assert_eq(_settings.skin_id, &"gumdrop", "%s: skin default" % message)
-	assert_eq(_records.best_score, 0, "%s: best score default" % message)
+	assert_eq(F.text(_records.best_score), "0", "%s: best score default" % message)
 	assert_eq(_records.best_tile, 0, "%s: best tile default" % message)
 
 
 func _assert_good_values(message: String) -> void:
 	assert_false(_settings.sound_on, "%s: sound kept" % message)
 	assert_eq(_settings.skin_id, &"slate", "%s: skin kept" % message)
-	assert_eq(_records.best_score, 96520, "%s: best score kept" % message)
-	assert_eq(_records.best_tile, 4096, "%s: best tile kept" % message)
+	assert_eq(F.text(_records.best_score), "96520", "%s: best score kept" % message)
+	assert_eq(_records.best_tile, 12, "%s: best tile kept" % message)
 
 
 # Writing and round trips
@@ -66,8 +66,8 @@ func test_profile_to_data_uses_the_documented_format() -> void:
 	settings.set_sound_on(false)
 	settings.set_skin_id(&"nova")
 	var records: Records = Records.new()
-	records.best_score = 96520
-	records.best_tile = 4096
+	records.best_score = BigNum.from_int(96520)
+	records.best_tile = 12
 	var data: Dictionary = SaveCodec.profile_to_data(settings, records)
 	assert_eq(data.keys(), ["format", "settings", "records"], "top level keys")
 	assert_eq(data["format"], 1, "format")
@@ -91,12 +91,20 @@ func test_round_trip_profile() -> void:
 
 func test_round_trip_profile_extremes() -> void:
 	var records: Records = Records.new()
-	records.best_score = INT64_MAX
-	records.best_tile = 1 << 62
+	var config: GameConfig = GameConfig.new()
+	var top: BigNum = F.pow2_plus(config.max_score_bits, -1)
+	records.best_score = top
+	records.best_tile = config.max_exponent
 	var data: Variant = JSON.parse_string(F.to_text(SaveCodec.profile_to_data(Settings.new(), records)))
-	_apply(data)
-	assert_eq(_records.best_score, INT64_MAX, "Best Score 2^63 minus 1 exactly")
-	assert_eq(_records.best_tile, 4611686018427387904, "Best Tile 2^62 exactly")
+	assert_eq(_apply(data).size(), 0, "valid at the ceiling (AT-169 (g))")
+	assert_true(_records.best_score.equals(top), "Best Score 2^65600 minus 1 exactly")
+	assert_eq(_records.best_tile, 65535, "Best Tile 2^65535")
+	before_each()
+	records.best_score = BigNum.from_int(INT64_MAX).add(BigNum.from_int(1))
+	records.best_tile = 63
+	_apply(JSON.parse_string(F.to_text(SaveCodec.profile_to_data(Settings.new(), records))))
+	assert_eq(F.text(_records.best_score), "9223372036854775808", "Best Score 2^63, past the old limit")
+	assert_eq(_records.best_tile, 63, "Best Tile 2^63, past the old limit")
 
 
 func test_documented_example_loads() -> void:
@@ -106,8 +114,8 @@ func test_documented_example_loads() -> void:
 	assert_eq(problems.size(), 0, "no problems")
 	assert_true(_settings.sound_on, "sound on")
 	assert_eq(_settings.skin_id, &"gumdrop", "skin")
-	assert_eq(_records.best_score, 96520, "Best Score")
-	assert_eq(_records.best_tile, 4096, "Best Tile")
+	assert_eq(F.text(_records.best_score), "96520", "Best Score")
+	assert_eq(_records.best_tile, 12, "Best Tile")
 
 
 # Whole profile refused
@@ -140,8 +148,8 @@ func test_bad_skin_keeps_the_other_parts() -> void:
 	assert_eq(problems.size(), 1, "one problem")
 	assert_false(_settings.sound_on, "sound kept")
 	assert_eq(_settings.skin_id, &"gumdrop", "skin falls back to the default")
-	assert_eq(_records.best_score, 96520, "Best Score kept")
-	assert_eq(_records.best_tile, 4096, "Best Tile kept")
+	assert_eq(F.text(_records.best_score), "96520", "Best Score kept")
+	assert_eq(_records.best_tile, 12, "Best Tile kept")
 
 
 func test_bad_sound_keeps_the_other_parts() -> void:
@@ -152,41 +160,43 @@ func test_bad_sound_keeps_the_other_parts() -> void:
 		assert_eq(_apply(data).size(), 1, "one problem for %s" % str(value))
 		assert_true(_settings.sound_on, "sound falls back to on for %s" % str(value))
 		assert_eq(_settings.skin_id, &"slate", "skin kept")
-		assert_eq(_records.best_score, 96520, "Best Score kept")
-		assert_eq(_records.best_tile, 4096, "Best Tile kept")
+		assert_eq(F.text(_records.best_score), "96520", "Best Score kept")
+		assert_eq(_records.best_tile, 12, "Best Tile kept")
 
 
 func test_bad_best_score_keeps_the_other_parts() -> void:
-	for value: Variant in ["-1", "007", "12a", "", "9223372036854775808", 96520, 96520.0, null, true, []]:
+	var config: GameConfig = GameConfig.new()
+	var at_ceiling: String = BigNum.pow2(config.max_score_bits).to_decimal()
+	for value: Variant in ["-1", "007", "12a", "", at_ceiling, "1".repeat(19749), 96520, 96520.0, null, true, []]:
 		before_each()
 		var data: Dictionary = _good_data()
 		(data["records"] as Dictionary)["best_score"] = value
-		assert_eq(_apply(data).size(), 1, "one problem for %s" % str(value))
-		assert_eq(_records.best_score, 0, "Best Score falls back to 0 for %s" % str(value))
-		assert_eq(_records.best_tile, 4096, "Best Tile kept")
+		assert_eq(_apply(data).size(), 1, "one problem for %s" % str(value).left(30))
+		assert_eq(F.text(_records.best_score), "0", "Best Score falls back to 0 for %s" % str(value).left(30))
+		assert_eq(_records.best_tile, 12, "Best Tile kept")
 		assert_false(_settings.sound_on, "sound kept")
 		assert_eq(_settings.skin_id, &"slate", "skin kept")
 
 
 func test_bad_best_tile_keeps_the_other_parts() -> void:
-	for value: Variant in [63, -1, 1.5, INF, NAN, 1e20, "12", true, null, [], {}]:
+	for value: Variant in [65536, 65537, -1, 1.5, INF, NAN, 1e20, "12", true, null, [], {}]:
 		before_each()
 		var data: Dictionary = _good_data()
 		(data["records"] as Dictionary)["best_tile"] = value
 		assert_eq(_apply(data).size(), 1, "one problem for %s" % str(value))
 		assert_eq(_records.best_tile, 0, "Best Tile falls back to 0 for %s" % str(value))
-		assert_eq(_records.best_score, 96520, "Best Score kept")
+		assert_eq(F.text(_records.best_score), "96520", "Best Score kept")
 		assert_false(_settings.sound_on, "sound kept")
 
 
 func test_best_tile_range() -> void:
-	var cases: Dictionary = {0: 0, 1: 2, 9: 512, 17: 131072, 62: 4611686018427387904}
-	for exponent: int in cases:
+	for exponent: int in [0, 1, 9, 17, 56, 62, 63, 64, 1000, 65535]:
 		before_each()
 		var data: Dictionary = _good_data()
 		(data["records"] as Dictionary)["best_tile"] = exponent
 		assert_eq(_apply(data).size(), 0, "exponent %d is valid" % exponent)
-		assert_eq(_records.best_tile, cases[exponent], "exponent %d" % exponent)
+		assert_eq(_records.best_tile, exponent, "exponent %d" % exponent)
+
 
 
 func test_missing_or_wrong_typed_settings_keeps_records() -> void:
@@ -197,13 +207,13 @@ func test_missing_or_wrong_typed_settings_keeps_records() -> void:
 		assert_false(_apply(data).is_empty(), "reported for %s" % str(value))
 		assert_true(_settings.sound_on, "sound default")
 		assert_eq(_settings.skin_id, &"gumdrop", "skin default")
-		assert_eq(_records.best_score, 96520, "Best Score kept")
-		assert_eq(_records.best_tile, 4096, "Best Tile kept")
+		assert_eq(F.text(_records.best_score), "96520", "Best Score kept")
+		assert_eq(_records.best_tile, 12, "Best Tile kept")
 	before_each()
 	var missing: Dictionary = _good_data()
 	missing.erase("settings")
 	assert_false(_apply(missing).is_empty(), "missing settings reported")
-	assert_eq(_records.best_score, 96520, "Best Score kept without settings")
+	assert_eq(F.text(_records.best_score), "96520", "Best Score kept without settings")
 
 
 func test_missing_or_wrong_typed_records_keeps_settings() -> void:
@@ -212,7 +222,7 @@ func test_missing_or_wrong_typed_records_keeps_settings() -> void:
 		var data: Dictionary = _good_data()
 		data["records"] = value
 		assert_false(_apply(data).is_empty(), "reported for %s" % str(value))
-		assert_eq(_records.best_score, 0, "Best Score default")
+		assert_eq(F.text(_records.best_score), "0", "Best Score default")
 		assert_eq(_records.best_tile, 0, "Best Tile default")
 		assert_false(_settings.sound_on, "sound kept")
 		assert_eq(_settings.skin_id, &"slate", "skin kept")
@@ -225,7 +235,7 @@ func test_missing_single_fields_keep_the_rest() -> void:
 	assert_eq(_apply(data).size(), 2, "two problems")
 	assert_false(_settings.sound_on, "sound kept")
 	assert_eq(_settings.skin_id, &"gumdrop", "skin default")
-	assert_eq(_records.best_score, 96520, "Best Score kept")
+	assert_eq(F.text(_records.best_score), "96520", "Best Score kept")
 	assert_eq(_records.best_tile, 0, "Best Tile default")
 
 
@@ -274,7 +284,7 @@ func test_unicode_skin_id_from_json_escape_is_refused() -> void:
 	assert_eq(typeof(data), TYPE_DICTIONARY, "parses")
 	assert_eq(_apply(data).size(), 1, "one problem")
 	assert_eq(_settings.skin_id, &"gumdrop", "default skin")
-	assert_eq(_records.best_score, 96520, "Best Score kept")
+	assert_eq(F.text(_records.best_score), "96520", "Best Score kept")
 
 
 # Applying
@@ -282,13 +292,13 @@ func test_unicode_skin_id_from_json_escape_is_refused() -> void:
 func test_invalid_parts_keep_values_already_held() -> void:
 	_settings.set_sound_on(false)
 	_settings.set_skin_id(&"nova")
-	_records.best_score = 7
-	_records.best_tile = 8
+	_records.best_score = BigNum.from_int(7)
+	_records.best_tile = 3
 	_apply({"format": 1, "settings": {}, "records": {}})
 	assert_false(_settings.sound_on, "sound untouched")
 	assert_eq(_settings.skin_id, &"nova", "skin untouched")
-	assert_eq(_records.best_score, 7, "Best Score untouched")
-	assert_eq(_records.best_tile, 8, "Best Tile untouched")
+	assert_eq(F.text(_records.best_score), "7", "Best Score untouched")
+	assert_eq(_records.best_tile, 3, "Best Tile untouched")
 
 
 func test_settings_signals_fire_only_for_real_changes() -> void:

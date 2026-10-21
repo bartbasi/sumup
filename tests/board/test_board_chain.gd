@@ -20,12 +20,9 @@ func _chain(list: Array) -> Array[Vector2i]:
 	return BF.cells(list)
 
 
-## The previews of every chain_changed so far.
+## The previews of every chain_changed so far, as tile values.
 func _previews() -> Array[int]:
-	var list: Array[int] = []
-	for event: Array in rig.chain_events:
-		list.append(event[1])
-	return list
+	return rig.previews()
 
 
 ## The chain lengths of every chain_changed so far.
@@ -50,7 +47,7 @@ func test_at_07_an_equal_second_tile_joins() -> void:
 	rig.drag_cells([Vector2i(1, 6), Vector2i(2, 6)])
 	assert_eq(rig.last_chain(), _chain([Vector2i(1, 6), Vector2i(2, 6)]), "chain 2, 2")
 	assert_eq(rig.last_preview(), 4, "preview 4")
-	assert_eq(rig.view().preview, 4, "the view shows preview 4")
+	assert_eq(rig.view_preview(), 4, "the view shows preview 4")
 	assert_eq(rig.view().chain, _chain([Vector2i(1, 6), Vector2i(2, 6)]), "the view shows the chain")
 	assert_eq(_previews(), [0, 4] as Array[int], "no preview at 1 tile, then 4")
 	assert_true(rig.session.is_dragging(), "the drag is open")
@@ -62,7 +59,7 @@ func test_at_06_the_first_two_tiles_must_be_equal_and_lifting_cancels() -> void:
 	var rng_state: int = rig.session.rng.get_state()
 	rig.drag_cells([Vector2i(1, 6), Vector2i(1, 5)])
 	assert_eq(rig.last_chain(), _chain([Vector2i(1, 6)]), "the 4 does not join")
-	assert_eq(rig.view().preview, 0, "no preview")
+	assert_eq(rig.view_preview(), 0, "no preview")
 	rig.up(Vector2i(1, 5))
 	assert_eq(rig.last_chain(), _chain([]), "lifting clears the chain")
 	assert_eq(rig.last_preview(), 0, "and the preview")
@@ -105,7 +102,7 @@ func test_at_14_backtracking_shrinks_the_chain_step_by_step() -> void:
 	rig.move(Vector2i(1, 6))
 	assert_eq(_lengths(), [4, 3, 2, 1] as Array[int], "one tile leaves per backtrack")
 	assert_eq(_previews(), [16, 8, 4, 0] as Array[int], "previews 16, 8, 4, then none")
-	assert_eq(rig.view().preview, 0, "the view hides the preview at 1 tile")
+	assert_eq(rig.view_preview(), 0, "the view hides the preview at 1 tile")
 	rig.up(Vector2i(1, 6))
 	assert_eq(rig.last_chain(), _chain([]), "lifting cancels")
 	_unchanged(before, "AT-14")
@@ -127,7 +124,7 @@ func test_at_16_other_chain_tiles_are_ignored() -> void:
 	rig.move(Vector2i(2, 6))
 	assert_eq(rig.chain_events.size(), events, "no change signalled")
 	assert_eq(rig.view().chain, _chain([Vector2i(1, 6), Vector2i(2, 6), Vector2i(3, 6), Vector2i(2, 5)]), "chain 2, 2, 4, 8")
-	assert_eq(rig.view().preview, 16, "preview 16")
+	assert_eq(rig.view_preview(), 16, "preview 16")
 
 
 # Path, leaving the board, lifting (D-06).
@@ -137,8 +134,8 @@ func test_at_20_the_path_may_cross_itself() -> void:
 	rig.play([Vector2i(1, 1), Vector2i(2, 2), Vector2i(2, 1), Vector2i(1, 2)])
 	assert_eq(_lengths().slice(0, 4), [1, 2, 3, 4] as Array[int], "all four join")
 	assert_eq(_previews()[3], 16, "preview 16")
-	assert_eq(rig.session.state.score, 16, "score 16")
-	assert_eq(rig.session.state.value_at(Vector2i(1, 2)), 16, "the 16 stays on (1,2)")
+	assert_eq(rig.score(), 16, "score 16")
+	assert_eq(rig.value_at(Vector2i(1, 2)), 16, "the 16 stays on (1,2)")
 
 
 func test_at_18_lifting_off_the_board_commits() -> void:
@@ -147,8 +144,8 @@ func test_at_18_lifting_off_the_board_commits() -> void:
 	var off_board: Vector2 = Vector2(rig.point(Vector2i(2, 6)).x, BF.BELOW_BOARD_Y)
 	rig.move_to(off_board)
 	rig.up_at(off_board)
-	assert_eq(rig.session.state.score, 4, "the chain 2, 2 committed")
-	assert_eq(rig.session.state.value_at(Vector2i(2, 6)), 4, "the result landed on the last tile")
+	assert_eq(rig.score(), 4, "the chain 2, 2 committed")
+	assert_eq(rig.value_at(Vector2i(2, 6)), 4, "the result landed on the last tile")
 	assert_false(rig.session.is_dragging(), "the drag is closed")
 
 
@@ -165,8 +162,8 @@ func test_at_19_leaving_the_board_keeps_the_chain() -> void:
 	rig.move(Vector2i(3, 6))
 	assert_eq(rig.last_chain(), _chain([Vector2i(1, 6), Vector2i(2, 6), Vector2i(3, 6)]), "the 2x tile joins on return")
 	rig.up(Vector2i(3, 6))
-	assert_eq(rig.session.state.score, 8, "the 3 tile chain commits")
-	assert_eq(rig.session.state.value_at(Vector2i(3, 6)), 8, "result 8 on (3,6)")
+	assert_eq(rig.score(), 8, "the 3 tile chain commits")
+	assert_eq(rig.value_at(Vector2i(3, 6)), 8, "result 8 on (3,6)")
 
 
 func test_a_touch_in_a_gap_starts_on_the_first_tile_entered() -> void:
@@ -194,9 +191,9 @@ func test_at_17_lifting_commits_through_the_board() -> void:
 	rig = BF.rig(F.board_p(), 1000)
 	var path: Array[Vector2i] = _chain([Vector2i(1, 6), Vector2i(2, 6), Vector2i(3, 6), Vector2i(2, 5)])
 	rig.play(path)
-	assert_eq(rig.session.state.score, 1016, "score 1,016")
-	assert_eq(rig.session.state.value_at(Vector2i(2, 6)), 16, "the 16 fell to (2,6)")
-	assert_eq(rig.view().merges, [[path, Vector2i(2, 5), 16]], "the merge played on the chain in drag order")
+	assert_eq(rig.score(), 1016, "score 1,016")
+	assert_eq(rig.value_at(Vector2i(2, 6)), 16, "the 16 fell to (2,6)")
+	assert_eq(rig.view().merges, [[path, Vector2i(2, 5), F.e(16)]], "the merge played on the chain in drag order")
 	assert_eq(rig.last_chain(), _chain([]), "commit clears the chain")
 	assert_eq(rig.last_preview(), 0, "and the preview")
 	assert_eq(rig.view().chain, _chain([]), "the view's chain is cleared")

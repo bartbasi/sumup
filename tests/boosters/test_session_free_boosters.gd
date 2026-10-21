@@ -32,7 +32,7 @@ func _session(state: RunState, seed_value: int = 1, records: Records = null) -> 
 func _costs(session: GameSession) -> Array[int]:
 	var list: Array[int] = []
 	for status: BoosterStatus in session.booster_statuses():
-		list.append(status.cost)
+		list.append(F.v(status.cost))
 	return list
 
 
@@ -64,7 +64,7 @@ func test_a_new_run_has_no_stars_and_no_free_boosters() -> void:
 ## free boosters used give the stars and free boosters held. Loading earns
 ## nothing and reports nothing a clear notice would show.
 func test_resume_reads_stars_and_free_boosters_from_the_saved_run() -> void:
-	var saved: RunState = RunState.create(BF.board_d1024(), 5000, BF.snapshot_board(), 40, 131072, 5, 1)
+	var saved: RunState = BF.make(BF.board_d1024(), 5000, BF.snapshot_board(), 40, 131072, 5, 1)
 	var session: GameSession = GameSession.new()
 	recorder.watch(session)
 	session.resume(saved)
@@ -76,7 +76,7 @@ func test_resume_reads_stars_and_free_boosters_from_the_saved_run() -> void:
 	assert_eq(BF.free_ids(session), BoosterRules.ALL, "every booster reads Free")
 	session.move_shown()
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
-	assert_eq(result.cost, 0, "the booster used next charges nothing")
+	assert_eq(BF.n(result.cost), 0, "the booster used next charges nothing")
 	assert_eq(session.free_held(), 0, "and uses the free booster")
 
 
@@ -88,7 +88,7 @@ func test_at_127_every_status_reads_free_after_the_third_star() -> void:
 	recorder.clear()
 	var result: MoveResult = session.commit_chain(BF.targets([Vector2i(0, 7), Vector2i(1, 7)]))
 	assert_eq(recorder.names, _names(["move_resolved", "status_changed", "save_requested"]), "status_changed tells the HUD to read the stars again")
-	assert_eq(session.state.score, 58192, "score 58,192")
+	assert_eq(BF.n(session.state.score), 58192, "score 58,192")
 	assert_eq(result.free_earned, 1, "the move result reports 1 free booster earned")
 	assert_eq([session.stars(), session.free_held()], [3, 1], "3 stars, 1 free booster held")
 	assert_eq(BF.free_ids(session), BoosterRules.ALL, "every booster status shows it as free")
@@ -104,9 +104,9 @@ func test_at_129_a_free_booster_makes_an_unaffordable_booster_usable() -> void:
 	session.press_booster(BoosterRules.DOUBLE)
 	var result: MoveResult = session.tap_cell(Vector2i(0, 0))
 	assert_true(result != null and result.accepted, "the Double applies")
-	assert_eq(result.cost, 0, "free")
-	assert_eq(session.state.value_at(Vector2i(0, 0)), 4, "(0,0) = 4")
-	assert_eq(session.state.score, 0, "score 0")
+	assert_eq(BF.n(result.cost), 0, "free")
+	assert_eq(F.v(session.state.value_at(Vector2i(0, 0))), 4, "(0,0) = 4")
+	assert_eq(BF.n(session.state.score), 0, "score 0")
 	assert_eq(session.free_held(), 0, "0 free boosters held")
 	assert_true(BF.usable_ids(session).is_empty(), "all five are disabled")
 	assert_true(BF.free_ids(session).is_empty(), "and read their costs")
@@ -118,7 +118,7 @@ func test_at_129_a_free_booster_makes_an_unaffordable_booster_usable() -> void:
 ## Still 1 held, score 5,000, all five read Free, nothing saved.
 func _assert_kept(session: GameSession, label: String) -> void:
 	assert_eq(session.free_held(), 1, "%s: still 1 free booster held" % label)
-	assert_eq(session.state.score, 5000, "%s: score 5,000" % label)
+	assert_eq(BF.n(session.state.score), 5000, "%s: score 5,000" % label)
 	assert_eq(BF.free_ids(session), BoosterRules.ALL, "%s: all five read Free" % label)
 	assert_eq(session.state.cells, F.board_p(), "%s: board unchanged" % label)
 	assert_eq(recorder.count("save_requested"), 0, "%s: nothing to save" % label)
@@ -147,11 +147,11 @@ func test_at_131_cancelling_targeting_keeps_the_free_booster() -> void:
 	assert_eq(session.phase(), GameSession.Phase.PLAYING, "back in play")
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
 	assert_true(result != null and result.accepted, "the Shuffle applies")
-	assert_eq(result.cost, 0, "and is free")
+	assert_eq(BF.n(result.cost), 0, "and is free")
 	assert_true(result.free_used, "using the free booster")
-	assert_eq(session.state.score, 5000, "score 5,000")
+	assert_eq(BF.n(session.state.score), 5000, "score 5,000")
 	assert_eq(session.free_held(), 0, "0 held")
-	assert_eq(BF.status_of(session, BoosterRules.HAMMER).cost, 128, "Hammer costs 128 again")
+	assert_eq(F.v(BF.status_of(session, BoosterRules.HAMMER).cost), 128, "Hammer costs 128 again")
 	assert_true(BF.free_ids(session).is_empty(), "nothing reads Free")
 
 
@@ -170,7 +170,7 @@ func test_cancel_keeps_the_free_booster_in_the_offer() -> void:
 	session.cancel_targeting()
 	assert_eq(session.phase(), GameSession.Phase.OFFER, "back at the offer")
 	assert_eq(session.free_held(), 1, "still 1 free booster held")
-	assert_eq(session.state.score, 0, "score 0")
+	assert_eq(BF.n(session.state.score), 0, "score 0")
 	assert_eq(session.state.cells, BF.board_d1024(), "board unchanged")
 	assert_eq(BF.usable_ids(session), [&"hammer", &"swap", &"shuffle", &"double"] as Array[StringName], "the same choices")
 
@@ -198,8 +198,8 @@ func test_at_135_a_the_offer_with_a_free_booster() -> void:
 	assert_eq(recorder.offers[0], [true, BoosterRules.SHUFFLE], "Shuffle is marked as the suggested rescue")
 	assert_eq(BF.suggested_id(session), BoosterRules.SHUFFLE, "on its status too")
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
-	assert_eq(result.cost, 0, "the Shuffle is free")
-	assert_eq(session.state.score, 0, "score 0")
+	assert_eq(BF.n(result.cost), 0, "the Shuffle is free")
+	assert_eq(BF.n(session.state.score), 0, "score 0")
 	assert_true(result.has_valid_move, "the board has a valid move")
 	assert_eq(session.free_held(), 0, "0 free boosters held")
 	recorder.clear()
@@ -215,7 +215,7 @@ func test_at_135_b_nothing_held_ends_the_run_at_once() -> void:
 	session.move_shown()
 	assert_eq(session.phase(), GameSession.Phase.ENDED, "nothing is usable, so the run ends at once")
 	assert_eq(recorder.count("offer_changed"), 0, "no offer")
-	assert_eq(recorder.summaries[0].final_score, 0, "final score 0, as in AT-50")
+	assert_eq(BF.n(recorder.summaries[0].final_score), 0, "final score 0, as in AT-50")
 	assert_true(recorder.summaries[0].no_moves_left, "no moves left")
 
 
@@ -227,20 +227,20 @@ func test_at_137_unused_free_boosters_end_with_the_run() -> void:
 	assert_eq(session.free_held(), 1, "1 free booster held")
 	session.end_run()
 	var summary: RunSummary = recorder.summaries[0]
-	assert_eq(summary.run_highest, 8192, "the end of run screen shows this run's highest tile 8K")
+	assert_eq(F.v(summary.run_highest), 8192, "the end of run screen shows this run's highest tile 8K")
 	assert_eq(summary.stars, 3, "and its 3 stars")
 	session.start_new_run()
 	session.move_shown()
 	assert_eq(session.stars(), 0, "the new run has 0 stars")
 	assert_eq(session.free_held(), 0, "and 0 free boosters held")
 	assert_true(BF.free_ids(session).is_empty(), "its boosters show costs, not Free")
-	assert_eq(BF.status_of(session, BoosterRules.HAMMER).cost, 128, "Hammer 128")
+	assert_eq(F.v(BF.status_of(session, BoosterRules.HAMMER).cost), 128, "Hammer 128")
 
 
 ## FB12: a run like Bart's phone run, highest tile 128K, ends with its second
 ## free booster unused. It is lost with the run.
 func test_fb12_a_free_booster_still_held_is_lost_with_the_run() -> void:
-	var session: GameSession = _session(RunState.create(BF.board_d1024(), 5000, PackedInt64Array(), 0, 131072, 5, 1))
+	var session: GameSession = _session(BF.make(BF.board_d1024(), 5000, PackedInt64Array(), 0, 131072, 5, 1))
 	assert_eq([session.stars(), session.free_held()], [7, 1], "7 stars, 2 earned, 1 used")
 	session.end_run()
 	assert_eq(recorder.summaries[0].stars, 7, "the summary carries 7 stars")

@@ -7,6 +7,12 @@ class_name BoosterRules extends RefCounted
 ## A refused booster returns a MoveResult with a refusal and changes nothing:
 ## not the state, not the records, not the random generator, and no free
 ## booster is used (D-30, D-46, TH11).
+##
+## Tiles are exponents and the score is a BigNum (docs/ARCHITECTURE.md
+## section 17). Costs are powers of two, so a cost is an exponent until it is
+## compared with or taken from the score as BigNum.pow2. Every move check here
+## passes the run's current score, so usability, outcome() and apply() agree
+## with what RunRules.commit_chain accepts (GDD D-37).
 
 const HAMMER: StringName = &"hammer"
 const SWAP: StringName = &"swap"
@@ -17,21 +23,22 @@ const ALL: Array[StringName] = [HAMMER, SWAP, SHUFFLE, DOUBLE, UNDO]
 
 enum Outcome { PLAY, OFFER, END }
 
-const _INT64_MAX: int = 9223372036854775807
 
-
-## B (D-20, TH3): the larger of the highest tile on the board and COST_BASIS_MIN.
+## B (D-20, TH3) as an exponent: the larger of the highest exponent on the
+## board and the exponent of COST_BASIS_MIN (128 is 7).
 static func cost_basis(cells: PackedInt64Array, config: GameConfig) -> int:
-	return maxi(CoreRules.highest(cells), config.cost_basis_min)
+	return maxi(CoreRules.highest(cells), _exponent_of(config.cost_basis_min))
 
 
-## TH3. The booster's cost on the current board: B shifted by its cost_shift
-## (D-20). It is the price whether or not a free booster is held (AT-56).
-## Returns 0 for an unknown id, and 0 for a cost that would pass 2^63 minus 1,
-## like CoreRules.merge_result does for a sum that would. Such a booster can
-## never be paid for (docs/ARCHITECTURE.md section 3), only used free.
+## TH3. The booster's cost on the current board as an exponent (the price is
+## 2^cost): B's exponent plus its cost_shift (D-20). It is the price whether
+## or not a free booster is held (AT-56). Costs have no upper limit (D-37).
+## 0 for an unknown id.
 static func cost(id: StringName, state: RunState, config: GameConfig) -> int:
-	return maxi(_raw_cost(id, state.cells, config), 0)
+	if not ALL.has(id):
+		return 0
+	var shift: int = config.cost_shift.get(id, 0)
+	return maxi(cost_basis(state.cells, config) + shift, 0)
 
 
 ## TH3, D-46. True while at least one free booster is held. A bad state can
@@ -40,38 +47,38 @@ static func is_free(state: RunState, config: GameConfig) -> bool:
 	return CoreRules.free_held(state, config) > 0
 
 
-## D-46. What using the booster would take from the score now: 0 while a free
-## booster is held, else its cost.
-static func charge(id: StringName, state: RunState, config: GameConfig) -> int:
+## D-46. What using the booster would take from the score now, exactly: 0
+## while a free booster is held, else 2^cost.
+static func charge(id: StringName, state: RunState, config: GameConfig) -> BigNum:
 	if is_free(state, config):
-		return 0
-	return cost(id, state, config)
+		return BigNum.zero()
+	return BigNum.pow2(cost(id, state, config))
 
 
 ## TH3, D-28 for Undo, measured against charge(). Checked in this order:
 ## - Undo needs a snapshot (NO_SNAPSHOT).
-## - The score covers the charge (CANNOT_AFFORD). For Undo it is the score
-##   minus the snapshot's points, even while free (FB4). While a free booster
-##   is held every other booster is affordable, even one whose cost would not
-##   fit in 64 bits.
-## - The booster can act on this board (NO_TARGET, SEC-01): Swap and Shuffle
-##   need two tiles of different value, Double a tile it can double without
-##   passing 2^63 minus 1. Hammer and Undo can always act.
+## - The score covers the charge (CANNOT_AFFORD): 2^cost is at most the score,
+##   or a free booster is held. For Undo it is the score minus the snapshot's
+##   points, even while free (FB4).
+## - The booster can act on this board (NO_TARGET, D-37): Swap and Shuffle
+##   need two tiles of different value, Double a tile below max_exponent.
+##   Hammer and Undo can always act.
 static func usability(id: StringName, state: RunState, config: GameConfig) -> BoosterStatus.Usability:
 	if not ALL.has(id):
 		return BoosterStatus.Usability.CANNOT_AFFORD
-	var price: int = 0 if is_free(state, config) else _raw_cost(id, state.cells, config)
+	var price: BigNum = charge(id, state, config)
 	if id == UNDO:
 		if not state.has_snapshot():
 			return BoosterStatus.Usability.NO_SNAPSHOT
-		if price < 0 or state.snapshot_points < 0 or state.score - state.snapshot_points < price:
+		var left: BigNum = state.score.sub(state.snapshot_points)
+		if left == null or left.compare(price) < 0:
 			return BoosterStatus.Usability.CANNOT_AFFORD
 		return BoosterStatus.Usability.USABLE
-	if price < 0 or state.score < price:
+	if state.score.compare(price) < 0:
 		return BoosterStatus.Usability.CANNOT_AFFORD
 	if (id == SWAP or id == SHUFFLE) and not _has_two_values(state.cells):
 		return BoosterStatus.Usability.NO_TARGET
-	if id == DOUBLE and not _has_double_target(state.cells):
+	if id == DOUBLE and not _has_double_target(state.cells, config):
 		return BoosterStatus.Usability.NO_TARGET
 	return BoosterStatus.Usability.USABLE
 
@@ -105,9 +112,11 @@ static func suggested_rescue(state: RunState, config: GameConfig) -> StringName:
 
 ## D-19, the move check: PLAY when the board has a valid move, else OFFER when
 ## any booster is usable, else END. It follows usability(), so while a free
-## booster is held the offer opens instead of the run ending (FB8).
+## booster is held the offer opens instead of the run ending (FB8). The move
+## check measures with the run's score, so a score that blocks every pair
+## opens the offer (D-37, AT-167).
 static func outcome(state: RunState, config: GameConfig) -> Outcome:
-	if CoreRules.has_valid_move(state.cells, config):
+	if CoreRules.has_valid_move(state.cells, state.score, config):
 		return Outcome.PLAY
 	for id: StringName in ALL:
 		if usability(id, state, config) == BoosterStatus.Usability.USABLE:
@@ -119,7 +128,7 @@ static func outcome(state: RunState, config: GameConfig) -> Outcome:
 ## Usability is checked first, then the targets: Hammer and Double need one
 ## tile, Swap two tiles of different value (D-24), Shuffle and Undo none. A
 ## booster with nothing on the board to act on (NO_TARGET) and a Double on a
-## tile whose double would pass 2^63 minus 1 are bad targets.
+## tile at max_exponent are bad targets.
 ## The charge is read before the effect and taken with it (D-21). While a free
 ## booster is held it is 0, and exactly one free booster is used (D-46).
 ## Hammer, Swap, Shuffle and Double leave the Undo snapshot alone; Undo
@@ -137,11 +146,11 @@ static func apply(id: StringName, state: RunState, records: Records, targets: Ar
 	var refusal: StringName = _refusal(id, state, targets, config)
 	if refusal != &"":
 		result.refusal = refusal
-		result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
+		result.has_valid_move = CoreRules.has_valid_move(state.cells, state.score, config)
 		return result
 
 	var free: bool = is_free(state, config)
-	var price: int = charge(id, state, config)
+	var price: BigNum = charge(id, state, config)
 	match id:
 		HAMMER:
 			_hammer(state, targets[0], price, result, rng, config)
@@ -161,14 +170,14 @@ static func apply(id: StringName, state: RunState, records: Records, targets: Ar
 	result.cost = price
 	result.free_used = free
 	result.cells_after = state.cells.duplicate()
-	result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
+	result.has_valid_move = CoreRules.has_valid_move(state.cells, state.score, config)
 	return result
 
 
 ## D-23. Empty the cell, the tiles above fall one cell, one new tile spawns at
 ## the top of the column. Never clears small tiles (D-39).
-static func _hammer(state: RunState, cell: Vector2i, price: int, result: MoveResult, rng: RunRandom, config: GameConfig) -> void:
-	state.score -= price
+static func _hammer(state: RunState, cell: Vector2i, price: BigNum, result: MoveResult, rng: RunRandom, config: GameConfig) -> void:
+	state.score = state.score.sub(price)
 	var board: PackedInt64Array = state.cells.duplicate()
 	board[CoreRules.index_of(cell, config.columns)] = 0
 	state.cells = board
@@ -177,8 +186,8 @@ static func _hammer(state: RunState, cell: Vector2i, price: int, result: MoveRes
 
 
 ## D-24. The two tiles change places. No gravity, no spawn.
-static func _swap(state: RunState, first: Vector2i, second: Vector2i, price: int, config: GameConfig) -> void:
-	state.score -= price
+static func _swap(state: RunState, first: Vector2i, second: Vector2i, price: BigNum, config: GameConfig) -> void:
+	state.score = state.score.sub(price)
 	var board: PackedInt64Array = state.cells.duplicate()
 	var first_index: int = CoreRules.index_of(first, config.columns)
 	var second_index: int = CoreRules.index_of(second, config.columns)
@@ -190,31 +199,32 @@ static func _swap(state: RunState, first: Vector2i, second: Vector2i, price: int
 
 ## D-25. Random arrangements until one has a valid move, at most
 ## SHUFFLE_MAX_ATTEMPTS, then the fallback on the last one. Sets
-## rng.shuffle_attempts.
-static func _shuffle(state: RunState, price: int, rng: RunRandom, config: GameConfig) -> void:
-	state.score -= price
+## rng.shuffle_attempts. The move check and the fallback measure with the
+## score after the charge (D-25, D-37).
+static func _shuffle(state: RunState, price: BigNum, rng: RunRandom, config: GameConfig) -> void:
+	state.score = state.score.sub(price)
 	var arranged: PackedInt64Array = state.cells.duplicate()
 	var attempts: int = 0
 	var found: bool = false
 	while not found and (attempts == 0 or attempts < config.shuffle_max_attempts):
 		arranged = rng.shuffle_attempt(state.cells)
 		attempts += 1
-		found = CoreRules.has_valid_move(arranged, config)
+		found = CoreRules.has_valid_move(arranged, state.score, config)
 	rng.shuffle_attempts = attempts
 	if not found:
-		arranged = _shuffle_fallback(arranged, config)
+		arranged = _shuffle_fallback(arranged, state.score, config)
 	state.cells = arranged
 
 
 ## The fallback of GDD 13.5. In reading order, P is the first cell whose value
-## fits as a pair (2^61 or less, CoreRules.pair_fits) and appears again later,
-## and Q the first later cell with that value. Q's tile swaps with the tile
-## right of P, or below P when P is in the last column, so P and its twin
-## touch. A board with no such value is returned unchanged.
-static func _shuffle_fallback(cells: PackedInt64Array, config: GameConfig) -> PackedInt64Array:
+## fits as a pair with the score after the charge (CoreRules.pair_fits) and
+## appears again later, and Q the first later cell with that value. Q's tile
+## swaps with the tile right of P, or below P when P is in the last column, so
+## P and its twin touch. A board with no such value is returned unchanged.
+static func _shuffle_fallback(cells: PackedInt64Array, score: BigNum, config: GameConfig) -> PackedInt64Array:
 	var board: PackedInt64Array = cells.duplicate()
 	for p: int in board.size():
-		if not CoreRules.pair_fits(board[p]):
+		if not CoreRules.pair_fits(board[p], score, config):
 			continue
 		for q: int in range(p + 1, board.size()):
 			if board[q] != board[p]:
@@ -233,14 +243,15 @@ static func _shuffle_fallback(cells: PackedInt64Array, config: GameConfig) -> Pa
 	return board
 
 
-## D-26. The tile doubles in place. If that raised the window floor, small
-## tiles clear (D-38) and only then gravity and spawns follow.
-static func _double(state: RunState, cell: Vector2i, price: int, result: MoveResult, rng: RunRandom, config: GameConfig) -> void:
+## D-26. The tile doubles in place: its exponent goes up by 1. If that raised
+## the window floor, small tiles clear (D-38) and only then gravity and spawns
+## follow.
+static func _double(state: RunState, cell: Vector2i, price: BigNum, result: MoveResult, rng: RunRandom, config: GameConfig) -> void:
 	var floor_before: int = CoreRules.window_floor(CoreRules.highest(state.cells), config)
-	state.score -= price
+	state.score = state.score.sub(price)
 	var board: PackedInt64Array = state.cells.duplicate()
 	var index: int = CoreRules.index_of(cell, config.columns)
-	board[index] = board[index] * 2
+	board[index] = board[index] + 1
 	state.cells = board
 	result.result_cell = cell
 	result.result_value = board[index]
@@ -250,13 +261,13 @@ static func _double(state: RunState, cell: Vector2i, price: int, result: MoveRes
 
 
 ## D-27. The board becomes the snapshot board exactly, the score loses the
-## snapshot's points and the Undo cost, and the snapshot is cleared. Never
+## snapshot's points and the Undo charge, and the snapshot is cleared. Never
 ## clears small tiles and never touches the random generator (D-29, D-39).
-static func _undo(state: RunState, price: int) -> void:
-	state.score = state.score - state.snapshot_points - price
+static func _undo(state: RunState, price: BigNum) -> void:
+	state.score = state.score.sub(state.snapshot_points).sub(price)
 	state.cells = state.snapshot_cells.duplicate()
 	state.snapshot_cells = PackedInt64Array()
-	state.snapshot_points = 0
+	state.snapshot_points = BigNum.zero()
 
 
 ## The refusal for this booster call, or &"" when it may run. NO_TARGET is
@@ -275,15 +286,15 @@ static func _refusal(id: StringName, state: RunState, targets: Array[Vector2i], 
 		return &"bad_target"
 	if id == HAMMER and state.value_at(targets[0]) <= 0:
 		return &"bad_target"
-	if id == DOUBLE and not CoreRules.pair_fits(state.value_at(targets[0])):
+	if id == DOUBLE and not _is_double_target(state.value_at(targets[0]), config):
 		return &"bad_target"
 	if id == SWAP and not can_pick_second(state, targets[0], targets[1]):
 		return &"bad_target"
 	return &""
 
 
-## SEC-01. True when the board holds two tiles of different value, so Swap
-## has a legal pair (D-24) and Shuffle can change the board.
+## 13.1. True when the board holds two tiles of different value, so Swap has
+## a legal pair (D-24) and Shuffle can change the board.
 static func _has_two_values(cells: PackedInt64Array) -> bool:
 	for value: int in cells:
 		if value > 0 and value != cells[0]:
@@ -291,26 +302,19 @@ static func _has_two_values(cells: PackedInt64Array) -> bool:
 	return false
 
 
-## SEC-01. True when the board holds a tile Double can double: one whose
-## double fits in 64 bits (CoreRules.pair_fits, 2^61 or less).
-static func _has_double_target(cells: PackedInt64Array) -> bool:
+## 13.6, D-37. True when the board holds a tile Double can double.
+static func _has_double_target(cells: PackedInt64Array, config: GameConfig) -> bool:
 	for value: int in cells:
-		if CoreRules.pair_fits(value):
+		if _is_double_target(value, config):
 			return true
 	return false
 
 
-## The cost, or -1 for an unknown id or a cost that would pass 2^63 minus 1.
-static func _raw_cost(id: StringName, cells: PackedInt64Array, config: GameConfig) -> int:
-	if not ALL.has(id):
-		return -1
-	var basis: int = cost_basis(cells, config)
-	var shift: int = config.cost_shift.get(id, 0)
-	if shift < 0:
-		return basis >> mini(-shift, 63)
-	if shift >= 63 or basis > (_INT64_MAX >> shift):
-		return -1
-	return basis << shift
+## 13.6, D-37. A tile Double may double: its exponent is below max_exponent,
+## so the doubled tile is at most the ceiling. The score plays no part, since
+## Double adds no points.
+static func _is_double_target(value: int, config: GameConfig) -> bool:
+	return value > 0 and value < config.max_exponent
 
 
 static func _kind_of(id: StringName) -> MoveResult.Kind:
@@ -326,3 +330,14 @@ static func _kind_of(id: StringName) -> MoveResult.Kind:
 		UNDO:
 			return MoveResult.Kind.UNDO
 	return MoveResult.Kind.NEW_RUN
+
+
+## The exponent of a power of two from GameConfig (log2, rounded down for
+## other values). 0 for values of 1 or less.
+static func _exponent_of(value: int) -> int:
+	var exponent: int = 0
+	var rest: int = value
+	while rest > 1:
+		rest >>= 1
+		exponent += 1
+	return exponent

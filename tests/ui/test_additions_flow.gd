@@ -7,6 +7,7 @@ extends "res://tests/base_test.gd"
 ## the show gate (AT-146) and the clear notice rules (GDD 11.5).
 
 const U := preload("res://tests/ui/ui_fixtures.gd")
+const UiCopy := preload("res://src/design/shared/ui_copy.gd")
 const Copy := preload("res://src/ui/screen_copy.gd")
 
 var _dir: String = ""
@@ -72,8 +73,8 @@ func _run_bytes() -> PackedByteArray:
 ## A saved run after a chain, with Undo, 3 stars and 1 free booster held
 ## (run highest 8192), and its records, as a previous session left them.
 func _saved_with_stars() -> RunState:
-	var state: RunState = RunState.create(U.with_cell(U.board_p(), Vector2i(0, 0), 8192), 9000, U.snapshot_board(), 40)
-	U.save_game(_dir, state, 9000, 8192)
+	var state: RunState = U.run(U.with_cell(U.board_p(), Vector2i(0, 0), 13), 9000, U.snapshot_board(), 40)
+	U.save_game(_dir, state, 9000, 13)
 	return state
 
 
@@ -87,7 +88,7 @@ func test_at_112_info_opens_from_the_splash() -> void:
 	var panel: InfoPanel = app.top_panel() as InfoPanel
 	assert_not_null(panel, "Info opens")
 	assert_eq(panel.title_text(), "Info", "titled Info")
-	assert_eq(panel.content().size(), 16, "IN1 to IN16")
+	assert_eq(panel.content().size(), 17, "IN1 to IN17")
 	assert_eq(panel.scroll().scroll_vertical, 0, "scrolled to the top")
 	_back(app)
 	assert_true(app.open_panels().is_empty(), "back closes it")
@@ -97,14 +98,14 @@ func test_at_112_info_opens_from_the_splash() -> void:
 	app.splash_screen().info_chosen.emit()
 	(app.top_panel() as InfoPanel).close_button().pressed.emit()
 	assert_true(app.open_panels().is_empty(), "its close control returns to the splash too")
-	assert_eq(app.records.best_score, 9000, "Best Score unchanged")
-	assert_eq(app.records.best_tile, 8192, "Best Tile unchanged")
+	assert_eq(U.text(app.records.best_score), "9000", "Best Score unchanged")
+	assert_eq(app.records.best_tile, 13, "Best Tile unchanged")
 	U.play(app)
 	assert_true(app.session.state.equals(saved), "Play opens the saved run unchanged")
 
 
 func test_at_113_info_from_pause_leaves_the_run_untouched() -> void:
-	U.save_game(_dir, RunState.create(U.board_p(), 5000))
+	U.save_game(_dir, U.run(U.board_p(), 5000))
 	var app: App = _play()
 	U.shown(app)
 	var chain: Array[Vector2i] = [Vector2i(1, 6), Vector2i(2, 6)]
@@ -142,7 +143,7 @@ func test_at_114_info_never_opens_by_itself() -> void:
 	U.shown(app)
 	assert_false(_info_open(app), "not when a run starts")
 	U.settle(app)
-	U.save_game(_dir, RunState.create(U.board_d1024(), 300))
+	U.save_game(_dir, U.run(U.board_d1024(), 300))
 	var ended: App = _restart()
 	assert_false(_info_open(ended), "not at launch with a saved run")
 	U.play(ended)
@@ -194,8 +195,8 @@ func test_at_149_play_continues_the_saved_run_exactly() -> void:
 	assert_true(app.open_panels().is_empty(), "still no confirmation")
 	assert_true(app.session.state.equals(saved), "board, score, snapshot and run highest tile")
 	U.shown(app)
-	assert_eq(app.records.best_score, 9000, "Best Score")
-	assert_eq(app.records.best_tile, 8192, "Best Tile")
+	assert_eq(U.text(app.records.best_score), "9000", "Best Score")
+	assert_eq(app.records.best_tile, 13, "Best Tile")
 	assert_eq(app.session.stars(), 3, "3 stars")
 	assert_eq(app.session.free_held(), 1, "1 free booster held")
 	for status: BoosterStatus in app.session.booster_statuses():
@@ -207,26 +208,26 @@ func test_at_149_play_continues_the_saved_run_exactly() -> void:
 func test_launch_folds_the_saved_run_into_the_records() -> void:
 	# A kill between the run file and the profile: the run is ahead of the
 	# records. The splash shows them up to date (GDD 15.1).
-	var state: RunState = RunState.create(U.with_cell(U.board_p(), Vector2i(0, 0), 4096), 7000)
-	U.save_game(_dir, state, 5000, 1024)
+	var state: RunState = U.run(U.with_cell(U.board_p(), Vector2i(0, 0), 12), 7000)
+	U.save_game(_dir, state, 5000, 10)
 	var app: App = _start()
-	assert_eq(app.records.best_score, 7000, "Best Score from the run")
-	assert_eq(app.records.best_tile, 4096, "Best Tile from the run")
+	assert_eq(U.text(app.records.best_score), "7000", "Best Score from the run")
+	assert_eq(app.records.best_tile, 12, "Best Tile from the run")
 	assert_eq(app.splash_screen().best_score_text(), "7,000", "on the splash")
 	var records: Records = Records.new()
 	U.settle(app)
 	SaveService.new(_dir).load_profile(Settings.new(), records)
-	assert_eq(records.best_score, 7000, "and saved")
+	assert_eq(U.text(records.best_score), "7000", "and saved")
 
 
 func test_at_151_info_about_and_settings_over_the_splash_return_to_it() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var settings: Settings = Settings.new()
 		settings.set_skin_id(skin_id)
-		var saved: RunState = RunState.create(U.board_p(), 5000, U.snapshot_board(), 40)
+		var saved: RunState = U.run(U.board_p(), 5000, U.snapshot_board(), 40)
 		# The last App's queued saves land before this run's files are written.
 		U.stop_app(_app)
-		U.save_game(_dir, saved, 6000, 64, settings)
+		U.save_game(_dir, saved, 6000, 6, settings)
 		var app: App = _start()
 		var run_before: PackedByteArray = _run_bytes()
 		var splash: SplashScreen = app.splash_screen()
@@ -266,8 +267,8 @@ func test_at_151_info_about_and_settings_over_the_splash_return_to_it() -> void:
 		assert_true(_quits.is_empty(), "%s: no exit" % skin_id)
 		assert_eq(app.splash_screen(), splash, "%s: the same splash throughout" % skin_id)
 		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.BRAND_IN, "%s: its entrance was not restarted by a panel" % skin_id)
-		assert_eq(app.records.best_score, 6000, "%s: Best Score unchanged" % skin_id)
-		assert_eq(app.records.best_tile, 64, "%s: Best Tile unchanged" % skin_id)
+		assert_eq(U.text(app.records.best_score), "6000", "%s: Best Score unchanged" % skin_id)
+		assert_eq(app.records.best_tile, 6, "%s: Best Tile unchanged" % skin_id)
 		assert_eq(app.skin.id, skin_id, "%s: the skin unchanged" % skin_id)
 		assert_eq(_run_bytes(), run_before, "%s: the run file unchanged" % skin_id)
 		# (e)
@@ -283,7 +284,7 @@ func test_play_is_ignored_under_a_panel() -> void:
 
 
 func test_at_152_back_on_the_splash_quits_and_keeps_the_run() -> void:
-	var saved: RunState = RunState.create(U.board_p(), 5000, U.snapshot_board(), 40)
+	var saved: RunState = U.run(U.board_p(), 5000, U.snapshot_board(), 40)
 	U.save_game(_dir, saved)
 	var app: App = _start()
 	var before: PackedByteArray = _run_bytes()
@@ -301,7 +302,7 @@ func test_at_152_back_on_the_splash_quits_and_keeps_the_run() -> void:
 
 
 func test_at_153_c_a_return_from_the_background_keeps_info_over_the_splash() -> void:
-	U.save_game(_dir, RunState.create(U.board_p(), 5000))
+	U.save_game(_dir, U.run(U.board_p(), 5000))
 	var app: App = _start()
 	var before: PackedByteArray = _run_bytes()
 	app.splash_screen().info_chosen.emit()
@@ -315,7 +316,7 @@ func test_at_153_c_a_return_from_the_background_keeps_info_over_the_splash() -> 
 
 
 func test_at_153_a_b_a_return_from_the_background_keeps_the_play_screen() -> void:
-	U.save_game(_dir, RunState.create(U.board_p(), 5000))
+	U.save_game(_dir, U.run(U.board_p(), 5000))
 	var app: App = _play()
 	U.shown(app)
 	var game: GameScreen = app.game_screen()
@@ -328,7 +329,7 @@ func test_at_153_a_b_a_return_from_the_background_keeps_the_play_screen() -> voi
 	assert_null(app.splash_screen(), "no splash")
 	assert_eq(app.game_screen(), game, "the same play screen")
 	assert_eq(app.session.targeting_booster(), &"", "targeting cancelled")
-	assert_eq(app.session.state.score, 5000, "nothing charged")
+	assert_eq(U.text(app.session.state.score), "5000", "nothing charged")
 
 
 # About (AT-140) and the back order (flow 10)
@@ -353,7 +354,7 @@ func test_at_140_about_opens_from_settings_and_back_closes_it() -> void:
 
 
 func test_back_order_from_a_license_text_down_to_the_board() -> void:
-	U.save_game(_dir, RunState.create(U.board_p(), 5000))
+	U.save_game(_dir, U.run(U.board_p(), 5000))
 	var app: App = _play()
 	U.shown(app)
 	app.open_pause()
@@ -380,7 +381,7 @@ func test_back_order_from_a_license_text_down_to_the_board() -> void:
 
 
 func test_back_cancels_targeting_before_any_panel() -> void:
-	U.save_game(_dir, RunState.create(U.board_p(), 5000))
+	U.save_game(_dir, U.run(U.board_p(), 5000))
 	var app: App = _play()
 	U.shown(app)
 	app.session.press_booster(&"hammer")
@@ -404,7 +405,7 @@ func test_skin_switch_rebuilds_open_reading_screens() -> void:
 # The offer with a free booster (AT-135, DESIGN_SYSTEM.md 7.5)
 
 func test_at_135_a_the_offer_reads_shuffle_for_free() -> void:
-	U.save_game(_dir, RunState.create(U.board_d1024(), 0, PackedInt64Array(), 0, 8192))
+	U.save_game(_dir, U.run(U.board_d1024(), 0, PackedInt64Array(), 0, 13))
 	var app: App = _play()
 	U.shown(app)
 	assert_true(app.session.is_offer_open(), "the offer opens instead of ending the run")
@@ -412,15 +413,15 @@ func test_at_135_a_the_offer_reads_shuffle_for_free() -> void:
 	var offer: OfferPanel = app.game_screen().offer_panel()
 	assert_eq(offer.buy_button().text, "Shuffle for free", "the buy button")
 	offer.buy_button().pressed.emit()
-	assert_eq(app.session.state.score, 0, "free: the score stays 0")
+	assert_eq(U.text(app.session.state.score), "0", "free: the score stays 0")
 	assert_eq(app.session.free_held(), 0, "the free booster is used")
 
 
 # New best after a restart (AT-145, the UI half)
 
 func _at_145_end(best_at_start: int, format_1: bool) -> bool:
-	U.save_game(_dir, null, 5000, 1024)
-	var state: RunState = RunState.create(U.board_d1024(), 5000, PackedInt64Array(), 0, 0, 5, 0, best_at_start)
+	U.save_game(_dir, null, 5000, 10)
+	var state: RunState = U.run(U.board_d1024(), 5000, PackedInt64Array(), 0, 0, 0, best_at_start)
 	if format_1:
 		U.SaveFixtures.write_text(_dir.path_join("run.json"), U.SaveFixtures.to_text(U.SaveFixtures.format_1_data(state)))
 	else:
@@ -444,25 +445,25 @@ func test_at_145_new_best_survives_a_restart() -> void:
 # The show gate (AT-146, the App half)
 
 func test_at_146_a_held_save_keeps_the_hud_and_the_board_as_at_the_lift() -> void:
-	U.save_game(_dir, RunState.create(U.board_p(), 5000))
+	U.save_game(_dir, U.run(U.board_p(), 5000))
 	var app: App = _play()
 	U.shown(app)
 	var game: GameScreen = app.game_screen()
 	var statuses: Array[BoosterStatus] = game.shown_statuses()
-	assert_eq(game.shown_score(), 5000, "the score before the move")
+	assert_eq(U.text(game.shown_score()), "5000", "the score before the move")
 	app.save.set_hold(true)
 	var chain: Array[Vector2i] = [Vector2i(1, 6), Vector2i(2, 6)]
 	assert_true(app.session.commit_chain(chain).accepted, "the chain commits in the rules model")
-	assert_eq(app.session.state.score, 5004, "with its points")
+	assert_eq(U.text(app.session.state.score), "5004", "with its points")
 	game.board()._check_gate()
 	assert_true(game.board().is_waiting_for_save(), "the save is held, so the board has not started the move")
-	assert_eq(game.shown_score(), 5000, "the HUD score is as at the lift")
+	assert_eq(U.text(game.shown_score()), "5000", "the HUD score is as at the lift")
 	assert_eq(game.hud().score_label().text, "5,000", "on screen")
 	assert_true(game.shown_statuses() == statuses, "the booster bar is as at the lift")
 	app.save.set_hold(false)
 	U.gate(app)
 	assert_false(game.board().is_waiting_for_save(), "once the save lands the move starts")
-	assert_eq(game.shown_score(), 5004, "and the HUD shows its score")
+	assert_eq(U.text(game.shown_score()), "5004", "and the HUD shows its score")
 	assert_false(game.shown_statuses() == statuses, "and the bar its statuses")
 
 
@@ -484,7 +485,7 @@ func test_notice_rules() -> void:
 	clear_only.cleared_small = [Vector2i(0, 0)] as Array[Vector2i]
 	assert_true(GameScreen.wants_notice(clear_only), "a clear with no star shows the notice (CL4)")
 	var neither: MoveResult = MoveResult.new()
-	neither.notice_values = PackedInt64Array([2])
+	neither.notice_values = PackedInt64Array([1])
 	assert_false(GameScreen.wants_notice(neither), "a floor rise with no clear and no star shows none")
 	assert_false(GameScreen.wants_notice(null), "no move, no notice")
 
@@ -494,21 +495,21 @@ func _board_e() -> PackedInt64Array:
 	for row: int in 8:
 		for column: int in 5:
 			if row % 2 == 0:
-				cells.append(4 if column % 2 == 0 else 16)
+				cells.append(2 if column % 2 == 0 else 4)
 			else:
-				cells.append(8 if column % 2 == 0 else 32)
+				cells.append(3 if column % 2 == 0 else 5)
 	return cells
 
 
 func test_at_123_a_star_with_nothing_cleared_shows_the_notice() -> void:
-	var board: PackedInt64Array = U.with_cell(U.with_cell(_board_e(), Vector2i(4, 6), 1024), Vector2i(4, 7), 1024)
-	U.save_game(_dir, RunState.create(board, 10000))
+	var board: PackedInt64Array = U.with_cell(U.with_cell(_board_e(), Vector2i(4, 6), 10), Vector2i(4, 7), 10)
+	U.save_game(_dir, U.run(board, 10000))
 	var app: App = _play()
 	U.shown(app)
 	var result: MoveResult = app.session.commit_chain([Vector2i(4, 6), Vector2i(4, 7)] as Array[Vector2i])
 	assert_eq(result.stars_earned, 1, "one star")
 	assert_true(result.cleared_small.is_empty(), "nothing cleared")
-	assert_eq(result.notice_values, PackedInt64Array([2]), "the 2s left the window")
+	assert_eq(result.notice_values, PackedInt64Array([1]), "the 2s left the window")
 	var hud: SkinHud = app.game_screen().hud()
 	assert_null(hud.call(&"clear_notice"), "the notice waits with the move at the gate")
 	assert_eq(hud.call(&"shown_stars"), Vector2i(0, 0), "and so does the counter")
@@ -523,8 +524,8 @@ func test_at_123_a_star_with_nothing_cleared_shows_the_notice() -> void:
 
 
 func test_at_125_a_loaded_run_shows_its_stars_and_no_notice() -> void:
-	var state: RunState = RunState.create(U.with_cell(U.board_p(), Vector2i(0, 0), 131072), 2400000, PackedInt64Array(), 0, 0, 5, 1)
-	U.save_game(_dir, state, 2400000, 131072)
+	var state: RunState = U.run(U.with_cell(U.board_p(), Vector2i(0, 0), 17), 2400000, PackedInt64Array(), 0, 0, 1)
+	U.save_game(_dir, state, 2400000, 17)
 	var app: App = _play()
 	U.shown(app)
 	var hud: SkinHud = app.game_screen().hud()
@@ -534,8 +535,8 @@ func test_at_125_a_loaded_run_shows_its_stars_and_no_notice() -> void:
 
 
 func test_stars_follow_a_skin_switch_and_a_new_run() -> void:
-	var state: RunState = RunState.create(U.with_cell(U.board_p(), Vector2i(0, 0), 8192), 9000)
-	U.save_game(_dir, state, 9000, 8192)
+	var state: RunState = U.run(U.with_cell(U.board_p(), Vector2i(0, 0), 13), 9000)
+	U.save_game(_dir, state, 9000, 13)
 	var app: App = _play()
 	U.shown(app)
 	assert_eq(app.game_screen().hud().call(&"shown_stars"), Vector2i(3, 1), "3 stars, 1 free booster")
@@ -552,8 +553,8 @@ func test_stars_follow_a_skin_switch_and_a_new_run() -> void:
 
 
 func test_the_end_of_run_screen_has_no_stars_row() -> void:
-	var state: RunState = RunState.create(U.board_d1024(), 300, PackedInt64Array(), 0, 8192, 5, 1)
-	U.save_game(_dir, state, 300, 8192)
+	var state: RunState = U.run(U.board_d1024(), 300, PackedInt64Array(), 0, 13, 1)
+	U.save_game(_dir, state, 300, 13)
 	var app: App = _play()
 	U.shown(app)
 	var panel: EndPanel = app.top_panel() as EndPanel
@@ -565,8 +566,8 @@ func test_the_end_of_run_screen_has_no_stars_row() -> void:
 func test_qa6_04_a_clear_from_the_offer_still_shows_the_notice() -> void:
 	# AT-101: Double on the 1024 from the offer makes 2048, clears the 2 and
 	# earns a star while the offer has the HUD's place.
-	var board: PackedInt64Array = U.with_cell(U.with_cell(_board_e(), Vector2i(0, 3), 2), Vector2i(2, 0), 1024)
-	U.save_game(_dir, RunState.create(board, 5000))
+	var board: PackedInt64Array = U.with_cell(U.with_cell(_board_e(), Vector2i(0, 3), 1), Vector2i(2, 0), 10)
+	U.save_game(_dir, U.run(board, 5000))
 	var app: App = _play()
 	U.shown(app)
 	assert_true(app.session.is_offer_open(), "the offer is open")
@@ -583,3 +584,18 @@ func test_qa6_04_a_clear_from_the_offer_still_shows_the_notice() -> void:
 	var game: GameScreen = app.game_screen()
 	assert_true(layer.get_index() > game.offer_panel().get_index(), "above the offer panel")
 	assert_true(layer.get_index() > game.board().get_index(), "and the board")
+
+
+func test_clear_notice_plural_follows_the_label() -> void:
+	# GDD 11.5 and AT-161: the plural "s" stays after a digit or a capital
+	# suffix and is left out after a lowercase one. Values are exponents.
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var one: String = UiCopy.clear_notice(skin, &"body", PackedInt64Array([53]))
+		assert_true(one.ends_with("8Qs"), "%s: \"%s\" keeps the s after 8Q" % [skin_id, one])
+		var lower: String = UiCopy.clear_notice(skin, &"body", PackedInt64Array([60]))
+		assert_true(lower.ends_with("1aa"), "%s: \"%s\" has no s after 1aa" % [skin_id, lower])
+		var as_label: String = UiCopy.clear_notice(skin, &"body", PackedInt64Array([220]))
+		assert_true(as_label.ends_with("1as") and not as_label.contains("1ass"), "%s: \"%s\", never 1ass" % [skin_id, as_label])
+		var range_text: String = UiCopy.clear_notice(skin, &"body", PackedInt64Array([67, 68, 69]))
+		assert_true(range_text.contains("128aa") and range_text.ends_with("512aa") and not range_text.contains("128aas"), "%s: \"%s\"" % [skin_id, range_text])

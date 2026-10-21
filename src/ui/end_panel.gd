@@ -15,8 +15,9 @@ class_name EndPanel extends "res://src/ui/dialog_base.gd"
 signal new_game_chosen()
 signal home_chosen()
 
-## Side of the mini tiles in the record rows (DESIGN_SYSTEM.md 7.9).
-const MINI_TILE: float = 72.0
+## Side of the mini tiles in the record rows (DESIGN_SYSTEM.md 7.9, 96 px
+## since 2026-10-21 so a 5 character label reads as large as 4 did).
+const MINI_TILE: float = 96.0
 
 var _summary: RunSummary = null
 var _score_label: Label = null
@@ -65,7 +66,7 @@ func reason_text() -> String:
 	return _reason.text if _reason != null else ""
 
 
-## The values of the mini tiles: Best tile, then this run's highest tile. For tests.
+## The exponents of the mini tiles: Best tile, then this run's highest tile. For tests.
 func tile_values() -> PackedInt64Array:
 	var values: PackedInt64Array = PackedInt64Array()
 	if _summary != null:

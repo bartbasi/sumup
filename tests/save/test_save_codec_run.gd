@@ -5,6 +5,7 @@ extends "res://tests/base_test.gd"
 
 const F := preload("res://tests/save/save_fixtures.gd")
 const INT64_MAX: int = 9223372036854775807
+const INT64_MAX_TEXT: String = "9223372036854775807"
 
 var _config: GameConfig = GameConfig.new()
 
@@ -27,13 +28,10 @@ func _load(data: Variant) -> RunState:
 	return SaveCodec.data_to_run(data, _config)
 
 
-func _exponents(values: PackedInt64Array) -> Array:
+func _list(values: PackedInt64Array) -> Array:
 	var result: Array = []
 	for value: int in values:
-		var exponent: int = 0
-		while (value >> exponent) > 1:
-			exponent += 1
-		result.append(exponent)
+		result.append(value)
 	return result
 
 
@@ -46,7 +44,7 @@ func test_run_to_data_uses_the_documented_format() -> void:
 	assert_eq(data["format"], 2, "format")
 	assert_eq(data["columns"], 5, "columns")
 	assert_eq(data["rows"], 8, "rows")
-	assert_eq(data["cells"], _exponents(state.cells), "cells as exponents")
+	assert_eq(data["cells"], _list(state.cells), "cells as exponents")
 	assert_eq((data["cells"] as Array)[2], 10, "the 1024 on (2,0) is exponent 10")
 	assert_eq((data["cells"] as Array)[0], 1, "a 2 is exponent 1")
 	assert_eq(data["score"], "41286", "score as a digit string")
@@ -56,7 +54,7 @@ func test_run_to_data_uses_the_documented_format() -> void:
 	assert_eq(data["best_at_start"], "38500", "Best Score when the run began as a digit string")
 	var snapshot: Dictionary = data["snapshot"]
 	assert_eq(snapshot.keys(), ["cells", "points"], "snapshot keys")
-	assert_eq(snapshot["cells"], _exponents(F.board_d()), "snapshot cells as exponents")
+	assert_eq(snapshot["cells"], _list(F.board_d()), "snapshot cells as exponents")
 	assert_eq(snapshot["points"], "96", "snapshot points as a digit string")
 	assert_eq(SaveCodec.RUN_FORMAT, 2, "RUN_FORMAT constant")
 	assert_eq(SaveCodec.PROFILE_FORMAT, 1, "PROFILE_FORMAT constant")
@@ -74,24 +72,25 @@ func test_run_to_data_of_null_is_empty_and_refused() -> void:
 	assert_true(_load(data) == null, "and nothing loads from it")
 
 
-func test_run_to_data_marks_values_the_format_cannot_hold() -> void:
-	var cells: PackedInt64Array = F.with_cell(F.board_d(), Vector2i(3, 3), 12)
+func test_run_to_data_writes_states_that_never_load_as_is() -> void:
+	var cells: PackedInt64Array = F.with_cell(F.board_d(), Vector2i(3, 3), 0)
 	var data: Dictionary = SaveCodec.run_to_data(F.run(cells, 10))
-	assert_eq((data["cells"] as Array)[18], -1, "12 is not a power of two")
+	assert_eq((data["cells"] as Array)[18], 0, "an empty cell is written as 0")
 	assert_true(_load(_through_json(data)) == null, "so the run is refused")
-	var negative: Dictionary = SaveCodec.run_to_data(F.run(F.board_d(), -5))
-	assert_eq(negative["score"], "-5", "a negative score is written as is")
-	assert_true(_load(_through_json(negative)) == null, "and refused on load")
+	var too_high: PackedInt64Array = F.with_cell(F.board_d(), Vector2i(3, 3), 65536)
+	var high_data: Dictionary = SaveCodec.run_to_data(F.run(too_high, 10, PackedInt64Array(), 0, 65536))
+	assert_eq((high_data["cells"] as Array)[18], 65536, "an exponent past the ceiling is written as is")
+	assert_true(_load(_through_json(high_data)) == null, "and refused on load")
 
 
 func test_an_unknown_best_at_start_is_never_written() -> void:
-	# RunState.create leaves best_at_start at -1 (unknown, as from a format 1
+	# RunState.create leaves best_at_start null (unknown, as from a format 1
 	# file). GameSession replaces it before any save; if it ever did not, the
 	# file would hold a value that is not true, so the save is refused instead.
-	var state: RunState = RunState.create(F.board_d(), 10)
-	assert_eq(state.best_at_start, -1, "unknown")
+	var state: RunState = RunState.create(F.board_d(), BigNum.from_int(10))
+	assert_true(state.best_at_start == null, "unknown")
 	var data: Dictionary = SaveCodec.run_to_data(state)
-	assert_eq(data["best_at_start"], "-1", "encoded as is")
+	assert_eq(typeof(data["best_at_start"]), TYPE_NIL, "encoded as JSON null")
 	assert_true(_load(data) == null, "and refused, so SaveService never writes it")
 	assert_true(_load(_through_json(data)) == null, "through a file too")
 
@@ -104,8 +103,8 @@ func test_round_trip_with_snapshot() -> void:
 	assert_true(loaded != null, "loads")
 	assert_true(state.equals(loaded), "equals the saved run exactly")
 	assert_true(loaded.has_snapshot(), "snapshot kept")
-	assert_eq(loaded.snapshot_points, 96, "snapshot points")
-	assert_eq(loaded.run_highest, 2048, "run highest")
+	assert_eq(F.text(loaded.snapshot_points), "96", "snapshot points")
+	assert_eq(loaded.run_highest, 11, "run highest 2048")
 
 
 func test_round_trip_without_snapshot() -> void:
@@ -115,39 +114,54 @@ func test_round_trip_without_snapshot() -> void:
 	assert_false(loaded.has_snapshot(), "still no snapshot")
 
 
-func test_round_trip_values_up_to_2_62() -> void:
+func test_round_trip_values_at_the_ceiling() -> void:
 	var board: PackedInt64Array = F.board_huge()
-	# 2^62 gives 52 stars, so 17 free boosters earned; all of them used.
-	var state: RunState = F.run(board, INT64_MAX, board, INT64_MAX, 1 << 62, 17, INT64_MAX)
+	var top: BigNum = F.pow2_plus(_config.max_score_bits, -1)
+	var earned: int = CoreRules.free_earned(_config.max_exponent, _config)
+	var state: RunState = F.run(board, top, board, top, _config.max_exponent, earned, top)
 	var loaded: RunState = _load(_through_json(SaveCodec.run_to_data(state)))
 	assert_true(loaded != null, "loads")
-	assert_true(state.equals(loaded), "every 64 bit value exact")
-	assert_eq(loaded.cells[0], 4611686018427387904, "2^62 exactly")
-	assert_eq(loaded.cells[1], 2305843009213693952, "2^61 exactly")
-	assert_eq(loaded.score, INT64_MAX, "score 2^63 minus 1 exactly")
-	assert_eq(loaded.snapshot_points, INT64_MAX, "points 2^63 minus 1 exactly")
-	assert_eq(loaded.run_highest, 4611686018427387904, "run highest 2^62 exactly")
-	assert_eq(loaded.free_used, 17, "every free booster earned can be used")
-	assert_eq(loaded.best_at_start, INT64_MAX, "Best Score when the run began 2^63 minus 1 exactly")
+	if loaded == null:
+		return
+	assert_true(state.equals(loaded), "every value exact")
+	assert_eq(loaded.cells[0], 65535, "2^65535 exactly")
+	assert_eq(loaded.cells[1], 65534, "2^65534 exactly")
+	assert_true(loaded.score.equals(top), "score 2^65600 minus 1 exactly")
+	assert_eq(loaded.score.to_decimal().length(), 19748, "19,748 digits")
+	assert_true(loaded.snapshot_points.equals(top), "points 2^65600 minus 1 exactly")
+	assert_eq(loaded.run_highest, 65535, "run highest 2^65535")
+	assert_eq(loaded.free_used, earned, "every free booster earned can be used")
+	assert_true(loaded.best_at_start.equals(top), "Best Score when the run began 2^65600 minus 1 exactly")
+
+
+func test_round_trip_past_the_old_64_bit_limit() -> void:
+	# 2^62 and 2^63 tiles and a score of 2^63 exactly, all past the old limit.
+	var cells: PackedInt64Array = F.with_cell(F.with_cell(F.board_d(), Vector2i(0, 7), 63), Vector2i(1, 7), 62)
+	var state: RunState = F.run(cells, BigNum.pow2(63), PackedInt64Array(), 0, 63, 0, INT64_MAX)
+	var loaded: RunState = _load(_through_json(SaveCodec.run_to_data(state)))
+	assert_true(loaded != null and state.equals(loaded), "loads exactly")
+	if loaded != null:
+		assert_eq(F.text(loaded.score), "9223372036854775808", "2^63, one past the old limit")
+		assert_eq(F.text(loaded.best_at_start), INT64_MAX_TEXT, "2^63 minus 1")
 
 
 func test_round_trip_score_zero() -> void:
 	var state: RunState = F.run(F.board_d(), 0)
 	var loaded: RunState = _load(_through_json(SaveCodec.run_to_data(state)))
-	assert_true(loaded != null and loaded.score == 0, "score 0 is \"0\" and loads")
-	assert_true(loaded != null and loaded.best_at_start == 0, "Best Score 0 when the run began is \"0\" and loads")
+	assert_true(loaded != null and loaded.score.is_zero(), "score 0 is \"0\" and loads")
+	assert_true(loaded != null and loaded.best_at_start.is_zero(), "Best Score 0 when the run began is \"0\" and loads")
 
 
 func test_round_trip_free_used_and_best_at_start() -> void:
 	# Board D with a 131072 (exponent 17): 7 stars, 2 free boosters earned.
-	var cells: PackedInt64Array = F.with_cell(F.board_d(), Vector2i(2, 0), 131072)
+	var cells: PackedInt64Array = F.with_cell(F.board_d(), Vector2i(2, 0), 17)
 	for used: int in [0, 1, 2]:
 		var state: RunState = F.run(cells, 5000, PackedInt64Array(), 0, 0, used, 4000)
 		var loaded: RunState = _load(_through_json(SaveCodec.run_to_data(state)))
 		assert_true(loaded != null and state.equals(loaded), "%d used: equals the saved run" % used)
 		if loaded != null:
 			assert_eq(loaded.free_used, used, "%d used: free_used kept" % used)
-			assert_eq(loaded.best_at_start, 4000, "%d used: best_at_start kept" % used)
+			assert_eq(F.text(loaded.best_at_start), "4000", "%d used: best_at_start kept" % used)
 			assert_eq(CoreRules.free_held(loaded, _config), 2 - used, "%d used: free boosters held" % used)
 
 
@@ -189,7 +203,7 @@ func test_a_format_1_file_still_loads() -> void:
 	assert_true(F.as_format_1(F.control_run()).equals(loaded), "to the same run")
 	if loaded != null:
 		assert_eq(loaded.free_used, 0, "with no free booster used")
-		assert_eq(loaded.best_at_start, -1, "and the starting Best Score unknown")
+		assert_true(loaded.best_at_start == null, "and the starting Best Score unknown")
 	var from_code: RunState = _load(F.format_1_data(F.plain_run()))
 	assert_true(F.as_format_1(F.plain_run()).equals(from_code), "format 1 data with ints loads too")
 
@@ -291,7 +305,7 @@ func test_refuses_wrong_types_in_every_field() -> void:
 
 
 func test_refuses_bad_cell_exponents() -> void:
-	var bad: Array = [0, 63, 64, -1, -62, 1.5, -0.5, 2.0000001, 62.5, INF, -INF, NAN, 1e20, 1e308, 9007199254740993.0,
+	var bad: Array = [0, 65536, 65537, 1 << 32, -1, -62, 1.5, -0.5, 2.0000001, 62.5, 65535.5, INF, -INF, NAN, 1e20, 1e308, 9007199254740993.0,
 		true, false, "1", "", null, [], [1], {}]
 	for value: Variant in bad:
 		var data: Dictionary = _control_data()
@@ -303,7 +317,7 @@ func test_refuses_bad_cell_exponents() -> void:
 
 
 func test_refuses_bad_run_highest() -> void:
-	for value: Variant in [0, -1, 63, 1.5, INF, NAN, -0.0]:
+	for value: Variant in [0, -1, 65536, 1.5, INF, NAN, -0.0]:
 		var data: Dictionary = _control_data()
 		data["run_highest"] = value
 		assert_true(_load(data) == null, "run_highest %s" % str(value))
@@ -341,8 +355,7 @@ func test_board_size_follows_the_game_config() -> void:
 
 func test_refuses_bad_digit_strings() -> void:
 	var bad: Array[String] = ["", "-1", "-0", "+1", " 1", "1 ", "12a", "a12", "007", "00", "01", "1e3", "0x10", "1.0", "1,000",
-		"9223372036854775808", "9999999999999999999", "18446744073709551616", "99999999999999999999",
-		"1".repeat(20), "9".repeat(1000), "1".repeat(65000),
+		"1".repeat(19749), "9".repeat(19748), "1" + "0".repeat(19748), "1".repeat(65000), "0" + "1".repeat(19747),
 		"1\t", "\n1", "Infinity", "NaN", "null", "true",
 		String.chr(0x0661) + String.chr(0x0662),    # Arabic Indic digits one and two
 		String.chr(0xFF11) + String.chr(0xFF12),    # full width digits one and two
@@ -359,36 +372,54 @@ func test_refuses_bad_digit_strings() -> void:
 		assert_true(_load(best_data) == null, "best_at_start \"%s\"" % text.left(30))
 
 
-func test_digit_reader_refuses_overflow_instead_of_wrapping() -> void:
-	# Integer math wraps silently, so a 19 digit value above 2^63 minus 1 must
-	# be caught before it is added up, not left to come out negative.
-	assert_eq(SaveCodec._read_digits("9223372036854775807"), INT64_MAX, "the largest value")
-	assert_eq(SaveCodec._read_digits("9223372036854775808"), -1, "one more is invalid, not wrapped")
-	assert_eq(SaveCodec._read_digits("9999999999999999999"), -1, "the largest 19 digits are invalid")
-	assert_eq(SaveCodec._read_digits("0"), 0, "zero")
+func test_digit_limit_is_the_length_of_2_to_the_score_bits() -> void:
+	# Worked out, not written in: the digit count of 2^max_score_bits.
+	assert_eq(SaveCodec._max_digits(_config.max_score_bits), BigNum.pow2(_config.max_score_bits).to_decimal().length(), "matches 2^65600 written out")
+	assert_eq(SaveCodec._max_digits(65600), 19748, "19,748 digits (GDD 15.1)")
+	for bits: int in [1, 2, 3, 4, 10, 63, 64, 100, 1000, 12345]:
+		assert_eq(SaveCodec._max_digits(bits), BigNum.pow2(bits).to_decimal().length(), "%d bits" % bits)
+
+
+func test_digit_reader_stops_below_the_score_ceiling() -> void:
+	var bits: int = _config.max_score_bits
+	assert_true(SaveCodec._read_number(F.pow2_plus(bits, -1).to_decimal(), bits) != null, "2^65600 minus 1 is the largest value")
+	assert_true(SaveCodec._read_number(BigNum.pow2(bits).to_decimal(), bits) == null, "2^65600 is refused")
+	assert_true(SaveCodec._read_number("9".repeat(19748), bits) == null, "19,748 nines are above 2^65600")
+	assert_true(SaveCodec._read_number("1".repeat(19748), bits) != null, "19,748 ones are below it")
+	assert_true(SaveCodec._read_number("1".repeat(19749), bits) == null, "19,749 digits are refused by length")
+	assert_eq(F.text(SaveCodec._read_number("0", bits)), "0", "zero")
+	assert_eq(F.text(SaveCodec._read_number("9223372036854775808", bits)), "9223372036854775808", "2^63 is fine now")
+	# A lowered ceiling (TH4) works the same way.
+	assert_true(SaveCodec._read_number("4095", 12) != null, "below 2^12")
+	assert_true(SaveCodec._read_number("4096", 12) == null, "2^12")
 
 
 func test_accepts_digit_strings_at_the_limits() -> void:
-	var cases: Dictionary = {"0": 0, "7": 7, "1000000000000000000": 1000000000000000000,
-		"9223372036854775806": 9223372036854775806, "9223372036854775807": INT64_MAX}
-	for text: String in cases:
+	var top: String = F.pow2_plus(_config.max_score_bits, -1).to_decimal()
+	for text: String in ["0", "7", "1000000000000000000", "9223372036854775806", INT64_MAX_TEXT,
+			"9223372036854775808", "18446744073709551616", "1".repeat(19748), top]:
 		var data: Dictionary = _control_data()
 		data["score"] = text
 		var loaded: RunState = _load(data)
-		assert_true(loaded != null, "score \"%s\" loads" % text)
+		assert_true(loaded != null, "score \"%s\" loads" % text.left(30))
 		if loaded != null:
-			assert_eq(loaded.score, cases[text], "score \"%s\" exact" % text)
+			assert_eq(F.text(loaded.score), text, "score \"%s\" exact" % text.left(30))
 		var best_data: Dictionary = _control_data()
 		best_data["best_at_start"] = text
 		var best_loaded: RunState = _load(best_data)
-		assert_true(best_loaded != null, "best_at_start \"%s\" loads" % text)
+		assert_true(best_loaded != null, "best_at_start \"%s\" loads" % text.left(30))
 		if best_loaded != null:
-			assert_eq(best_loaded.best_at_start, cases[text], "best_at_start \"%s\" exact" % text)
+			assert_eq(F.text(best_loaded.best_at_start), text, "best_at_start \"%s\" exact" % text.left(30))
+		if text.length() > 1:
+			var points_data: Dictionary = _control_data()
+			(points_data["snapshot"] as Dictionary)["points"] = text
+			var points_loaded: RunState = _load(points_data)
+			assert_true(points_loaded != null and F.text(points_loaded.snapshot_points) == text, "points \"%s\" loads exactly" % text.left(30))
 
 
 func test_best_at_start_is_not_checked_against_the_score() -> void:
 	# GDD 15.1: 0 or more, and nothing else; the records live in another file.
-	for text: String in ["0", "1", "41285", "41286", "41287", "9223372036854775807"]:
+	for text: String in ["0", "1", "41285", "41286", "41287", "9223372036854775807", "9223372036854775808"]:
 		var data: Dictionary = _control_data()
 		data["best_at_start"] = text
 		assert_true(_load(data) != null, "best_at_start \"%s\" with score 41,286" % text)
@@ -399,7 +430,7 @@ func test_best_at_start_is_not_checked_against_the_score() -> void:
 ## Board D with a 131072 on (2,0): run highest exponent 17, 7 stars, 2 free
 ## boosters earned. As parsed file data.
 func _earned_two_data() -> Dictionary:
-	var state: RunState = F.run(F.with_cell(F.board_d(), Vector2i(2, 0), 131072), 5000)
+	var state: RunState = F.run(F.with_cell(F.board_d(), Vector2i(2, 0), 17), 5000)
 	return _through_json(SaveCodec.run_to_data(state))
 
 
@@ -445,7 +476,7 @@ func test_refuses_run_highest_below_the_board() -> void:
 
 
 func test_refuses_run_highest_below_the_snapshot_board() -> void:
-	var state: RunState = F.run(F.board_d(), 500, F.with_cell(F.board_d(), Vector2i(4, 7), 4096), 40, 4096)
+	var state: RunState = F.run(F.board_d(), 500, F.with_cell(F.board_d(), Vector2i(4, 7), 12), 40, 12)
 	var data: Dictionary = _through_json(SaveCodec.run_to_data(state))
 	assert_true(_load(data) != null, "4096 covers the snapshot board")
 	data["run_highest"] = 11
@@ -460,11 +491,12 @@ func test_snapshot_points_must_be_at_least_4() -> void:
 	var data_four: Dictionary = _control_data()
 	(data_four["snapshot"] as Dictionary)["points"] = "4"
 	var loaded: RunState = _load(data_four)
-	assert_true(loaded != null and loaded.snapshot_points == 4, "points 4 loads")
+	assert_true(loaded != null and F.text(loaded.snapshot_points) == "4", "points 4 loads")
 
 
 func test_loaded_state_does_not_share_the_input() -> void:
 	var data: Dictionary = _control_data()
 	var loaded: RunState = _load(data)
 	(data["cells"] as Array)[0] = 5
-	assert_eq(loaded.cells[0], 2, "the loaded board is its own")
+	assert_eq(loaded.cells[0], 1, "the loaded board is its own")
+

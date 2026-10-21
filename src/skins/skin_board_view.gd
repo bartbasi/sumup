@@ -8,7 +8,8 @@ class_name SkinBoardView extends Control
 ## SkinCatalog.make_board_view(skin), then call setup().
 ##
 ## Cells are Vector2i(column, row). Boards are PackedInt64Array cells, index
-## row * columns + column, 0 for an empty cell. Vector2i(-1, -1) means "no
+## row * columns + column, each the tile's exponent k (the tile is 2^k,
+## ARCHITECTURE.md 17), 0 for an empty cell. Every value below is an exponent. Vector2i(-1, -1) means "no
 ## cell".
 ##
 ## Effects start at once and return their length in seconds: the time until
@@ -41,7 +42,7 @@ func set_chain(_chain: Array[Vector2i], _drag_point: Vector2) -> void:
 	_missing("set_chain")
 
 
-## The merge preview value. 0 hides it. A skin that shows the preview in the
+## The merge preview, as an exponent. 0 hides it. A skin that shows the preview in the
 ## HUD draws nothing.
 func set_preview(_value: int) -> void:
 	_missing("set_preview")

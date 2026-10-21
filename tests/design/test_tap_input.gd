@@ -81,7 +81,7 @@ func test_qa6_01_toggles_pause_and_booster_buttons_react_once() -> void:
 			for id: StringName in [&"hammer", &"swap", &"shuffle", &"double", &"undo"]:
 				var status: BoosterStatus = BoosterStatus.new()
 				status.id = id
-				status.cost = 128
+				status.cost = 7
 				status.usable = true
 				statuses.append(status)
 			bar.show_boosters(statuses)

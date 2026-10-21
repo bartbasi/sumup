@@ -26,12 +26,46 @@ static func none_held(state: RunState, config: GameConfig = null) -> RunState:
 	return state
 
 
-## A state with the given run highest tile that holds held free boosters:
-## free_used is the free boosters earned minus held (D-46).
+## A state with the given run highest tile (a tile value up to 2^62) that
+## holds held free boosters: free_used is the free boosters earned minus held
+## (D-46). Scores and points are plain ints here.
 static func holding(held: int, board: PackedInt64Array, score: int, run_highest: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0) -> RunState:
+	return holding_big(held, board, F.big(score), F.e(run_highest), snapshot_cells, F.big(snapshot_points))
+
+
+## As holding, with an exact score and points and the run highest tile as an
+## exponent, for boards past 2^62 (section 17).
+static func holding_big(held: int, board: PackedInt64Array, score: BigNum, run_highest: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: BigNum = null) -> RunState:
 	var state: RunState = RunState.create(board, score, snapshot_cells, snapshot_points, run_highest)
 	state.free_used = CoreRules.free_earned(state.run_highest, GameConfig.new()) - held
 	return state
+
+
+## TH1 with plain int scores: board in exponents, score, snapshot points and
+## best_at_start as ints (best_at_start -1 means unknown, null), run_highest
+## as a tile value (0 means the board's highest).
+static func make(board: PackedInt64Array, score: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0, run_highest: int = 0, columns: int = 5, free_used: int = 0, best_at_start: int = -1) -> RunState:
+	var best: BigNum = null if best_at_start < 0 else F.big(best_at_start)
+	return RunState.create(board, F.big(score), snapshot_cells, F.big(snapshot_points), F.e(run_highest), columns, free_used, best)
+
+
+## A BigNum that fits in an int, as that int, for assert_eq. A BigNum past
+## 2^63 minus 1 is a mistake in the test: it fails loudly.
+static func n(value: BigNum) -> int:
+	if value == null:
+		push_error("booster_fixtures.n: null")
+		return -1
+	return value.to_int()
+
+
+## The price of a booster as a plain int (costs are exponents, section 17).
+static func price(id: StringName, state: RunState, config: GameConfig) -> int:
+	return F.v(BoosterRules.cost(id, state, config))
+
+
+## 2^bits minus amount, exactly.
+static func below_pow2(bits: int, amount: int) -> BigNum:
+	return BigNum.pow2(bits).sub(F.big(amount))
 
 
 ## The ids whose status reads Free, in bar order.
@@ -61,25 +95,29 @@ static func sorted(cells: PackedInt64Array) -> PackedInt64Array:
 	return values
 
 
+## How many cells hold the tile value.
 static func count(cells: PackedInt64Array, value: int) -> int:
 	var total: int = 0
+	var exponent: int = F.e(value)
 	for each: int in cells:
-		if each == value:
+		if each == exponent:
 			total += 1
 	return total
 
 
+## The lowest tile value on the board.
 static func lowest(cells: PackedInt64Array) -> int:
 	var low: int = cells[0]
 	for each: int in cells:
 		low = mini(low, each)
-	return low
+	return F.v(low)
 
 
-## The cell holding value, or (-1, -1).
+## The first cell holding the tile value, or (-1, -1).
 static func find(cells: PackedInt64Array, value: int) -> Vector2i:
+	var exponent: int = F.e(value)
 	for index: int in cells.size():
-		if cells[index] == value:
+		if cells[index] == exponent:
 			return CoreRules.cell_of(index, F.COLUMNS)
 	return NO_CELL
 

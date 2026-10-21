@@ -6,13 +6,15 @@ extends Control
 ##              highlight, placed as on the play screen
 ##   targeting  Swap targeting: the first tile selected, a finger down on a
 ##              second tile (press feedback)
-##   tiers      every value from 2 to 128K and two above, at the board tile
-##              size; the states on three tiers; the small sizes
+##   tiers      every value from 2 to 128K and three above (the longest
+##              labels), at the board tile size; the states on three
+##              tiers; the small sizes
 ##   effects    frozen frames of merge, clear, fall and spawn
 ## Capture with tools/capture.tscn (see the report in the task brief).
 ##
 ## Every board here is the real SkinBoardView from SkinCatalog; frozen frames
-## pause its effect clock and step it to the moment shown.
+## pause its effect clock and step it to the moment shown. Tiles are given by
+## exponent k (the tile is 2^k, ARCHITECTURE.md 17).
 
 const CommonBoardView: GDScript = preload("res://src/skins/common/common_board_view.gd")
 const MotionMath: GDScript = preload("res://src/skins/common/motion_math.gd")
@@ -35,18 +37,22 @@ const CURVE_STEPS: int = 400
 const CURVE_NOTICE: float = 0.01
 const SMALL_SIDES: PackedFloat32Array = [72.0, 112.0]
 
-## The board of the board and targeting pages: the Phase 1 mock board with
-## a 128 and a 256 by the chain's end, so the joinable highlight shows.
+## The board of the board and targeting pages, as exponents: the Phase 1
+## mock board with a 128 and a 256 by the chain's end, so the joinable
+## highlight shows.
 const BOARD: Array[int] = [
-	2, 16, 4, 2, 8,
-	128, 1024, 64, 8, 2,
-	16, 128, 2, 32, 4,
-	2, 4, 256, 16, 64,
-	32, 8, 8, 2, 16,
-	4, 2048, 16, 4, 2,
-	8, 2, 32, 256, 8,
-	64, 4, 2, 8, 4,
+	1, 4, 2, 1, 3,
+	7, 10, 6, 3, 1,
+	4, 7, 1, 5, 2,
+	1, 2, 8, 4, 6,
+	5, 3, 3, 1, 4,
+	2, 11, 4, 2, 1,
+	3, 1, 5, 8, 3,
+	6, 2, 1, 3, 2,
 ]
+## Exponents shown past the ramp on the tiers page: 256K, 128aa (2^67, the
+## first 5 character label) and 128aaa (2^5827, the first 6 character label).
+const ABOVE_RAMP: Array[int] = [18, 67, 5827]
 const CHAIN: Array[Vector2i] = [
 	Vector2i(1, 4), Vector2i(2, 4), Vector2i(3, 3), Vector2i(3, 2), Vector2i(2, 1), Vector2i(1, 2),
 ]
@@ -128,7 +134,7 @@ func _build_board_page(targeting: bool) -> void:
 	var finger: Vector2 = board.grid_origin() + DRAG_CELLS * board.cell_pitch()
 	board.set_chain(chain, finger)
 	_finger = board.position + finger
-	board.set_joinable(CoreRules.joinable_cells(cells, chain, config))
+	board.set_joinable(CoreRules.joinable_cells(cells, BigNum.zero(), chain, config))
 	board.set_preview(CoreRules.merge_result(values))
 	board.advance_effects(maxf(_skin.duration(&"chain_add"), _skin.duration(&"joinable_in")))
 
@@ -136,16 +142,13 @@ func _build_board_page(targeting: bool) -> void:
 func _build_tiers_page() -> void:
 	var board_side: float = _reference_tile_side()
 	var y: float = PAGE_TOP
-	# Every value: 2 to 131072, then two above the ramp.
+	# Every value: 2 to 131072, then a few above the ramp.
 	_caption("%s: every value at the board tile size" % _skin.display_name, Vector2(PAGE_MARGIN, y))
 	y += _line_height() + CAPTION_GAP * 2.0
 	var values: Array[int] = []
-	var value: int = SkinData.RAMP_LOW
-	while value <= SkinData.RAMP_HIGH:
-		values.append(value)
-		value *= 2
-	values.append(SkinData.RAMP_HIGH * 2)
-	values.append(1 << 49)
+	for exponent: int in range(1, SkinData.RAMP_SIZE + 1):
+		values.append(exponent)
+	values.append_array(ABOVE_RAMP)
 	var column_pitch: float = (_canvas_width() - 2.0 * PAGE_MARGIN) / 5.0
 	var row_pitch: float = board_side + CAPTION_GAP + _line_height() + FRAME_GAP
 	for i: int in values.size():
@@ -156,7 +159,7 @@ func _build_tiers_page() -> void:
 		var top: float = y + row_pitch * float(row)
 		_add_tile(values[i], Vector2(left + (column_pitch - board_side) * 0.5, top), board_side)
 		var tier: int = _skin.tier_for(values[i])
-		_caption("%s  t%d" % [NumberFormat.score(values[i]) if values[i] <= SkinData.RAMP_HIGH * 2 else "2^49", tier],
+		_caption("2^%d  t%d" % [values[i], tier],
 				Vector2(left, top + board_side + CAPTION_GAP), column_pitch)
 	y += row_pitch * ceilf(float(values.size()) / 5.0) + SECTION_GAP * 0.5
 
@@ -165,7 +168,7 @@ func _build_tiers_page() -> void:
 	for column: int in states.size():
 		_caption(states[column], Vector2(PAGE_MARGIN + column_pitch * float(column), y), column_pitch)
 	y += _line_height() + CAPTION_GAP
-	var state_values: Array[int] = [8, _first_value_of_tier(_skin.tier_for(SkinData.RAMP_HIGH) - 1), SkinData.RAMP_HIGH]
+	var state_values: Array[int] = [3, _first_value_of_tier(_skin.tier_for(SkinData.RAMP_SIZE) - 1), SkinData.RAMP_SIZE]
 	var probe: CommonBoardView = _measure_board(1, 1, column_pitch - FRAME_GAP)
 	var state_side: float = probe.size.y
 	probe.free()
@@ -183,7 +186,7 @@ func _build_tiers_page() -> void:
 	y += _line_height() + CAPTION_GAP * 2.0
 	var sides: PackedFloat32Array = SMALL_SIDES.duplicate()
 	sides.append(board_side * _skin.num(&"preview_scale"))
-	var small_values: Array[int] = [2, 1024, 2048, 131072]
+	var small_values: Array[int] = [1, 10, 11, 17, 67]
 	for small_side: float in sides:
 		var x: float = PAGE_MARGIN
 		for small_value: int in small_values:
@@ -303,27 +306,27 @@ func _freeze(board: CommonBoardView, effect: String, at: float) -> void:
 	match effect:
 		"merge":
 			var chain: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1)]
-			board.set_board(PackedInt64Array([2, 2, 8, 4, 16, 32]))
+			board.set_board(PackedInt64Array([1, 1, 3, 2, 4, 5]))
 			board.set_chain(chain, NO_DRAG)
 			board.advance_effects(_skin.duration(&"chain_add"))
-			board.play_merge(chain, Vector2i(0, 1), 16)
+			board.play_merge(chain, Vector2i(0, 1), 4)
 		"clear":
-			board.set_board(PackedInt64Array([2, 4, 64, 2, 128, 2]))
+			board.set_board(PackedInt64Array([1, 2, 6, 1, 7, 1]))
 			var cleared: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 1), Vector2i(1, 2)]
 			board.play_clear(cleared)
 		"fall":
-			board.set_board(PackedInt64Array([16, 32, 0, 64, 0, 0]))
+			board.set_board(PackedInt64Array([4, 5, 0, 6, 0, 0]))
 			var from: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 1), Vector2i(1, 0)]
 			var to: Array[Vector2i] = [Vector2i(0, 2), Vector2i(1, 2), Vector2i(1, 1)]
 			board.play_fall(from, to)
 		"spawn":
 			# Falls and spawns start together (DESIGN_SYSTEM.md 3.6).
-			board.set_board(PackedInt64Array([16, 32, 0, 64, 0, 0]))
+			board.set_board(PackedInt64Array([4, 5, 0, 6, 0, 0]))
 			var from: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 1), Vector2i(1, 0)]
 			var to: Array[Vector2i] = [Vector2i(0, 2), Vector2i(1, 2), Vector2i(1, 1)]
 			board.play_fall(from, to)
 			var cells: Array[Vector2i] = [Vector2i(0, 0), Vector2i(0, 1), Vector2i(1, 0)]
-			board.play_spawn(cells, PackedInt64Array([2, 4, 8]))
+			board.play_spawn(cells, PackedInt64Array([1, 2, 3]))
 	board.advance_effects(at)
 
 
@@ -403,14 +406,12 @@ func _reference_tile_side() -> float:
 	return side
 
 
-## The lowest value of a tier, for the states row.
+## The lowest exponent of a tier, for the states row.
 func _first_value_of_tier(tier: int) -> int:
-	var value: int = SkinData.RAMP_LOW
-	while value <= SkinData.RAMP_HIGH:
-		if _skin.tier_for(value) == tier:
-			return value
-		value *= 2
-	return SkinData.RAMP_HIGH
+	for exponent: int in range(1, SkinData.RAMP_SIZE + 1):
+		if _skin.tier_for(exponent) == tier:
+			return exponent
+	return SkinData.RAMP_SIZE
 
 
 func _canvas_width() -> float:

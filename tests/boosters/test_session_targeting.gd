@@ -43,7 +43,7 @@ func test_entering_targeting_signals_and_charges_nothing() -> void:
 	assert_eq(session.phase(), GameSession.Phase.TARGETING, "TARGETING")
 	assert_eq(session.targeting_booster(), BoosterRules.HAMMER, "Hammer is active")
 	assert_eq(_active_ids(session), [BoosterRules.HAMMER] as Array[StringName], "the player sees which booster is active")
-	assert_eq(session.state.score, 5000, "nothing charged")
+	assert_eq(BF.n(session.state.score), 5000, "nothing charged")
 	assert_false(session.is_waiting_for_view(), "no move to show")
 
 
@@ -84,7 +84,7 @@ func test_at_64_back_cancels_targeting_with_a_swap_selection() -> void:
 	session.cancel_targeting()
 	assert_eq(session.targeting_booster(), &"", "targeting ends")
 	assert_eq(session.swap_first(), NO_CELL, "the selection is gone")
-	assert_eq(session.state.score, 5000, "nothing charged")
+	assert_eq(BF.n(session.state.score), 5000, "nothing charged")
 	assert_eq(session.phase(), GameSession.Phase.PLAYING, "the game stays on the board")
 
 
@@ -96,14 +96,14 @@ func test_at_63_switching_boosters() -> void:
 	assert_eq(recorder.names, _names(["targeting_changed", "status_changed"]), "a straight switch")
 	assert_eq(recorder.targeting[0], [BoosterRules.DOUBLE, NO_CELL], "Double is now targeting")
 	assert_eq(_active_ids(session), [BoosterRules.DOUBLE] as Array[StringName], "Double active, Hammer not")
-	assert_eq(session.state.score, 5000, "score 5,000")
+	assert_eq(BF.n(session.state.score), 5000, "score 5,000")
 	recorder.clear()
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
 	assert_true(result != null and result.accepted, "Shuffle applies at once")
 	assert_eq(recorder.names, _names(["targeting_changed", "move_resolved", "status_changed", "save_requested"]), "Double's targeting is cancelled first")
 	assert_eq(recorder.targeting[0], [&"", NO_CELL], "targeting ended with nothing charged")
-	assert_eq(result.cost, 128, "only the Shuffle was charged")
-	assert_eq(session.state.score, 4872, "score 4,872")
+	assert_eq(BF.n(result.cost), 128, "only the Shuffle was charged")
+	assert_eq(BF.n(session.state.score), 4872, "score 4,872")
 	assert_true(_active_ids(session).is_empty(), "Double is no longer active")
 	assert_ne(session.state.cells, F.board_p(), "the board is shuffled")
 	assert_eq(BF.sorted(session.state.cells), BF.sorted(F.board_p()), "with the same values")
@@ -134,7 +134,7 @@ func test_an_unusable_booster_tap_does_nothing_even_while_targeting() -> void:
 	assert_eq(session.targeting_booster(), BoosterRules.HAMMER, "Hammer stays active")
 	assert_eq(recorder.names, PackedStringArray(), "no signal")
 	assert_true(null == session.press_booster(&"rocket"), "an unknown id does nothing")
-	assert_eq(session.state.score, 200, "nothing charged")
+	assert_eq(BF.n(session.state.score), 200, "nothing charged")
 
 
 func test_at_57_tapping_unaffordable_boosters_does_nothing() -> void:
@@ -176,7 +176,7 @@ func test_at_66_taps_elsewhere_do_nothing_while_targeting() -> void:
 	for cell: Vector2i in [Vector2i(-1, -1), Vector2i(5, 0), Vector2i(0, 8), Vector2i(-1, 4), Vector2i(99, 99)]:
 		assert_true(null == session.tap_cell(cell), "a tap off the board at %s does nothing" % cell)
 	assert_eq(session.targeting_booster(), BoosterRules.HAMMER, "Hammer stays active")
-	assert_eq(session.state.score, 5000, "nothing charged")
+	assert_eq(BF.n(session.state.score), 5000, "nothing charged")
 	assert_eq(recorder.names, PackedStringArray(), "no signal")
 
 
@@ -184,7 +184,7 @@ func test_tile_taps_outside_targeting_do_nothing() -> void:
 	var session: GameSession = _session(F.board_p(), 5000)
 	assert_true(null == session.tap_cell(Vector2i(2, 7)), "PLAYING: a tile tap does nothing")
 	assert_eq(recorder.names, PackedStringArray(), "no signal")
-	assert_eq(session.state.score, 5000, "nothing charged")
+	assert_eq(BF.n(session.state.score), 5000, "nothing charged")
 
 
 # Targeting taps (D-43)
@@ -192,7 +192,7 @@ func test_tile_taps_outside_targeting_do_nothing() -> void:
 func test_at_110_hammer_and_double_act_on_one_tap() -> void:
 	var session: GameSession = _session(F.board_p(), 5000, 110)
 	session.press_booster(BoosterRules.HAMMER)
-	assert_eq(session.state.score, 5000, "(a) nothing is charged before the tap")
+	assert_eq(BF.n(session.state.score), 5000, "(a) nothing is charged before the tap")
 	assert_eq(session.state.cells, F.board_p(), "(a) the board is unchanged")
 	recorder.clear()
 	var result: MoveResult = session.tap_cell(Vector2i(2, 7))
@@ -200,7 +200,7 @@ func test_at_110_hammer_and_double_act_on_one_tap() -> void:
 	assert_eq(result.kind, MoveResult.Kind.HAMMER, "a Hammer")
 	assert_eq(result.emptied, [Vector2i(2, 7)] as Array[Vector2i], "(2,7) is removed")
 	assert_eq(BF.count(session.state.cells, 32), 0, "the 32 is gone")
-	assert_eq(session.state.score, 4872, "score 4,872")
+	assert_eq(BF.n(session.state.score), 4872, "score 4,872")
 	assert_eq(recorder.names, _names(["targeting_changed", "move_resolved", "status_changed", "save_requested"]), "targeting ends, then rule 2")
 	assert_eq(recorder.targeting[0], [&"", NO_CELL], "targeting ended")
 	assert_eq(session.targeting_booster(), &"", "no booster active")
@@ -217,8 +217,8 @@ func test_double_applies_on_one_tap() -> void:
 	session.press_booster(BoosterRules.DOUBLE)
 	var result: MoveResult = session.tap_cell(Vector2i(1, 1))
 	assert_true(result.accepted, "Double applies on the tap (AT-74)")
-	assert_eq(session.state.value_at(Vector2i(1, 1)), 32, "(1,1) = 32")
-	assert_eq(session.state.score, 21808, "score 21,808")
+	assert_eq(F.v(session.state.value_at(Vector2i(1, 1))), 32, "(1,1) = 32")
+	assert_eq(BF.n(session.state.score), 21808, "score 21,808")
 	assert_false(result.offer_opens or result.run_ends, "the board has a valid move")
 	session.move_shown()
 	assert_eq(session.phase(), GameSession.Phase.PLAYING, "the offer closed")
@@ -232,14 +232,14 @@ func test_at_111_swap_selects_on_its_first_tap_and_acts_on_its_second() -> void:
 	assert_eq(recorder.names, _names(["targeting_changed"]), "only the selection changes")
 	assert_eq(recorder.targeting[0], [BoosterRules.SWAP, Vector2i(0, 0)], "(0,0) is selected")
 	assert_eq(session.swap_first(), Vector2i(0, 0), "swap_first")
-	assert_eq(session.state.score, 5000, "nothing charged")
+	assert_eq(BF.n(session.state.score), 5000, "nothing charged")
 	recorder.clear()
 	var result: MoveResult = session.tap_cell(Vector2i(2, 7))
 	assert_true(result != null and result.accepted, "the second tap applies the swap at once")
 	assert_eq(result.targets, [Vector2i(0, 0), Vector2i(2, 7)] as Array[Vector2i], "first tile, then second")
-	assert_eq(session.state.value_at(Vector2i(0, 0)), 32, "(0,0) = 32")
-	assert_eq(session.state.value_at(Vector2i(2, 7)), 2, "(2,7) = 2")
-	assert_eq(session.state.score, 4872, "score 4,872")
+	assert_eq(F.v(session.state.value_at(Vector2i(0, 0))), 32, "(0,0) = 32")
+	assert_eq(F.v(session.state.value_at(Vector2i(2, 7))), 2, "(2,7) = 2")
+	assert_eq(BF.n(session.state.score), 4872, "score 4,872")
 	assert_eq(recorder.names, _names(["targeting_changed", "move_resolved", "status_changed", "save_requested"]), "targeting ends, then rule 2")
 	assert_eq(session.targeting_booster(), &"", "targeting ends")
 	assert_eq(session.swap_first(), NO_CELL, "no selection")
@@ -254,7 +254,7 @@ func test_at_68_swap_through_the_session() -> void:
 	var result: MoveResult = session.tap_cell(Vector2i(4, 7))
 	assert_eq(session.state.cells, F.changed(board, {Vector2i(0, 0): 8, Vector2i(4, 7): 32}), "(0,0) = 8, (4,7) = 32, nothing else")
 	assert_true(result.spawn_cells.is_empty(), "no new tiles")
-	assert_eq(session.state.score, 7952, "score 7,952")
+	assert_eq(BF.n(session.state.score), 7952, "score 7,952")
 
 
 func test_at_69_swap_ignores_equal_values_and_can_deselect() -> void:
@@ -273,20 +273,18 @@ func test_at_69_swap_ignores_equal_values_and_can_deselect() -> void:
 	session.press_booster(BoosterRules.SWAP)
 	assert_eq(session.targeting_booster(), &"", "tapping Swap ends targeting")
 	assert_eq(session.state.cells, board, "board unchanged")
-	assert_eq(session.state.score, 5000, "score 5,000 throughout")
+	assert_eq(BF.n(session.state.score), 5000, "score 5,000 throughout")
 
 
 func test_a_refused_double_tap_keeps_targeting() -> void:
-	var config: GameConfig = GameConfig.new()
-	config.cost_shift = {&"hammer": 0, &"swap": 0, &"shuffle": 0, &"double": 0, &"undo": -1}
-	var board: PackedInt64Array = F.changed(F.board_p(), {Vector2i(2, 7): 1 << 62})
-	var session: GameSession = BF.ready_session(BF.none_held(F.state(board, 1 << 62), config), null, 1, config)
+	var board: PackedInt64Array = F.changed_exponents(F.board_p(), {Vector2i(2, 7): 65535})
+	var session: GameSession = BF.ready_session(BF.none_held(RunState.create(board, BigNum.pow2(65536))))
 	recorder.watch(session)
 	session.press_booster(BoosterRules.DOUBLE)
 	recorder.clear()
-	assert_true(null == session.tap_cell(Vector2i(2, 7)), "doubling 2^62 is refused")
+	assert_true(null == session.tap_cell(Vector2i(2, 7)), "doubling 2^65535 is refused (13.6)")
 	assert_eq(session.targeting_booster(), BoosterRules.DOUBLE, "Double stays active")
-	assert_eq(session.state.score, 1 << 62, "nothing charged")
+	assert_true(session.state.score.equals(BigNum.pow2(65536)), "nothing charged")
 	assert_eq(recorder.names, PackedStringArray(), "no signal")
 
 
@@ -298,12 +296,12 @@ func test_at_65_targeting_is_not_saved() -> void:
 	session.tap_cell(Vector2i(0, 0))
 	assert_eq(recorder.count("save_requested"), 0, "entering targeting and selecting a tile ask for no save")
 	var saved: RunState = session.state.copy()
-	assert_eq(saved.score, 5000, "the saved run holds score 5,000")
+	assert_eq(BF.n(saved.score), 5000, "the saved run holds score 5,000")
 	assert_eq(saved.cells, F.board_p(), "and the board, with nothing charged")
 	var reopened: GameSession = BF.ready_session(saved)
 	assert_eq(reopened.targeting_booster(), &"", "no booster active")
 	assert_eq(reopened.swap_first(), NO_CELL, "no tile selected")
-	assert_eq(reopened.state.score, 5000, "score 5,000")
+	assert_eq(BF.n(reopened.state.score), 5000, "score 5,000")
 	assert_eq(reopened.phase(), GameSession.Phase.PLAYING, "playing")
 	for status: BoosterStatus in reopened.booster_statuses():
 		assert_false(status.active, "%s not active" % status.id)

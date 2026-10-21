@@ -46,11 +46,12 @@ const CoffeeButton: GDScript = preload("res://src/ui/coffee_button.gd")
 const SUM_TILE: float = 144.0
 const SUM_TILE_MIN: float = 112.0
 const SUM_ARROW: float = 72.0
-## 7.2: the sum row, a true move: 2 + 2 + 4 + 8 = 16.
-const SUM_VALUES: Array[int] = [2, 2, 4, 8]
-const SUM_RESULT: int = 16
-## Side of the Best tile mini tile in the record rows (DESIGN_SYSTEM.md 7.9).
-const MINI_TILE: float = 72.0
+## 7.2: the sum row, a true move: 2 + 2 + 4 + 8 = 16, as exponents (2 is 1).
+const SUM_VALUES: Array[int] = [1, 1, 2, 3]
+const SUM_RESULT: int = 4
+## Side of the Best tile mini tile in the record rows (DESIGN_SYSTEM.md 7.9,
+## 96 px since 2026-10-21 so a 5 character label reads as large as 4 did).
+const MINI_TILE: float = 96.0
 ## DESIGN_SYSTEM.md 7.2: the free height splits 1 to 1 above and below the
 ## brand block (2026-10-17), which keeps the brand where it was before the
 ## coffee row took its height.
@@ -135,7 +136,7 @@ func setup(skin: SkinData, records: Records) -> void:
 	_records_box.name = "Records"
 	records_margin.add_child(_records_box)
 	_records_box.resized.connect(_update_clear_rects)
-	_best_score = UiParts.label(skin, &"BodyLabel", NumberFormat.score(records.best_score if records != null else 0))
+	_best_score = UiParts.label(skin, &"BodyLabel", NumberFormat.score(records.best_score if records != null else BigNum.zero()))
 	_best_score.name = "BestScore"
 	_records_box.add_child(UiParts.record_row(skin, Copy.BEST_SCORE, _best_score))
 	if records != null and records.best_tile > 0:

@@ -24,7 +24,7 @@ const OpenRow: GDScript = preload("res://src/ui/open_row.gd")
 const PREVIEW_TILE: float = 72.0
 const SWATCH_PADDING: float = 0.22    # share of the preview tile side
 const SWATCH_EDGE: float = 2.0
-const PREVIEW_VALUES: Array[int] = [2, 4, 8]
+const PREVIEW_VALUES: Array[int] = [1, 2, 3]    # the tiles 2, 4 and 8, as exponents
 const ThemeKit: GDScript = preload("res://src/design/shared/theme_kit.gd")
 
 var _settings: Settings = null

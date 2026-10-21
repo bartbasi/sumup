@@ -67,7 +67,7 @@ func _assert_profile_defaults(bytes: PackedByteArray, label: String) -> void:
 	var records: Records = loaded[1]
 	assert_true(settings.sound_on, "%s: sound default" % label)
 	assert_eq(settings.skin_id, &"gumdrop", "%s: skin default" % label)
-	assert_eq(records.best_score, 0, "%s: Best Score default" % label)
+	assert_eq(F.text(records.best_score), "0", "%s: Best Score default" % label)
 	assert_eq(records.best_tile, 0, "%s: Best Tile default" % label)
 	assert_true(FileAccess.file_exists(_profile_path()), "%s: profile file kept" % label)
 
@@ -133,7 +133,7 @@ func test_nesting_limit_is_16_before_parsing() -> void:
 	var data: Dictionary = _good_profile_data()
 	(data["settings"] as Dictionary)["skin"] = F.RAW
 	var loaded: Array = _load_profile(F.raw_text(data, "[".repeat(14) + "]".repeat(14)).to_utf8_buffer())
-	assert_eq((loaded[1] as Records).best_score, 5000, "16 levels: the good parts are kept")
+	assert_eq(F.text((loaded[1] as Records).best_score), "5000", "16 levels: the good parts are kept")
 	assert_eq((loaded[0] as Settings).skin_id, &"gumdrop", "16 levels: the skin is refused")
 	_assert_profile_defaults(F.raw_text(data, "[".repeat(15) + "]".repeat(15)).to_utf8_buffer(), "17 levels")
 
@@ -146,19 +146,21 @@ func test_profile_brackets_inside_strings_do_not_count_as_nesting() -> void:
 	var loaded: Array = _load_profile(F.to_text(data).to_utf8_buffer())
 	assert_eq((loaded[0] as Settings).skin_id, &"gumdrop", "the skin is refused")
 	assert_false((loaded[0] as Settings).sound_on, "sound kept")
-	assert_eq((loaded[1] as Records).best_score, 5000, "Best Score kept")
+	assert_eq(F.text((loaded[1] as Records).best_score), "5000", "Best Score kept")
 
 
 # Run file: bad numbers
 
 func test_run_huge_and_non_finite_numbers() -> void:
-	for raw: String in ["1e400", "-1e400", "1e308", "99999999999999999999", "4611686018427387904", "NaN", "Infinity", "-Infinity", "1e-400"]:
+	for raw: String in ["1e400", "-1e400", "1e308", "99999999999999999999", "4611686018427387904", "65536", "NaN", "Infinity", "-Infinity", "1e-400"]:
 		var data: Dictionary = _control_data()
 		(data["cells"] as Array)[3] = F.RAW
 		_assert_run_text_refused(F.raw_text(data, raw), "cell %s" % raw)
 		var highest: Dictionary = _control_data()
 		highest["run_highest"] = F.RAW
 		_assert_run_text_refused(F.raw_text(highest, raw), "run_highest %s" % raw)
+		if raw == "65536":
+			continue    # a valid format, score or count would differ; cells and run_highest are the point
 		var format: Dictionary = _control_data()
 		format["format"] = F.RAW
 		_assert_run_text_refused(F.raw_text(format, raw), "format %s" % raw)
@@ -193,13 +195,17 @@ func test_run_negative_and_float_exponents() -> void:
 
 
 func test_run_very_long_digit_strings() -> void:
-	for digits: String in ["1".repeat(20), "9".repeat(60000), "9223372036854775808"]:
+	var ceiling: String = BigNum.pow2(_config.max_score_bits).to_decimal()
+	for digits: String in ["1".repeat(19749), "9".repeat(19748), ceiling, "9".repeat(60000), "1".repeat(250000)]:
 		var data: Dictionary = _control_data()
 		data["score"] = digits
 		_assert_run_text_refused(F.to_text(data), "score of %d digits" % digits.length())
 		var best: Dictionary = _control_data()
 		best["best_at_start"] = digits
 		_assert_run_text_refused(F.to_text(best), "best_at_start of %d digits" % digits.length())
+		var points: Dictionary = _control_data()
+		(points["snapshot"] as Dictionary)["points"] = digits
+		_assert_run_text_refused(F.to_text(points), "snapshot points of %d digits" % digits.length())
 
 
 # Run file: keys and types
@@ -262,6 +268,7 @@ func test_run_binary_garbage() -> void:
 	for seed_value: int in [1, 2, 3]:
 		_assert_run_refused(_seeded_bytes(4096, seed_value), "random bytes, seed %d" % seed_value)
 	_assert_run_refused(_seeded_bytes(65536, 4), "64 KB of random bytes")
+	_assert_run_refused(_seeded_bytes(SaveService.MAX_BYTES, 7), "256 KB of random bytes")
 
 
 func test_run_invalid_utf8_in_a_string() -> void:
@@ -274,17 +281,20 @@ func test_run_invalid_utf8_in_a_string() -> void:
 	_assert_run_refused(bytes, "invalid UTF-8 in the score")
 
 
-func test_run_65_kb_file() -> void:
-	_assert_run_text_refused(F.padded(_control_text(), 65 * 1024), "a valid run padded to 65 KB")
-	_assert_run_refused(_seeded_bytes(65 * 1024, 5), "65 KB of random bytes")
+func test_run_file_over_256_kb() -> void:
+	_assert_run_text_refused(F.padded(_control_text(), 257 * 1024), "a valid run padded to 257 KB")
+	_assert_run_refused(_seeded_bytes(257 * 1024, 5), "257 KB of random bytes")
+	_assert_run_text_refused(F.padded(_control_text(), 1024 * 1024), "a valid run padded to 1 MB")
 
 
-func test_run_64_kb_limit_is_exact() -> void:
-	F.write_text(_run_path(), F.padded(_control_text(), 65536))
-	assert_eq(F.read_bytes(_run_path()).size(), 65536, "exactly 64 KB")
+func test_run_256_kb_limit_is_exact() -> void:
+	F.write_text(_run_path(), F.padded(_control_text(), 262144))
+	assert_eq(F.read_bytes(_run_path()).size(), 262144, "exactly 256 KB")
 	var loaded: RunState = _service.load_run(_config)
-	assert_true(loaded != null and F.control_run().equals(loaded), "64 KB exactly is allowed")
-	_assert_run_text_refused(F.padded(_control_text(), 65537), "one byte more is refused")
+	assert_true(loaded != null and F.control_run().equals(loaded), "256 KB exactly is allowed")
+	_assert_run_text_refused(F.padded(_control_text(), 262145), "one byte more is refused")
+	F.write_text(_run_path(), F.padded(_control_text(), 65537))
+	assert_true(_service.load_run(_config) != null, "65 KB, over the old 64 KB cap, now loads")
 
 
 func test_run_file_that_is_a_folder() -> void:
@@ -306,7 +316,7 @@ func test_profile_hostile_files_give_defaults() -> void:
 	_assert_profile_defaults("{\"format\": 1".to_utf8_buffer(), "cut off")
 	_assert_profile_defaults("[".repeat(60000).to_utf8_buffer(), "60,000 open brackets")
 	_assert_profile_defaults(("[".repeat(1000) + "]".repeat(1000)).to_utf8_buffer(), "1,000 levels")
-	_assert_profile_defaults(F.padded(F.to_text(_good_profile_data()), 65 * 1024).to_utf8_buffer(), "a valid profile padded to 65 KB")
+	_assert_profile_defaults(F.padded(F.to_text(_good_profile_data()), 257 * 1024).to_utf8_buffer(), "a valid profile padded to 257 KB")
 	_assert_profile_defaults(_seeded_bytes(4096, 6), "random bytes")
 	var with_nul: PackedByteArray = F.to_text(_good_profile_data()).to_utf8_buffer()
 	with_nul.append(0)
@@ -317,10 +327,10 @@ func test_profile_hostile_files_give_defaults() -> void:
 	_assert_profile_defaults(F.to_text(wrong_format).to_utf8_buffer(), "format 2")
 
 
-func test_profile_64_kb_limit_is_exact() -> void:
-	var loaded: Array = _load_profile(F.padded(F.to_text(_good_profile_data()), 65536).to_utf8_buffer())
-	assert_eq((loaded[1] as Records).best_score, 5000, "64 KB exactly is allowed")
-	_assert_profile_defaults(F.padded(F.to_text(_good_profile_data()), 65537).to_utf8_buffer(), "one byte more")
+func test_profile_256_kb_limit_is_exact() -> void:
+	var loaded: Array = _load_profile(F.padded(F.to_text(_good_profile_data()), 262144).to_utf8_buffer())
+	assert_eq(F.text((loaded[1] as Records).best_score), "5000", "256 KB exactly is allowed")
+	_assert_profile_defaults(F.padded(F.to_text(_good_profile_data()), 262145).to_utf8_buffer(), "one byte more")
 
 
 func test_profile_unicode_skin_id_keeps_the_good_parts() -> void:
@@ -332,8 +342,8 @@ func test_profile_unicode_skin_id_keeps_the_good_parts() -> void:
 	var records: Records = loaded[1]
 	assert_eq(settings.skin_id, &"gumdrop", "a JSON escape: default skin")
 	assert_false(settings.sound_on, "a JSON escape: sound kept")
-	assert_eq(records.best_score, 5000, "a JSON escape: Best Score kept")
-	assert_eq(records.best_tile, 512, "a JSON escape: Best Tile kept")
+	assert_eq(F.text(records.best_score), "5000", "a JSON escape: Best Score kept")
+	assert_eq(records.best_tile, 9, "a JSON escape: Best Tile kept")
 
 
 func test_profile_with_non_ascii_bytes_is_refused_whole() -> void:
@@ -351,7 +361,8 @@ func test_profile_with_non_ascii_bytes_is_refused_whole() -> void:
 
 
 func test_profile_bad_numbers_keep_the_good_parts() -> void:
-	for raw: String in ["1e400", "NaN", "-1", "63", "9.5", "99999999999999999999"]:
+	for raw: String in ["1e400", "NaN", "-1", "65536", "9.5", "99999999999999999999"]:
+
 		var data: Dictionary = _good_profile_data()
 		(data["records"] as Dictionary)["best_tile"] = F.RAW
 		var bytes: PackedByteArray = F.raw_text(data, raw).to_utf8_buffer()
@@ -360,8 +371,8 @@ func test_profile_bad_numbers_keep_the_good_parts() -> void:
 		var settings: Settings = loaded[0]
 		if raw == "NaN":
 			# NaN is not JSON, so the whole file is malformed.
-			assert_eq(records.best_score, 0, "NaN: the file does not parse")
+			assert_eq(F.text(records.best_score), "0", "NaN: the file does not parse")
 			continue
 		assert_eq(records.best_tile, 0, "best_tile %s: default" % raw)
-		assert_eq(records.best_score, 5000, "best_tile %s: Best Score kept" % raw)
+		assert_eq(F.text(records.best_score), "5000", "best_tile %s: Best Score kept" % raw)
 		assert_eq(settings.skin_id, &"slate", "best_tile %s: skin kept" % raw)

@@ -36,7 +36,7 @@ var _swap_first: Vector2i = _NO_CELL
 
 ## Missing services are created here. Until a run starts, state is an empty
 ## board with score 0, so every query is safe. Like every state the session
-## holds, it never has best_at_start -1, which SaveCodec refuses to write
+## holds, it never has a null best_at_start (unknown), which SaveCodec refuses to write
 ## (docs/ARCHITECTURE.md section 10).
 @warning_ignore("shadowed_variable")
 func _init(config: GameConfig = null, rng: RunRandom = null, records: Records = null) -> void:
@@ -56,7 +56,7 @@ func _init(config: GameConfig = null, rng: RunRandom = null, records: Records = 
 func start_new_run() -> void:
 	_leave_flow(Phase.PLAYING)
 	rng.use_random_seed()
-	var best_score_before: int = records.best_score
+	var best_score_before: BigNum = records.best_score
 	var best_tile_before: int = records.best_tile
 	state = RunRules.new_run(rng, records, config)
 	state.best_at_start = best_score_before
@@ -78,7 +78,7 @@ func start_new_run() -> void:
 ## status_changed and save_requested. move_shown() then runs the move check,
 ## which opens the offer again if the board has no valid move (GO7).
 ## The saved Best Score from when the run began is kept. A run saved without
-## one (-1) takes the Best Score loaded with it instead, the old behaviour
+## one (null) takes the Best Score loaded with it instead, the old behaviour
 ## (GDD 15.1). Loading earns no star (D-45): the saved run highest tile
 ## already counts them.
 func resume(saved: RunState) -> void:
@@ -88,7 +88,7 @@ func resume(saved: RunState) -> void:
 	_leave_flow(Phase.PLAYING)
 	rng.use_random_seed()
 	state = saved.copy()
-	if state.best_at_start < 0:
+	if state.best_at_start == null:
 		state.best_at_start = records.best_score
 	var result: MoveResult = MoveResult.new()
 	result.kind = MoveResult.Kind.NEW_RUN
@@ -139,15 +139,16 @@ func is_dragging() -> bool:
 	return _dragging
 
 
-## D-03. The value the chain would make, or 0 to hide the preview: for fewer
-## than 2 tiles, or for a list the joining rule (D-04) would not build.
+## D-03. The exponent of the tile the chain would make, or 0 to hide the
+## preview: for fewer than 2 tiles, or for a list the joining rule (D-04),
+## measured with the run's score, would not build.
 func preview_value(chain: Array[Vector2i]) -> int:
 	if chain.size() < 2:
 		return 0
 	var built: Array[Vector2i] = []
 	var values: PackedInt64Array = PackedInt64Array()
 	for cell: Vector2i in chain:
-		if not CoreRules.can_join(state.cells, built, cell, config):
+		if not CoreRules.can_join(state.cells, state.score, built, cell, config):
 			return 0
 		built.append(cell)
 		values.append(state.value_at(cell))
@@ -156,7 +157,7 @@ func preview_value(chain: Array[Vector2i]) -> int:
 
 ## D-40. The tiles that would join the chain now.
 func joinable_cells(chain: Array[Vector2i]) -> Array[Vector2i]:
-	return CoreRules.joinable_cells(state.cells, chain, config)
+	return CoreRules.joinable_cells(state.cells, state.score, chain, config)
 
 
 ## Ends the open drag, then commits the chain through RunRules. Refused with
@@ -171,7 +172,7 @@ func commit_chain(chain: Array[Vector2i]) -> MoveResult:
 		refused.chain = chain.duplicate()
 		refused.cells_before = state.cells.duplicate()
 		refused.cells_after = state.cells.duplicate()
-		refused.has_valid_move = CoreRules.has_valid_move(state.cells, config)
+		refused.has_valid_move = CoreRules.has_valid_move(state.cells, state.score, config)
 		return refused
 	var result: MoveResult = RunRules.commit_chain(state, records, chain, rng, config)
 	if not result.accepted:
@@ -350,7 +351,7 @@ func _resolve(result: MoveResult) -> MoveResult:
 func _begin(result: MoveResult) -> void:
 	var next: BoosterRules.Outcome = BoosterRules.outcome(state, config)
 	result.accepted = true
-	result.has_valid_move = CoreRules.has_valid_move(state.cells, config)
+	result.has_valid_move = CoreRules.has_valid_move(state.cells, state.score, config)
 	result.offer_opens = next == BoosterRules.Outcome.OFFER
 	result.run_ends = next == BoosterRules.Outcome.END
 	_phase = Phase.PLAYING
@@ -399,6 +400,6 @@ func _finish(no_moves_left: bool) -> void:
 	summary.best_tile = records.best_tile
 	summary.run_highest = state.run_highest
 	summary.stars = stars()
-	summary.new_best_score = records.best_score > state.best_at_start
+	summary.new_best_score = state.best_at_start != null and records.best_score.compare(state.best_at_start) > 0
 	summary.no_moves_left = no_moves_left
 	run_ended.emit(summary)

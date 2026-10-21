@@ -24,6 +24,11 @@ extends Control
 ##     disabled looks on the fill each look sits on, then at the body font
 ##     size next to "Buy me a coffee" in ink_muted, as the button draws it
 ##     (DESIGN_SYSTEM.md 7.2), on the page and at twice that size.
+##   numbers: the 2026-10-21 unlimited numbers (DESIGN_SYSTEM.md 14): the HUD
+##     with Bart's score "9,221,253,119B" as score and best, 12 stars and 1
+##     free; the HUD with "9,999,999,999zz" (15 characters) as score and
+##     best, 12 stars and 10 free, and the notice "No more 128aa to 512aa";
+##     then the booster bar with "256aa" costs (Double disabled).
 ## Small captions in the skin's CaptionLabel name each sample. Every text,
 ## icon and button rect is kept clear of Nova's star dust.
 ##
@@ -38,9 +43,10 @@ const CANVAS: Vector2 = Vector2(1080.0, 2400.0)
 const TOP: float = 72.0
 ## The mock board: rows shown under the HUD, and the values on it.
 const BOARD_ROWS_SHOWN: float = 2.4
+## Tile exponents (the tile is 2^k): 4, 16, 4, 2, 8, 2, 1024 and so on.
 const BOARD_VALUES: Array[int] = [
-	4, 16, 4, 2, 8, 2, 1024, 64, 8, 2, 16, 128, 2, 32, 4, 4, 8, 512, 16, 64,
-	32, 8, 8, 2, 16, 4, 2048, 16, 4, 4, 8, 4, 32, 256, 8, 64, 4, 4, 8, 4,
+	2, 4, 2, 1, 3, 1, 10, 6, 3, 1, 4, 7, 1, 5, 2, 2, 3, 9, 4, 6,
+	5, 3, 3, 1, 4, 2, 11, 4, 2, 2, 3, 2, 5, 8, 3, 6, 2, 2, 3, 2,
 ]
 const BOOSTERS: Array[StringName] = [&"hammer", &"swap", &"shuffle", &"double", &"undo"]
 
@@ -70,6 +76,8 @@ func _ready() -> void:
 			_flight_page()
 		"coffee":
 			_coffee_page()
+		"numbers":
+			_numbers_page()
 		_:
 			_play_page()
 	# Containers lay out on the next frames; then the text rects are final.
@@ -85,23 +93,23 @@ func _ready() -> void:
 
 func _play_page() -> void:
 	var hud: SkinHud = _hud()
-	hud.set_scores(41286, 96520)
+	hud.set_scores(BigNum.from_int(41286), BigNum.from_int(96520))
 	if skin_id == &"slate":
-		hud.show_clear_notice(PackedInt64Array([2, 4]), Rect2())
+		hud.show_clear_notice(PackedInt64Array([1, 2]), Rect2())
 		_y += _gap
 		_caption("context row while dragging, with the preview tile")
 		var dragging: SkinHud = _hud()
-		dragging.set_scores(41286, 96520)
+		dragging.set_scores(BigNum.from_int(41286), BigNum.from_int(96520))
 		dragging.set_context("Chain 6", false)
-		_tile_in(dragging.preview_slot(), 256)
+		_tile_in(dragging.preview_slot(), 8)
 		_y += _gap
 		_caption("context row in targeting")
 		var targeting: SkinHud = _hud()
-		targeting.set_scores(41286, 96520)
+		targeting.set_scores(BigNum.from_int(41286), BigNum.from_int(96520))
 		targeting.set_context("Hammer: Tap a tile to smash it", true)
 	else:
 		var board: Rect2 = _board_strip(_y + _gap)
-		hud.show_clear_notice(PackedInt64Array([2, 4]), board)
+		hud.show_clear_notice(PackedInt64Array([1, 2]), board)
 	_y += _gap
 	_caption("booster bar: normal")
 	_bar(_statuses(-1, [], -1), "")
@@ -157,7 +165,7 @@ func _tile_in(slot: Control, value: int) -> void:
 ## Statuses in bar order: active is the index targeting (-1 none), disabled
 ## the indexes not usable, suggested the suggested index (-1 none).
 func _statuses(active: int, disabled: Array[int], suggested: int) -> Array[BoosterStatus]:
-	var costs: Array[int] = [2048, 2048, 2048, 4096, 1024]
+	var costs: Array[int] = [11, 11, 11, 12, 10]
 	var statuses: Array[BoosterStatus] = []
 	for i: int in BOOSTERS.size():
 		var status: BoosterStatus = BoosterStatus.new()
@@ -185,12 +193,12 @@ func _bar(statuses: Array[BoosterStatus], hint: String) -> void:
 func _stars_page() -> void:
 	_caption("star counter: count 0")
 	var start: SkinHud = _hud()
-	start.set_scores(41286, 96520)
+	start.set_scores(BigNum.from_int(41286), BigNum.from_int(96520))
 	start.set_stars(0, 0)
 	_y += _gap
 	_caption("count 4 with 1 free; the bar all Free, undo disabled")
 	var held: SkinHud = _hud()
-	held.set_scores(312480, 412900)
+	held.set_scores(BigNum.from_int(312480), BigNum.from_int(412900))
 	held.set_stars(4, 1)
 	_y += _gap
 	if skin_id == &"slate":
@@ -203,12 +211,12 @@ func _stars_page() -> void:
 	_caption("the notice with +1 as it shows, from count 0")
 	var layer: Control = _notice_layer()
 	var hud: SkinHud = _hud()
-	hud.set_scores(41286, 96520)
+	hud.set_scores(BigNum.from_int(41286), BigNum.from_int(96520))
 	hud.set_stars(0, 0)
 	hud.set_notice_layer(layer)
 	var board: Rect2 = _board_strip(_y + _gap, 1.4)
 	move_child(layer, get_child_count() - 1)
-	hud.show_clear_notice(PackedInt64Array([2]), board, 1)
+	hud.show_clear_notice(PackedInt64Array([1]), board, 1)
 	hud.set_stars(1, 0)
 	_hold_moment(hud, 0.0)
 	_y += _gap * 2.0
@@ -234,12 +242,12 @@ func _flight_page() -> void:
 		else:
 			_caption("star moment, %d%% of the flight" % roundi(share * 100.0))
 		var hud: SkinHud = _hud()
-		hud.set_scores(41286, 96520)
+		hud.set_scores(BigNum.from_int(41286), BigNum.from_int(96520))
 		hud.set_stars(2, 0)
 		hud.set_notice_layer(layer)
 		var board: Rect2 = _board_strip(_y + _gap, 1.0)
 		move_child(layer, get_child_count() - 1)
-		hud.show_clear_notice(PackedInt64Array([2]), board, 1)
+		hud.show_clear_notice(PackedInt64Array([1]), board, 1)
 		hud.set_stars(3, 1)
 		_hold_moment(hud, delay + flight * share)
 		_y += _gap * 2.0
@@ -254,7 +262,7 @@ func _flight_page() -> void:
 		hidden.visible = false
 		var offer_board: Rect2 = _board_strip(_y + _skin.num(&"notice_height"), 1.0)
 		move_child(layer, get_child_count() - 1)
-		hidden.show_clear_notice(PackedInt64Array([2]), offer_board, 1)
+		hidden.show_clear_notice(PackedInt64Array([1]), offer_board, 1)
 		_hold_moment(hidden, delay + flight * rise)
 		_y += _gap * 2.0
 
@@ -291,6 +299,56 @@ func _free_statuses(active: int) -> Array[BoosterStatus]:
 	for status: BoosterStatus in statuses:
 		status.free = true
 	return statuses
+
+
+# Numbers page
+
+## 2^63 less a little: Bart's real score, shown as 9,221,253,119B.
+const BART_SCORE: String = "9221253119629040934"
+## Digits of a score that shows as 9,999,999,999zz: 10 shown digits and 581
+## dropped groups of three (zz is the 581st suffix).
+const ZZ_DIGITS: int = 1753
+## 256aa: 2^8 times 1024^6.
+const COST_256AA: int = 68
+
+
+func _numbers_page() -> void:
+	_caption("Bart's score as score and best")
+	var bart: SkinHud = _hud()
+	var bart_score: BigNum = BigNum.parse(BART_SCORE, BART_SCORE.length())
+	bart.set_scores(bart_score, bart_score)
+	bart.set_stars(12, 1)
+	_y += _gap * 2.0
+	_caption("15 characters as score and best, 10 free")
+	var longest: SkinHud = _hud()
+	var nines: BigNum = BigNum.parse("9".repeat(ZZ_DIGITS), ZZ_DIGITS)
+	longest.set_scores(nines, nines)
+	longest.set_stars(12, 10)
+	var values: PackedInt64Array = PackedInt64Array([67, 68, 69])
+	if skin_id == &"slate":
+		longest.show_clear_notice(values, Rect2())
+	else:
+		longest.show_clear_notice(values, _board_strip(_y + _gap, 1.0))
+	_hold_notice(longest)
+	_y += _gap * 2.0
+	_caption("booster bar: costs past Q, double disabled")
+	if skin_id == &"slate":
+		_y += _gap
+	var statuses: Array[BoosterStatus] = _statuses(-1, [3], -1)
+	for status: BoosterStatus in statuses:
+		status.cost = COST_256AA
+	_bar(statuses, "")
+
+
+## Holds a HUD's notice at rest, so the capture shows it.
+func _hold_notice(hud: SkinHud) -> void:
+	var notice_tween: Tween = hud.get(&"_notice_tween") as Tween
+	if notice_tween != null and notice_tween.is_valid():
+		notice_tween.custom_step(_skin.duration(&"clear_notice"))
+		notice_tween.pause()
+	var notice: Control = hud.call(&"clear_notice") as Control
+	if notice != null:
+		_texts.append(notice)
 
 
 # Coffee page
@@ -521,7 +579,7 @@ func _card() -> void:
 	badge.add_child(_label(&"BadgeLabel", _skin.cased(&"label", "New best"), false))
 	top_row.add_child(badge)
 	stack.add_child(top_row)
-	stack.add_child(_label(&"DisplayLabel", NumberFormat.score(41286), false))
+	stack.add_child(_label(&"DisplayLabel", NumberFormat.score(BigNum.from_int(41286)), false))
 	stack.add_child(_label(&"TitleLabel", _skin.cased(&"title", "Settings"), false))
 	var rule: HSeparator = HSeparator.new()
 	rule.theme_type_variation = &"Hairline"

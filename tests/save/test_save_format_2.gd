@@ -33,10 +33,10 @@ func _profile_path() -> String:
 	return _dir.path_join("profile.json")
 
 
-## Board D with a 131072 on (2,0): run highest 131072 (exponent 17), so 7
-## stars and 2 free boosters earned. Bart's phone run has the same numbers.
+## Board D with a 131072 (exponent 17) on (2,0): run highest exponent 17, so 7
+## stars and 2 free boosters earned.
 func _late_board() -> PackedInt64Array:
-	return F.with_cell(F.board_d(), Vector2i(2, 0), 131072)
+	return F.with_cell(F.board_d(), Vector2i(2, 0), 17)
 
 
 func _late_run(free_used: int) -> RunState:
@@ -62,8 +62,8 @@ func _assert_refused_as_at_95(label: String) -> void:
 	assert_eq(F.read_bytes(_profile_path()), profile_bytes, "%s: profile file untouched" % label)
 	var records: Records = Records.new()
 	SaveService.new(_dir).load_profile(Settings.new(), records)
-	assert_eq(records.best_score, 5000, "%s: Best Score kept" % label)
-	assert_eq(records.best_tile, 512, "%s: Best Tile kept" % label)
+	assert_eq(F.text(records.best_score), "5000", "%s: Best Score kept" % label)
+	assert_eq(records.best_tile, 9, "%s: Best Tile 512 kept" % label)
 
 
 # The file
@@ -84,7 +84,7 @@ func test_a_format_1_file_loads_through_the_service() -> void:
 	assert_true(F.as_format_1(F.control_run()).equals(loaded), "same board, score, snapshot and run highest tile")
 	if loaded != null:
 		assert_eq(loaded.free_used, 0, "no free booster used")
-		assert_eq(loaded.best_at_start, -1, "the starting Best Score is unknown")
+		assert_true(loaded.best_at_start == null, "the starting Best Score is unknown")
 	assert_true(_service.has_run(), "and the file is kept")
 
 
@@ -97,20 +97,20 @@ func test_a_format_1_run_saved_again_keeps_its_meaning() -> void:
 	var loaded: RunState = _service.load_run(_config)
 	assert_false(_service.save_run(loaded), "still unknown: refused, never written as a made up value")
 	assert_eq(F.read_bytes(_run_path()), format_1_bytes, "so the format 1 file stays, and still means unknown")
-	loaded.best_at_start = 50000    # as GameSession.resume does with the loaded Best Score
+	loaded.best_at_start = BigNum.from_int(50000)    # as GameSession.resume does with the loaded Best Score
 	assert_true(_service.save_run(loaded), "once known, it saves")
 	var data: Dictionary = JSON.parse_string(F.read_text(_run_path()))
 	assert_eq(data["format"], 2, "as format 2")
 	var again: RunState = _reloaded()
 	assert_true(again != null and loaded.equals(again), "and loads back the same")
-	assert_eq(again.best_at_start if again != null else -1, 50000, "with the loaded Best Score")
+	assert_eq(F.text(again.best_at_start) if again != null else "", "50000", "with the loaded Best Score")
 	assert_eq(again.free_used if again != null else -1, 0, "and 0 free boosters used")
 
 
 func test_the_profile_stays_format_1() -> void:
 	var records: Records = Records.new()
-	records.best_score = 96520
-	records.best_tile = 4096
+	records.best_score = BigNum.from_int(96520)
+	records.best_tile = 12
 	assert_true(_service.save_profile(Settings.new(), records), "saved")
 	var data: Dictionary = JSON.parse_string(F.read_text(_profile_path()))
 	assert_eq(data["format"], 1, "profile format 1")
@@ -125,7 +125,7 @@ func test_at_125_b_a_loaded_run_has_its_stars_and_free_boosters() -> void:
 	assert_true(loaded != null, "the run loads")
 	if loaded == null:
 		return
-	assert_eq(loaded.run_highest, 131072, "run highest tile 131072")
+	assert_eq(loaded.run_highest, 17, "run highest tile 131072")
 	assert_eq(loaded.free_used, 1, "1 free booster used")
 	assert_eq(CoreRules.stars(loaded.run_highest, _config), 7, "7 stars")
 	assert_eq(CoreRules.free_held(loaded, _config), 1, "1 free booster held")
@@ -224,12 +224,12 @@ func test_at_139_g_no_entry_at_all_loads_as_0_used() -> void:
 
 ## Board D1024, score 5,000, no snapshot, with a profile Best Score of 5,000.
 func _at_145_run(best_at_start: int) -> RunState:
-	return F.run(F.with_cell(F.board_d(), Vector2i(2, 0), 1024), 5000, PackedInt64Array(), 0, 0, 0, best_at_start)
+	return F.run(F.with_cell(F.board_d(), Vector2i(2, 0), 10), 5000, PackedInt64Array(), 0, 0, 0, best_at_start)
 
 
 func _at_145_loaded(data: Dictionary) -> RunState:
 	var records: Records = Records.new()
-	records.best_score = 5000
+	records.best_score = BigNum.from_int(5000)
 	_service.save_profile(Settings.new(), records)
 	_write_run(data)
 	return _service.load_run(_config)
@@ -237,14 +237,15 @@ func _at_145_loaded(data: Dictionary) -> RunState:
 
 func test_at_145_a_the_run_began_at_4000() -> void:
 	var loaded: RunState = _at_145_loaded(SaveCodec.run_to_data(_at_145_run(4000)))
-	assert_true(loaded != null and loaded.best_at_start == 4000, "Best Score when the run began: 4,000, so the run raised the record")
+	assert_true(loaded != null and F.text(loaded.best_at_start) == "4000", "Best Score when the run began: 4,000, so the run raised the record")
 
 
 func test_at_145_b_the_run_began_at_5000() -> void:
 	var loaded: RunState = _at_145_loaded(SaveCodec.run_to_data(_at_145_run(5000)))
-	assert_true(loaded != null and loaded.best_at_start == 5000, "5,000: the run only equalled the record")
+	assert_true(loaded != null and F.text(loaded.best_at_start) == "5000", "5,000: the run only equalled the record")
 
 
 func test_at_145_c_no_starting_best_score_in_the_file() -> void:
 	var loaded: RunState = _at_145_loaded(F.format_1_data(_at_145_run(4000)))
-	assert_true(loaded != null and loaded.best_at_start == -1, "unknown, so resume uses the loaded Best Score (the old behaviour)")
+	assert_true(loaded != null and loaded.best_at_start == null, "unknown, so resume uses the loaded Best Score (the old behaviour)")
+

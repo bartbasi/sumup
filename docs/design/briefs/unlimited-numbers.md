@@ -44,7 +44,7 @@ This brief covers only what each of you changes visually. Converting your area t
 
 ### Files you may touch
 
-- src/design/motion.gd, src/design/shared/ui_copy.gd, src/design/shared/hud_base.gd, src/design/gumdrop/gumdrop_hud.gd, src/design/slate/slate_hud.gd, src/design/nova/nova_hud.gd, src/design/shared/booster_button_base.gd.
+- src/design/motion.gd, src/design/shared/ui_copy.gd, src/design/shared/clear_notice.gd, src/design/shared/hud_base.gd, src/design/gumdrop/gumdrop_hud.gd, src/design/slate/slate_hud.gd, src/design/nova/nova_hud.gd, src/design/shared/booster_button_base.gd.
 - tests/design/.
 
 ### What to build
@@ -56,8 +56,9 @@ This brief covers only what each of you changes visually. Converting your area t
 2. **HUD score fit (2.6).** `_fit_score_size` keeps its shape: down to `display_fit_min`, then below it only when even that does not fit (now only for 16 character scores). Update its comment: `display_fit_min` is made for 15 characters, not 13.
 3. **Gumdrop's Best pill (4.7).** The Best number shrinks from the body size until the pill's left edge is at least `space_s` right of the free pill's end (the star pill's end when no free pill shows), never below the label role size. Measured: a worst 15 character best score fits at 40 px with two digit star and free counts. Up to 13 characters nothing changes. Slate's BEST column and Nova's best line need no change (14.2).
 4. **The clear notice plural (7.10).** In UiCopy.clear_notice the "s" after a value is written only when the value's label ends in a digit or a capital: "No more 64Qs", "No more 64aa", "No more 128aa to 512aa". Keep the templates; drop the "s" per value. Values are never cased (Slate "NO MORE 128aa TO 512aa").
-5. **Costs.** booster_button_base takes the cost exponent and shows NumberFormat.tile_label of it. The widest cost, "256mmm", fits every skin's cost line at full size (14.1); no shrink needed.
-6. **Tests:** count_up with the same suffix ("9,221,253,119B" to "9,223,504,919B": text keeps the B and ends exact), across a suffix change (jumps), and with none (as today); the notice copy for "64Q", "64aa" and a range "128aa" to "512aa" in all three skins; Gumdrop's Best pill with "9,999,999,999zz" and "1 free" stays clear of the free pill and its number at or above the label size; every HUD with a 15 character score stays at or above `display_fit_min`, and with a 16 character score fits its slot.
+5. **Clear notice mini tiles (4.7, added after reviewing your build).** In src/design/shared/clear_notice.gd a mini tile draws its label only when the label is 3 characters or fewer; for 4 characters or more it is a color chip with its strike and no label. Same in all three skins. Test: a notice for 2^67 to 2^69 draws no labels on its mini tiles; one for 2 and 4 draws "2" and "4".
+6. **Costs.** booster_button_base takes the cost exponent and shows NumberFormat.tile_label of it. The widest cost, "256mmm", fits every skin's cost line at full size (14.1); no shrink needed.
+7. **Tests:** count_up with the same suffix ("9,221,253,119B" to "9,223,504,919B": text keeps the B and ends exact), across a suffix change (jumps), and with none (as today); the notice copy for "64Q", "64aa" and a range "128aa" to "512aa" in all three skins; Gumdrop's Best pill with "9,999,999,999zz" and "1 free" stays clear of the free pill and its number at or above the label size; every HUD with a 15 character score stays at or above `display_fit_min`, and with a 16 character score fits its slot.
 
 ### Done when
 

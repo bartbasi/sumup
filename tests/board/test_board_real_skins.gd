@@ -32,7 +32,7 @@ func _start(skin_id: StringName, board: PackedInt64Array, score: int) -> void:
 	_board = BoardController.new()
 	_board.size = SIZE
 	_board.setup(_session, SkinCatalog.get_skin(skin_id), _audio)
-	_session.resume(RunState.create(board, score))
+	_session.resume(RunState.create(board, BigNum.from_int(score)))
 	_session.rng.set_seed(3)
 
 
@@ -76,7 +76,7 @@ func test_every_skin_plays_a_chain_to_the_end() -> void:
 		_board._gui_input(BF.drag(0, _point(Vector2i(3, 6))))
 		assert_eq(_audio.click_requests, 3, "%s: three tiles joined on the real geometry" % skin_id)
 		_board._gui_input(BF.touch(0, _point(Vector2i(3, 6)), false))
-		assert_eq(_session.state.score, 8, "%s: the chain committed" % skin_id)
+		assert_eq(_session.state.score.to_int(), 8, "%s: the chain committed" % skin_id)
 		assert_true(_board.is_animating(), "%s: the merge plays in real time" % skin_id)
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var took: float = _settle()
@@ -93,7 +93,7 @@ func test_every_skin_plays_a_hammer_to_the_end() -> void:
 		_session.press_booster(BoosterRules.HAMMER)
 		_board._gui_input(BF.touch(0, _point(Vector2i(2, 4)), true))
 		_board._gui_input(BF.touch(0, _point(Vector2i(2, 4)), false))
-		assert_eq(_session.state.score, 4872, "%s: Hammer applied" % skin_id)
+		assert_eq(_session.state.score.to_int(), 4872, "%s: Hammer applied" % skin_id)
 		_settle()
 		assert_false(_session.is_waiting_for_view(), "%s: the move was shown" % skin_id)
 		_assert_view_shows_the_session(skin_id)
@@ -110,14 +110,14 @@ func test_every_skin_takes_a_tap_anywhere_on_the_tile_and_none_in_a_gap() -> voi
 		var gap: Vector2 = view.position + Vector2((left.end.x + tile.position.x) * 0.5, tile.get_center().y)
 		_board._gui_input(BF.touch(0, gap, true))
 		_board._gui_input(BF.touch(0, gap, false))
-		assert_eq(_session.state.score, 5000, "%s: a tap in the gap picks nothing" % skin_id)
+		assert_eq(_session.state.score.to_int(), 5000, "%s: a tap in the gap picks nothing" % skin_id)
 		var corner_local: Vector2 = tile.position + tile.size * 0.05
 		var miss: Vector2i = BoardGeometry.cell_at(corner_local, view.grid_origin(), view.cell_pitch(), 5, 8, _session.config.join_radius)
 		assert_eq(miss, Vector2i(-1, -1), "%s: the corner is outside the join circle" % skin_id)
 		var corner: Vector2 = view.position + corner_local
 		_board._gui_input(BF.touch(0, corner, true))
 		_board._gui_input(BF.touch(0, corner, false))
-		assert_eq(_session.state.score, 4872, "%s: a tap near the tile's corner applies Hammer" % skin_id)
+		assert_eq(_session.state.score.to_int(), 4872, "%s: a tap near the tile's corner applies Hammer" % skin_id)
 		_settle()
 		_assert_view_shows_the_session(skin_id)
 

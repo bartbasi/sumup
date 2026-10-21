@@ -29,7 +29,7 @@ func _playing(score: int = 5000) -> GameSession:
 
 ## A session whose run has ended: Board D1024, score 300, nothing usable.
 func _ended() -> GameSession:
-	var session: GameSession = BF.ready_session(RunState.create(BF.board_d1024(), 300, BF.snapshot_board(), 40))
+	var session: GameSession = BF.ready_session(BF.make(BF.board_d1024(), 300, BF.snapshot_board(), 40))
 	recorder.watch(session)
 	return session
 
@@ -57,13 +57,13 @@ func test_a_new_session_waits_in_phase_none() -> void:
 	for status: BoosterStatus in statuses:
 		assert_false(status.usable, "%s disabled before a run" % status.id)
 		assert_false(status.active or status.suggested, "%s neither active nor suggested" % status.id)
-	assert_eq(session.preview_value(P_CHAIN), 0, "no preview on an empty board")
+	assert_eq(F.v(session.preview_value(P_CHAIN)), 0, "no preview on an empty board")
 	assert_true(session.joinable_cells([Vector2i(0, 0)] as Array[Vector2i]).is_empty(), "nothing joins on an empty board")
 
 
 func assert_not_null_services(session: GameSession) -> void:
 	assert_true(session.config != null and session.rng != null and session.records != null and session.state != null, "missing services are created")
-	assert_eq(session.state.score, 0, "an empty state with score 0")
+	assert_eq(BF.n(session.state.score), 0, "an empty state with score 0")
 
 
 func test_the_services_given_are_the_ones_used() -> void:
@@ -99,7 +99,7 @@ func test_start_new_run_emits_run_started_status_and_save() -> void:
 	assert_true(result.has_valid_move, "the starting board has a move")
 	assert_false(result.offer_opens or result.run_ends, "play goes on")
 	assert_true(result.new_best_tile, "Best Tile rose from 0 to 32")
-	assert_eq(session.records.best_tile, 32, "Best Tile from the starting board (AT-05)")
+	assert_eq(F.v(session.records.best_tile), 32, "Best Tile from the starting board (AT-05)")
 	assert_eq(session.phase(), GameSession.Phase.PLAYING, "PLAYING")
 	assert_true(session.is_waiting_for_view(), "waiting for the view")
 	assert_false(session.can_start_chain(), "no chain until the board is shown")
@@ -115,7 +115,7 @@ func test_at_01_a_new_run_through_the_session() -> void:
 	session.move_shown()
 	assert_eq(session.state.cells.size(), 40, "40 tiles")
 	assert_true(F.all_in(session.state.cells, PackedInt64Array([2, 4, 8, 16])), "every value is 2, 4, 8 or 16")
-	assert_eq(session.state.score, 0, "score 0")
+	assert_eq(BF.n(session.state.score), 0, "score 0")
 	assert_eq(BF.status_of(session, BoosterRules.UNDO).reason, BoosterStatus.Usability.NO_SNAPSHOT, "Undo not usable")
 	assert_eq(session.phase(), GameSession.Phase.PLAYING, "a run never starts dead")
 
@@ -154,17 +154,17 @@ func test_resume_emits_run_started_without_spawns_then_the_move_check() -> void:
 
 
 func test_resume_copies_the_saved_state_and_updates_records() -> void:
-	var saved: RunState = RunState.create(BF.board_d1024(), 7000, BF.snapshot_board(), 40, 2048, 5, 0, 50)
+	var saved: RunState = BF.make(BF.board_d1024(), 7000, BF.snapshot_board(), 40, 2048, 5, 0, 50)
 	var records: Records = F.records(100, 16)
 	var session: GameSession = GameSession.new(null, null, records)
 	session.resume(saved)
 	assert_true(session.state.equals(saved), "the state is the saved run exactly")
 	assert_false(session.state == saved, "but a copy")
-	saved.score = 1
-	assert_eq(session.state.score, 7000, "changing the saved object later changes nothing")
-	assert_eq(records.best_score, 7000, "Best Score updated from the run (step 7)")
-	assert_eq(records.best_tile, 1024, "Best Tile updated from the board")
-	assert_eq(session.state.run_highest, 2048, "the saved run highest tile is kept")
+	saved.score = F.big(1)
+	assert_eq(BF.n(session.state.score), 7000, "changing the saved object later changes nothing")
+	assert_eq(BF.n(records.best_score), 7000, "Best Score updated from the run (step 7)")
+	assert_eq(F.v(records.best_tile), 1024, "Best Tile updated from the board")
+	assert_eq(F.v(session.state.run_highest), 2048, "the saved run highest tile is kept")
 	assert_true(BF.status_of(session, BoosterRules.UNDO).usable, "the snapshot came along: Undo usable")
 
 
@@ -189,12 +189,12 @@ func test_at_96_new_game_during_a_run() -> void:
 	session.begin_drag()
 	session.commit_chain(P_CHAIN)
 	session.move_shown()
-	assert_eq(session.records.best_score, 9016, "Best Score followed the run")
+	assert_eq(BF.n(session.records.best_score), 9016, "Best Score followed the run")
 	session.start_new_run()
 	session.move_shown()
-	assert_eq(session.state.score, 0, "a new run starts with score 0")
+	assert_eq(BF.n(session.state.score), 0, "a new run starts with score 0")
 	assert_eq(BF.status_of(session, BoosterRules.UNDO).reason, BoosterStatus.Usability.NO_SNAPSHOT, "Undo disabled")
-	assert_eq(session.records.best_score, 9016, "Best Score still holds the old run's highest score")
+	assert_eq(BF.n(session.records.best_score), 9016, "Best Score still holds the old run's highest score")
 	assert_false(session.is_dragging(), "no drag carried over")
 
 
@@ -225,7 +225,7 @@ func test_signal_order_for_a_chain() -> void:
 	assert_false(session.is_dragging(), "commit_chain ended the drag")
 	assert_true(session.is_waiting_for_view(), "waiting for the view")
 	assert_false(result.offer_opens or result.run_ends, "play goes on")
-	assert_eq(session.state.score, 1016, "the model already resolved the move (AT-17)")
+	assert_eq(BF.n(session.state.score), 1016, "the model already resolved the move (AT-17)")
 	assert_true(BF.status_of(session, BoosterRules.UNDO).usable, "Undo usable at once")
 
 
@@ -267,7 +267,7 @@ func test_signal_order_for_an_instant_booster() -> void:
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
 	assert_true(result != null and result.accepted, "Shuffle applies at once")
 	assert_eq(recorder.names, _names(["move_resolved", "status_changed", "save_requested"]), "rule 2 order")
-	assert_eq(result.cost, 128, "charged")
+	assert_eq(BF.n(result.cost), 128, "charged")
 	assert_true(session.is_waiting_for_view(), "waiting")
 
 
@@ -319,7 +319,7 @@ func test_at_23_booster_taps_are_ignored_during_a_drag() -> void:
 	assert_true(session.begin_drag(), "a chain is being dragged")
 	_assert_locked(session, "dragging", false)
 	assert_true(session.is_dragging(), "the drag is still open")
-	assert_eq(session.state.score, 5000, "nothing charged")
+	assert_eq(BF.n(session.state.score), 5000, "nothing charged")
 	var result: MoveResult = session.commit_chain(BF.targets([Vector2i(1, 6), Vector2i(2, 6)]))
 	assert_true(result.accepted, "the drag can still commit")
 
@@ -330,7 +330,7 @@ func test_commit_chain_needs_playing() -> void:
 	var targeting: GameSession = _playing(5000)
 	targeting.press_booster(BoosterRules.DOUBLE)
 	assert_eq(targeting.commit_chain(P_CHAIN).refusal, &"not_now", "refused in TARGETING")
-	assert_eq(targeting.state.score, 5000, "nothing charged")
+	assert_eq(BF.n(targeting.state.score), 5000, "nothing charged")
 
 
 # Drags (D-06, D-08)
@@ -360,15 +360,15 @@ func test_a_refused_chain_ends_the_drag_and_emits_nothing() -> void:
 
 func test_preview_value_and_joinable_cells() -> void:
 	var session: GameSession = _playing(0)
-	assert_eq(session.preview_value(BF.no_targets()), 0, "no chain, no preview")
-	assert_eq(session.preview_value(BF.targets([Vector2i(1, 6)])), 0, "hidden at 1 tile (D-03)")
-	assert_eq(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(2, 6)])), 4, "2, 2 makes 4")
-	assert_eq(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(2, 6), Vector2i(3, 6)])), 8, "2, 2, 4 makes 8")
-	assert_eq(session.preview_value(P_CHAIN), 16, "2, 2, 4, 8 makes 16")
-	assert_eq(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(1, 5)])), 0, "a list that breaks the joining rule shows nothing")
-	assert_eq(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(9, 9)])), 0, "off the board shows nothing")
+	assert_eq(F.v(session.preview_value(BF.no_targets())), 0, "no chain, no preview")
+	assert_eq(F.v(session.preview_value(BF.targets([Vector2i(1, 6)]))), 0, "hidden at 1 tile (D-03)")
+	assert_eq(F.v(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(2, 6)]))), 4, "2, 2 makes 4")
+	assert_eq(F.v(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(2, 6), Vector2i(3, 6)]))), 8, "2, 2, 4 makes 8")
+	assert_eq(F.v(session.preview_value(P_CHAIN)), 16, "2, 2, 4, 8 makes 16")
+	assert_eq(F.v(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(1, 5)]))), 0, "a list that breaks the joining rule shows nothing")
+	assert_eq(F.v(session.preview_value(BF.targets([Vector2i(1, 6), Vector2i(9, 9)]))), 0, "off the board shows nothing")
 	var chain: Array[Vector2i] = BF.targets([Vector2i(1, 6), Vector2i(2, 6)])
-	assert_eq(session.joinable_cells(chain), CoreRules.joinable_cells(F.board_p(), chain, GameConfig.new()), "joinable cells come from the joining rule (D-40)")
+	assert_eq(session.joinable_cells(chain), CoreRules.joinable_cells(F.board_p(), BigNum.zero(), chain, GameConfig.new()), "joinable cells come from the joining rule (D-40)")
 
 
 # Phases and statuses
@@ -400,7 +400,7 @@ func test_booster_statuses_in_bar_order_and_fresh_every_call() -> void:
 	for status: BoosterStatus in first:
 		ids.append(status.id)
 	assert_eq(ids, BoosterRules.ALL, "bar order")
-	assert_eq([first[0].cost, first[3].cost, first[4].cost], [128, 256, 64], "costs from the board")
+	assert_eq([F.v(first[0].cost), F.v(first[3].cost), F.v(first[4].cost)], [128, 256, 64], "costs from the board")
 	assert_eq(_status_ids_where_usable(session), [&"hammer", &"swap", &"shuffle"] as Array[StringName], "usable at 200")
 	assert_eq(first[3].reason, BoosterStatus.Usability.CANNOT_AFFORD, "Double cannot be afforded")
 	assert_eq(first[4].reason, BoosterStatus.Usability.NO_SNAPSHOT, "Undo has no snapshot")
@@ -417,17 +417,17 @@ func test_booster_statuses_in_bar_order_and_fresh_every_call() -> void:
 func test_at_50_nothing_usable_ends_the_run_at_once() -> void:
 	var session: GameSession = GameSession.new(null, null, F.records(0, 0))
 	recorder.watch(session)
-	session.resume(RunState.create(BF.board_d1024(), 300, BF.snapshot_board(), 40))
+	session.resume(BF.make(BF.board_d1024(), 300, BF.snapshot_board(), 40))
 	assert_true(recorder.started[0].run_ends, "the result already says the run ends")
 	recorder.clear()
 	session.move_shown()
 	assert_eq(recorder.names, _names(["status_changed", "run_ended"]), "no offer: the run ends at once")
 	assert_eq(recorder.count("save_requested"), 0, "never save_requested at END")
 	var summary: RunSummary = recorder.summaries[0]
-	assert_eq(summary.final_score, 300, "final score 300")
-	assert_eq(summary.run_highest, 1024, "this run's highest tile 1024")
-	assert_eq(summary.best_score, 300, "Best Score")
-	assert_eq(summary.best_tile, 1024, "Best Tile")
+	assert_eq(BF.n(summary.final_score), 300, "final score 300")
+	assert_eq(F.v(summary.run_highest), 1024, "this run's highest tile 1024")
+	assert_eq(BF.n(summary.best_score), 300, "Best Score")
+	assert_eq(F.v(summary.best_tile), 1024, "Best Tile")
 	assert_true(summary.no_moves_left, "it ended because no moves were left")
 	assert_true(summary.new_best_score, "this run set the Best Score")
 	assert_eq(session.phase(), GameSession.Phase.ENDED, "ENDED")
@@ -438,7 +438,7 @@ func test_at_50_nothing_usable_ends_the_run_at_once() -> void:
 func test_z3_score_zero_and_no_moves_ends_the_run() -> void:
 	var session: GameSession = _ended_with(F.state(F.board_d(), 0))
 	assert_eq(session.phase(), GameSession.Phase.ENDED, "the run ends at once")
-	assert_eq(recorder.summaries[0].final_score, 0, "final score 0")
+	assert_eq(BF.n(recorder.summaries[0].final_score), 0, "final score 0")
 
 
 func _ended_with(state: RunState) -> GameSession:
@@ -452,7 +452,7 @@ func _ended_with(state: RunState) -> GameSession:
 func test_a_move_that_ends_the_run_saves_first_and_never_after() -> void:
 	var session: GameSession = BF.ready_session(F.state(BF.board_d1024(), 1500))
 	recorder.watch(session)
-	session.rng.script_spawns(PackedInt64Array([8]))
+	session.rng.script_spawns(F.ev(PackedInt64Array([8])))
 	session.press_booster(BoosterRules.HAMMER)
 	recorder.clear()
 	var result: MoveResult = session.tap_cell(Vector2i(4, 7))
@@ -464,7 +464,7 @@ func test_a_move_that_ends_the_run_saves_first_and_never_after() -> void:
 	session.move_shown()
 	assert_eq(recorder.names, _names(["offer_changed", "status_changed", "run_ended"]), "the offer closes, then the run ends")
 	assert_eq(recorder.offers[0], [false, &""], "offer closed")
-	assert_eq(recorder.summaries[0].final_score, 476, "final score 476 (AT-53)")
+	assert_eq(BF.n(recorder.summaries[0].final_score), 476, "final score 476 (AT-53)")
 	assert_true(recorder.summaries[0].no_moves_left, "no moves left")
 
 
@@ -483,6 +483,6 @@ func test_summary_new_best_score_only_when_this_run_set_it() -> void:
 	winner.move_shown()
 	winner.start_new_run()
 	winner.move_shown()
-	assert_eq(winner.records.best_score, 10006, "the old run set 10,006")
+	assert_eq(BF.n(winner.records.best_score), 10006, "the old run set 10,006")
 	var fresh: MoveResult = recorder.started[recorder.started.size() - 1]
 	assert_false(fresh.new_best_score, "a new run's board sets no Best Score")

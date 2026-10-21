@@ -22,10 +22,12 @@ const BOOSTER_NAMES: Dictionary[StringName, String] = {
 }
 
 
-## The clear notice copy for the cleared values (ascending), cased with the
-## skin's rule for role. Only the words take the case rule: the values keep
-## the tile label format exactly, so 2K never becomes 2k (DESIGN_SYSTEM.md
-## 2.5). "" for no values.
+## The clear notice copy for the cleared values (tile exponents, ascending),
+## cased with the skin's rule for role. Only the words take the case rule: the
+## values keep the tile label format exactly, so 2K never becomes 2k and 64aa
+## never becomes 64AA (DESIGN_SYSTEM.md 2.5). The plural "s" after a value is
+## left out when its label ends in a lowercase letter: "No more 64Qs", but
+## "No more 64aa" and "No more 128aa to 512aa" (7.10). "" for no values.
 static func clear_notice(skin: SkinData, role: StringName, values: PackedInt64Array) -> String:
 	if values.is_empty():
 		return ""
@@ -36,7 +38,7 @@ static func clear_notice(skin: SkinData, role: StringName, values: PackedInt64Ar
 		template = NOTICE_ONE
 	elif values.size() == 2:
 		template = NOTICE_TWO
-	return _fill(skin, role, template, low, high)
+	return _fill(skin, role, template, low, high, true)
 
 
 ## "+n" after the clear notice copy for the stars a move earned, cased like
@@ -67,8 +69,9 @@ static func booster_name(skin: SkinData, role: StringName, booster_id: StringNam
 
 
 ## The template with {a} and {b} replaced by the labels and every other part
-## cased.
-static func _fill(skin: SkinData, role: StringName, template: String, a: String, b: String) -> String:
+## cased. With plurals, the "s" right after a placeholder is dropped when the
+## label ends in a lowercase letter, since "1as" would read as the label 1as.
+static func _fill(skin: SkinData, role: StringName, template: String, a: String, b: String, plurals: bool = false) -> String:
 	var out: String = ""
 	var rest: String = template
 	while not rest.is_empty():
@@ -79,6 +82,17 @@ static func _fill(skin: SkinData, role: StringName, template: String, a: String,
 		var finish: int = rest.find("}", start)
 		out += skin.cased(role, rest.substr(0, start))
 		var key: String = rest.substr(start + 1, finish - start - 1)
-		out += a if key == "a" else b
+		var value: String = a if key == "a" else b
+		out += value
 		rest = rest.substr(finish + 1)
+		if plurals and rest.begins_with("s") and _ends_lowercase(value):
+			rest = rest.substr(1)
 	return out
+
+
+## Whether label ends in a lowercase letter (a suffix like aa).
+static func _ends_lowercase(label: String) -> bool:
+	if label.is_empty():
+		return false
+	var last: String = label.right(1)
+	return last != last.to_upper()

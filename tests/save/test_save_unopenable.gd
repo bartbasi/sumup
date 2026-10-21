@@ -35,13 +35,13 @@ func _profile_path() -> String:
 
 
 func _state(score: int) -> RunState:
-	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 32), score, PackedInt64Array(), 0, 0, 0, 1000)
+	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 5), score, PackedInt64Array(), 0, 0, 0, 1000)
 
 
 func _records(best_score: int) -> Records:
 	var records: Records = Records.new()
-	records.best_score = best_score
-	records.best_tile = 2048
+	records.best_score = BigNum.from_int(best_score)
+	records.best_tile = 11
 	return records
 
 
@@ -75,7 +75,7 @@ func _two_profiles() -> void:
 
 func _loaded_score(service: SaveService) -> int:
 	var state: RunState = service.load_run(_config)
-	return -1 if state == null else state.score
+	return -1 if state == null else state.score.to_int()
 
 
 func test_unopenable_run_does_not_use_the_bak_and_touches_no_file() -> void:
@@ -129,7 +129,7 @@ func test_unopenable_profile_does_not_use_the_bak_and_is_not_saved_over() -> voi
 	var settings: Settings = Settings.new()
 	var records: Records = Records.new()
 	service.load_profile(settings, records)
-	assert_eq(records.best_score, 0, "the older .bak is not used; values in memory stay")
+	assert_eq(F.text(records.best_score), "0", "the older .bak is not used; values in memory stay")
 	assert_eq(records.best_tile, 0, "Best Tile stays too")
 	assert_false(service.save_profile(settings, records), "save_profile refuses to write over it")
 	assert_false(service.queue_profile(settings, records), "queue_profile refuses too")
@@ -138,7 +138,7 @@ func test_unopenable_profile_does_not_use_the_bak_and_is_not_saved_over() -> voi
 	service.set_unopenable(_profile_path(), 0)
 	var later: Records = Records.new()
 	_reopen().load_profile(Settings.new(), later)
-	assert_eq(later.best_score, 2000, "the next launch reads profile.json")
+	assert_eq(F.text(later.best_score), "2000", "the next launch reads profile.json")
 
 
 func test_profile_briefly_unopenable_is_read_after_a_retry() -> void:
@@ -147,7 +147,7 @@ func test_profile_briefly_unopenable_is_read_after_a_retry() -> void:
 	service.set_unopenable(_profile_path(), 4)
 	var records: Records = Records.new()
 	service.load_profile(Settings.new(), records)
-	assert_eq(records.best_score, 2000, "the last of five tries opens profile.json")
+	assert_eq(F.text(records.best_score), "2000", "the last of five tries opens profile.json")
 	assert_true(service.save_profile(Settings.new(), _records(3000)), "saving is not blocked")
 
 
@@ -186,7 +186,7 @@ func test_unopenable_profile_temp_blocks_like_the_real_file() -> void:
 	service.set_unopenable(_profile_path() + ".tmp", -1)
 	var records: Records = Records.new()
 	service.load_profile(Settings.new(), records)
-	assert_eq(records.best_score, 0, "neither profile.json nor the .bak is used")
+	assert_eq(F.text(records.best_score), "0", "neither profile.json nor the .bak is used")
 	assert_false(service.save_profile(Settings.new(), records), "save_profile refuses")
 	assert_false(service.queue_profile(Settings.new(), records), "queue_profile refuses")
 	service.flush()
@@ -194,7 +194,7 @@ func test_unopenable_profile_temp_blocks_like_the_real_file() -> void:
 	service.set_unopenable(_profile_path() + ".tmp", 0)
 	var later: Records = Records.new()
 	_reopen().load_profile(Settings.new(), later)
-	assert_eq(later.best_score, 3000, "the next launch reads the temp file")
+	assert_eq(F.text(later.best_score), "3000", "the next launch reads the temp file")
 
 
 func test_unopenable_bak_alone_is_left_alone() -> void:

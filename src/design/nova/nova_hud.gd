@@ -92,12 +92,12 @@ func setup(skin: SkinData) -> void:
 	_star.setup(NovaIcon.STAR, skin.color(&"accent"), skin.num(&"star_icon"))
 	_star.set_glow(Color(skin.color(&"accent"), skin.num(&"icon_glow_alpha")), STAR_GLOW_REACH)
 	if _score_text.is_empty():
-		set_scores(0, 0)
+		set_scores(BigNum.zero(), BigNum.zero())
 	_shown_count = -1
 	_show_stars(_count, _free)
 
 
-func set_scores(score: int, best_score: int) -> void:
+func set_scores(score: BigNum, best_score: BigNum) -> void:
 	_score_text = NumberFormat.score(score)
 	# The word takes the label case (lowercase); the number keeps its commas.
 	_best_text = _skin.cased(&"label", "Best") + " " + NumberFormat.score(best_score) if _skin != null else ""

@@ -28,7 +28,7 @@ func _session(state: RunState, seed_value: int = 1, records: Records = null) -> 
 
 ## Board D1024 with a snapshot worth 40 whose board has a valid move.
 func _with_snapshot(score: int) -> RunState:
-	return RunState.create(BF.board_d1024(), score, BF.snapshot_board(), 40)
+	return BF.make(BF.board_d1024(), score, BF.snapshot_board(), 40)
 
 
 ## The AT-52 board: Board D1024 with (0,0) = 32 and (4,7) = 32. No valid move.
@@ -39,7 +39,7 @@ func _two_32s() -> PackedInt64Array:
 func _costs(session: GameSession) -> Array[int]:
 	var list: Array[int] = []
 	for status: BoosterStatus in session.booster_statuses():
-		list.append(status.cost)
+		list.append(F.v(status.cost))
 	return list
 
 
@@ -53,7 +53,7 @@ func test_at_46_a_move_that_leaves_no_valid_move_opens_the_offer() -> void:
 	session.tap_cell(Vector2i(0, 0))
 	var result: MoveResult = session.tap_cell(Vector2i(1, 0))
 	assert_eq(session.state.cells, F.board_d(), "the board is now Board D")
-	assert_eq(session.state.score, 4872, "score 4,872")
+	assert_eq(BF.n(session.state.score), 4872, "score 4,872")
 	assert_true(result.offer_opens, "the result says the offer opens")
 	assert_false(result.has_valid_move, "no valid move")
 	recorder.clear()
@@ -69,7 +69,7 @@ func test_a_chain_that_leaves_no_valid_move_opens_the_offer() -> void:
 	# Board E with (0,1) = 4. Merging (0,0) and (0,1) puts an 8 back on (0,1),
 	# and a scripted 2 on (0,0) leaves Board E with (0,0) = 2: no move.
 	var session: GameSession = _session(F.state(F.changed(F.board_e(), {Vector2i(0, 1): 4}), 5000))
-	session.rng.script_spawns(PackedInt64Array([2]))
+	session.rng.script_spawns(F.ev(PackedInt64Array([2])))
 	var result: MoveResult = session.commit_chain(BF.targets([Vector2i(0, 0), Vector2i(0, 1)]))
 	assert_eq(session.state.cells, F.changed(F.board_e(), {Vector2i(0, 0): 2}), "Board E with (0,0) = 2")
 	assert_true(result.accepted, "the chain commits")
@@ -96,7 +96,7 @@ func test_at_48_go1_shuffle_rescues() -> void:
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
 	assert_true(result != null and result.accepted, "Shuffle applies at once from the offer")
 	assert_eq(recorder.names, _names(["move_resolved", "status_changed", "save_requested"]), "rule 2")
-	assert_eq(session.state.score, 3976, "score 3,976")
+	assert_eq(BF.n(session.state.score), 3976, "score 3,976")
 	assert_true(result.has_valid_move, "the board has a valid move")
 	assert_false(result.offer_opens, "the offer will close")
 	assert_true(session.is_offer_open(), "the offer stays open while the move shows")
@@ -117,7 +117,7 @@ func test_at_49_go2_only_undo_is_usable() -> void:
 	var result: MoveResult = session.press_booster(BoosterRules.UNDO)
 	assert_true(result.accepted, "Undo applies at once")
 	assert_eq(session.state.cells, BF.snapshot_board(), "the board equals the snapshot board")
-	assert_eq(session.state.score, 48, "score 48")
+	assert_eq(BF.n(session.state.score), 48, "score 48")
 	session.move_shown()
 	assert_false(session.is_offer_open(), "the offer closes")
 	assert_eq(session.phase(), GameSession.Phase.PLAYING, "play goes on")
@@ -130,18 +130,18 @@ func test_go3_and_go6_nothing_usable_ends_the_run() -> void:
 	go3.move_shown()
 	assert_eq(go3.phase(), GameSession.Phase.ENDED, "GO3: the run ends at once")
 	assert_eq(recorder.count("offer_changed"), 0, "no offer")
-	assert_eq(recorder.summaries[0].final_score, 300, "final score 300")
+	assert_eq(BF.n(recorder.summaries[0].final_score), 300, "final score 300")
 
 	recorder.clear()
 	var go6: GameSession = _session(F.state(BF.board_d1024(), 1500))
-	go6.rng.script_spawns(PackedInt64Array([4]))
+	go6.rng.script_spawns(F.ev(PackedInt64Array([4])))
 	go6.press_booster(BoosterRules.HAMMER)
 	var result: MoveResult = go6.tap_cell(Vector2i(1, 0))
 	assert_eq(go6.state.cells, BF.board_d1024(), "GO6: the hammered 4 came back as a 4, still no move")
 	assert_true(result.run_ends, "GO6: nothing usable at 476")
 	go6.move_shown()
 	assert_eq(go6.phase(), GameSession.Phase.ENDED, "the run ends at once")
-	assert_eq(recorder.summaries[0].final_score, 476, "final score 476")
+	assert_eq(BF.n(recorder.summaries[0].final_score), 476, "final score 476")
 	assert_eq(recorder.offers[recorder.offers.size() - 1], [false, &""], "the offer closed first")
 
 
@@ -160,7 +160,7 @@ func test_at_51_go4_cancelling_targeting_returns_to_the_offer() -> void:
 	assert_eq(recorder.targeting[0], [&"", NO_CELL], "targeting ended")
 	assert_eq(recorder.offers[0], [true, BoosterRules.SHUFFLE], "the offer again")
 	assert_eq(session.phase(), GameSession.Phase.OFFER, "OFFER")
-	assert_eq(session.state.score, 1500, "score still 1,500")
+	assert_eq(BF.n(session.state.score), 1500, "score still 1,500")
 
 
 func test_cancel_targeting_from_the_offer_by_back_or_pause() -> void:
@@ -172,7 +172,7 @@ func test_cancel_targeting_from_the_offer_by_back_or_pause() -> void:
 	assert_eq(recorder.names, _names(["targeting_changed", "offer_changed", "status_changed"]), "back to the offer")
 	assert_eq(session.phase(), GameSession.Phase.OFFER, "OFFER")
 	assert_eq(session.swap_first(), NO_CELL, "the selection is gone")
-	assert_eq(session.state.score, 1500, "nothing charged")
+	assert_eq(BF.n(session.state.score), 1500, "nothing charged")
 
 
 func test_at_52_go5_swap_rescues() -> void:
@@ -184,9 +184,9 @@ func test_at_52_go5_swap_rescues() -> void:
 	session.press_booster(BoosterRules.SWAP)
 	session.tap_cell(Vector2i(4, 7))
 	var result: MoveResult = session.tap_cell(Vector2i(1, 0))
-	assert_eq(session.state.value_at(Vector2i(1, 0)), 32, "(1,0) = 32")
-	assert_eq(session.state.value_at(Vector2i(4, 7)), 4, "(4,7) = 4")
-	assert_eq(session.state.score, 476, "score 476")
+	assert_eq(F.v(session.state.value_at(Vector2i(1, 0))), 32, "(1,0) = 32")
+	assert_eq(F.v(session.state.value_at(Vector2i(4, 7))), 4, "(4,7) = 4")
+	assert_eq(BF.n(session.state.score), 476, "score 476")
 	assert_true(result.has_valid_move, "the two 32s now touch")
 	recorder.clear()
 	session.move_shown()
@@ -196,22 +196,22 @@ func test_at_52_go5_swap_rescues() -> void:
 
 func test_at_53_the_offer_repeats_then_the_run_ends() -> void:
 	var session: GameSession = _session(F.state(BF.board_d1024(), 1500))
-	session.rng.script_spawns(PackedInt64Array([8]))
+	session.rng.script_spawns(F.ev(PackedInt64Array([8])))
 	session.press_booster(BoosterRules.HAMMER)
 	var result: MoveResult = session.tap_cell(Vector2i(4, 7))
 	assert_eq(F.column_of(session.state.cells, 4), PackedInt64Array([8, 2, 8, 2, 8, 2, 8, 2]), "column 4 reads 8, 2, 8, 2, 8, 2, 8, 2")
-	assert_eq(session.state.score, 476, "score 476")
+	assert_eq(BF.n(session.state.score), 476, "score 476")
 	assert_false(result.has_valid_move, "still no valid move")
 	assert_true(result.run_ends, "every cost is at least 512")
 	session.move_shown()
 	assert_eq(session.phase(), GameSession.Phase.ENDED, "the run ends at once")
-	assert_eq(recorder.summaries[0].final_score, 476, "final score 476")
+	assert_eq(BF.n(recorder.summaries[0].final_score), 476, "final score 476")
 	assert_true(recorder.summaries[0].no_moves_left, "because no moves were left")
 
 
 func test_the_offer_refreshes_after_a_booster_that_leaves_no_move() -> void:
 	var session: GameSession = _session(F.state(BF.board_d1024(), 5000))
-	session.rng.script_spawns(PackedInt64Array([2]))
+	session.rng.script_spawns(F.ev(PackedInt64Array([2])))
 	session.press_booster(BoosterRules.HAMMER)
 	recorder.clear()
 	var result: MoveResult = session.tap_cell(Vector2i(4, 0))
@@ -222,14 +222,14 @@ func test_the_offer_refreshes_after_a_booster_that_leaves_no_move() -> void:
 	session.move_shown()
 	assert_eq(recorder.names, _names(["offer_changed"]), "the offer refreshes; the status already changed with the move")
 	assert_eq(recorder.offers[0], [true, BoosterRules.SHUFFLE], "worked out afresh")
-	assert_eq(session.state.score, 3976, "Hammer charged 1,024")
+	assert_eq(BF.n(session.state.score), 3976, "Hammer charged 1,024")
 
 
 func test_the_offer_refresh_moves_the_suggestion_to_undo() -> void:
 	# Score 2,000 with a snapshot worth 40. A Hammer that leaves no move costs
 	# 1,024, leaving 976: Shuffle is no longer usable, Undo (512) is.
 	var session: GameSession = _session(_with_snapshot(2000))
-	session.rng.script_spawns(PackedInt64Array([2]))
+	session.rng.script_spawns(F.ev(PackedInt64Array([2])))
 	session.press_booster(BoosterRules.HAMMER)
 	session.tap_cell(Vector2i(4, 0))
 	recorder.clear()
@@ -242,17 +242,17 @@ func test_at_101_a_double_from_the_offer_clears_and_rescues() -> void:
 	var board: PackedInt64Array = F.changed(F.board_e(), {Vector2i(0, 3): 2, Vector2i(2, 0): 1024})
 	var session: GameSession = _session(F.state(board, 5000))
 	assert_true(session.is_offer_open(), "the offer is open")
-	session.rng.script_spawns(PackedInt64Array([8]))
+	session.rng.script_spawns(F.ev(PackedInt64Array([8])))
 	session.press_booster(BoosterRules.DOUBLE)
 	assert_true(session.is_offer_open(), "targeting from the offer")
 	recorder.clear()
 	var result: MoveResult = session.tap_cell(Vector2i(2, 0))
 	assert_eq(recorder.names, _names(["targeting_changed", "move_resolved", "status_changed", "save_requested"]), "targeting ends, the move resolves and saves")
-	assert_eq(session.state.score, 2952, "score 2,952")
-	assert_eq(session.state.value_at(Vector2i(2, 0)), 2048, "(2,0) = 2048")
+	assert_eq(BF.n(session.state.score), 2952, "score 2,952")
+	assert_eq(F.v(session.state.value_at(Vector2i(2, 0))), 2048, "(2,0) = 2048")
 	assert_eq(result.cleared_small, [Vector2i(0, 3)] as Array[Vector2i], "the 2 on (0,3) was cleared")
-	assert_eq(session.state.value_at(Vector2i(0, 0)), 8, "(0,0) = 8")
-	assert_eq([session.state.value_at(Vector2i(0, 3)), session.state.value_at(Vector2i(0, 4))], [4, 4], "(0,3) and (0,4) are both 4")
+	assert_eq(F.v(session.state.value_at(Vector2i(0, 0))), 8, "(0,0) = 8")
+	assert_eq([F.v(session.state.value_at(Vector2i(0, 3))), F.v(session.state.value_at(Vector2i(0, 4)))], [4, 4], "(0,3) and (0,4) are both 4")
 	assert_true(result.has_valid_move, "the board has a valid move")
 	recorder.clear()
 	session.move_shown()
@@ -262,12 +262,12 @@ func test_at_101_a_double_from_the_offer_clears_and_rescues() -> void:
 
 func test_at_73_shuffle_with_no_equal_pair_opens_the_offer_again() -> void:
 	var board: PackedInt64Array = PackedInt64Array()
-	for power: int in range(1, 41):
-		board.append(1 << power)
+	for exponent: int in range(1, 41):
+		board.append(exponent)
 	var session: GameSession = _session(BF.none_held(F.state(board, 1 << 41)), 73)
 	assert_eq(session.phase(), GameSession.Phase.OFFER, "no move: the offer is open")
 	var result: MoveResult = session.press_booster(BoosterRules.SHUFFLE)
-	assert_eq(session.state.score, 1 << 40, "score 2^40")
+	assert_eq(BF.n(session.state.score), 1 << 40, "score 2^40")
 	assert_true(result.offer_opens, "the no moves offer opens")
 	recorder.clear()
 	session.move_shown()
@@ -295,10 +295,10 @@ func test_at_54_end_run() -> void:
 	assert_eq(recorder.names, _names(["offer_changed", "status_changed", "run_ended"]), "the offer closes and the run ends")
 	assert_eq(recorder.count("save_requested"), 0, "the ended run is never saved again")
 	var summary: RunSummary = recorder.summaries[0]
-	assert_eq(summary.final_score, 1500, "final score")
-	assert_eq(summary.best_score, 1500, "Best Score")
-	assert_eq(summary.best_tile, 1024, "Best Tile")
-	assert_eq(summary.run_highest, 1024, "this run's highest tile")
+	assert_eq(BF.n(summary.final_score), 1500, "final score")
+	assert_eq(BF.n(summary.best_score), 1500, "Best Score")
+	assert_eq(F.v(summary.best_tile), 1024, "Best Tile")
+	assert_eq(F.v(summary.run_highest), 1024, "this run's highest tile")
 	assert_true(summary.new_best_score, "this run beat 900")
 	assert_false(summary.no_moves_left, "the player chose End run")
 	assert_eq(session.phase(), GameSession.Phase.ENDED, "ENDED")
@@ -314,7 +314,7 @@ func test_end_run_while_targeting_from_the_offer() -> void:
 	assert_eq(recorder.names, _names(["targeting_changed", "offer_changed", "status_changed", "run_ended"]), "targeting ends, the offer closes, the run ends")
 	assert_eq(session.targeting_booster(), &"", "no targeting")
 	assert_eq(session.swap_first(), NO_CELL, "no selection")
-	assert_eq(session.state.score, 1500, "nothing charged")
+	assert_eq(BF.n(session.state.score), 1500, "nothing charged")
 
 
 func test_end_run_needs_an_open_offer_and_no_move_showing() -> void:
@@ -354,7 +354,7 @@ func test_at_55_go7_the_offer_survives_a_restart() -> void:
 	reopened.move_shown()
 	assert_eq(recorder.offers, [[true, BoosterRules.SHUFFLE]] as Array[Array], "the offer opens again, unchanged")
 	assert_eq(reopened.state.cells, _two_32s(), "same board")
-	assert_eq(reopened.state.score, 1500, "same score")
+	assert_eq(BF.n(reopened.state.score), 1500, "same score")
 	assert_eq(BF.usable_ids(reopened), [&"hammer", &"swap", &"shuffle"] as Array[StringName], "same choices")
 
 
@@ -373,7 +373,7 @@ func test_at_83_the_undo_snapshot_survives_a_restart() -> void:
 	var result: MoveResult = reopened.press_booster(BoosterRules.UNDO)
 	assert_true(result.accepted, "Undo works")
 	assert_eq(reopened.state.cells, board, "the board from before that chain")
-	assert_eq(reopened.state.score, 744, "the expected score")
+	assert_eq(BF.n(reopened.state.score), 744, "the expected score")
 
 
 func test_at_91_resume_keeps_board_score_records_and_undo() -> void:
@@ -387,8 +387,8 @@ func test_at_91_resume_keeps_board_score_records_and_undo() -> void:
 	var undo_cost: int = BF.status_of(session, BoosterRules.UNDO).cost
 	var reopened: GameSession = BF.ready_session(saved, saved_records, 92)
 	assert_true(reopened.state.equals(saved), "the same board, score, snapshot and run highest tile")
-	assert_eq(reopened.records.best_score, 22048, "the same Best Score")
-	assert_eq(reopened.records.best_tile, 2048, "the same Best Tile")
-	assert_eq(reopened.state.run_highest, 2048, "the same run highest tile")
+	assert_eq(BF.n(reopened.records.best_score), 22048, "the same Best Score")
+	assert_eq(F.v(reopened.records.best_tile), 2048, "the same Best Tile")
+	assert_eq(F.v(reopened.state.run_highest), 2048, "the same run highest tile")
 	assert_true(BF.status_of(reopened, BoosterRules.UNDO).usable, "Undo enabled")
 	assert_eq(BF.status_of(reopened, BoosterRules.UNDO).cost, undo_cost, "at the same cost")

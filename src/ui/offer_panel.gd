@@ -21,7 +21,7 @@ const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
 
 var _skin: SkinData = null
 var _statuses: Array[BoosterStatus] = []
-var _score: int = 0
+var _score: BigNum = BigNum.zero()
 var _shown: bool = false
 var _shown_key: String = ""
 var _buy: Button = null
@@ -48,9 +48,9 @@ func setup(skin: SkinData) -> void:
 ## D-19: the offer for these statuses (bar order) and score. The suggested
 ## rescue is the status marked suggested (D-42), if any. Safe to call on every
 ## status change: it rebuilds only when what it shows changes.
-func show_offer(statuses: Array[BoosterStatus], score: int) -> void:
+func show_offer(statuses: Array[BoosterStatus], score: BigNum) -> void:
 	_statuses = statuses
-	_score = score
+	_score = score if score != null else BigNum.zero()
 	_shown = true
 	var suggested: BoosterStatus = _suggested()
 	var key: String = _key(suggested)
@@ -97,12 +97,12 @@ func _fit() -> void:
 	UiParts.fit_label(skin, _score_label, room, skin.font_size(UiParts.role(skin, _score_label.theme_type_variation)))
 
 
-## What the offer shows, so it rebuilds only when that changes: the score
-## and the suggested booster with its cost, usability and free state.
+## What the offer shows, so it rebuilds only when that changes: the score as
+## shown and the suggested booster with its cost, usability and free state.
 func _key(suggested: BoosterStatus) -> String:
 	if suggested == null:
-		return "%d|" % _score
-	return "%d|%s|%d|%s|%s" % [_score, suggested.id, suggested.cost, suggested.usable, suggested.free]
+		return "%s|" % NumberFormat.score(_score)
+	return "%s|%s|%d|%s|%s" % [NumberFormat.score(_score), suggested.id, suggested.cost, suggested.usable, suggested.free]
 
 
 func _suggested() -> BoosterStatus:

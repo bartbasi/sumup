@@ -50,13 +50,13 @@ func _text_of(score: int) -> String:
 func _score_in_run_file() -> int:
 	var parsed: Variant = JSON.parse_string(F.read_text(_run_path()))
 	var state: RunState = SaveCodec.data_to_run(parsed, _config)
-	return state.score if state != null else -1
+	return state.score.to_int() if state != null else -1
 
 
 ## What a reopened app loads, or -1 for no run.
 func _score_on_reload() -> int:
 	var state: RunState = SaveService.new(_dir).load_run(_config)
-	return state.score if state != null else -1
+	return state.score.to_int() if state != null else -1
 
 
 func _on_windows() -> bool:
@@ -92,7 +92,7 @@ func test_is_idle_turns_true_by_itself_once_the_write_lands() -> void:
 
 
 func test_a_refused_save_is_idle() -> void:
-	assert_false(_service.queue_run(_state(-5)), "a state that would not load back is refused")
+	assert_false(_service.queue_run(F.run(F.board_d(), BigNum.pow2(GameConfig.new().max_score_bits))), "a state that would not load back is refused")
 	assert_false(_service.queue_run(null), "and null")
 	assert_true(_service.is_idle(), "nothing was queued, so the move can show")
 
@@ -265,7 +265,7 @@ func test_a_valid_temp_wins_even_when_its_rename_fails_on_load() -> void:
 	F.write_text(_run_temp(), _text_of(222))
 	DirAccess.make_dir_absolute(_run_path())
 	var loaded: RunState = _service.load_run(_config)
-	assert_true(loaded != null and loaded.score == 222, "the temp run is used")
+	assert_true(loaded != null and loaded.score.to_int() == 222, "the temp run is used")
 	assert_true(FileAccess.file_exists(_run_temp()), "and kept while it cannot move")
 	DirAccess.remove_absolute(_run_path())
 	_service.flush()

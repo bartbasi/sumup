@@ -11,7 +11,8 @@ extends "res://src/design/shared/press_button.gd"
 var booster_id: StringName = &""
 ## SkinIcon.LOOK_NORMAL, LOOK_ACTIVE (targeting) or LOOK_DISABLED (not usable).
 var look: int = SkinIcon.LOOK_NORMAL
-## The cost as a tile label (D-32): 2K, never 2,048.
+## The cost as a tile label of the cost exponent (D-32): 2K, never 2,048;
+## 256aa past Q. Never cased.
 var cost_text: String = ""
 ## Marked as the suggested rescue (D-42).
 var suggested: bool = false

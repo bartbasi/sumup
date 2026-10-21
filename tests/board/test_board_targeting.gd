@@ -42,7 +42,7 @@ func test_at_110_a_and_b_hammer_shows_press_feedback_then_acts_on_the_lift() -> 
 	assert_eq(_last(rig.view().pressed), Vector2i(2, 7), "(2,7) shows press feedback")
 	assert_true(rig.session.state.equals(before), "a finger down charges nothing and changes nothing")
 	rig.up(Vector2i(2, 7))
-	assert_eq(rig.session.state.score, 4872, "Hammer applied at once: score 4,872")
+	assert_eq(rig.score(), 4872, "Hammer applied at once: score 4,872")
 	assert_eq(rig.view().clears, [BF.cells([Vector2i(2, 7)])], "(2,7) is removed")
 	assert_eq(rig.session.targeting_booster(), &"", "targeting ends")
 	assert_eq(_last(rig.view().targeting), &"", "the view leaves targeting")
@@ -65,9 +65,9 @@ func test_at_110_c_double_lifted_on_another_tile_does_nothing() -> void:
 func test_double_acts_on_one_tap() -> void:
 	_targeting(F.board_p(), BoosterRules.DOUBLE)
 	rig.tap(Vector2i(0, 0))
-	assert_eq(rig.session.state.value_at(Vector2i(0, 0)), 4, "the 2 is doubled")
-	assert_eq(rig.session.state.score, 4744, "cost 2 x 128")
-	assert_eq(rig.view().value_changes, [[Vector2i(0, 0), 4]], "the view shows the new value")
+	assert_eq(rig.value_at(Vector2i(0, 0)), 4, "the 2 is doubled")
+	assert_eq(rig.score(), 4744, "cost 2 x 128")
+	assert_eq(rig.view().value_changes, [[Vector2i(0, 0), F.e(4)]], "the view shows the new value")
 
 
 func test_press_feedback_follows_the_finger_and_a_lift_back_on_the_tile_applies() -> void:
@@ -77,7 +77,7 @@ func test_press_feedback_follows_the_finger_and_a_lift_back_on_the_tile_applies(
 	rig.move(Vector2i(1, 1))
 	assert_eq(rig.view().pressed, BF.cells([Vector2i(1, 1), NO_CELL, Vector2i(1, 1)]), "on, off, on again")
 	rig.up(Vector2i(1, 1))
-	assert_eq(rig.session.state.score, 4872, "lifting on the pressed tile applies")
+	assert_eq(rig.score(), 4872, "lifting on the pressed tile applies")
 
 
 # Swap (AT-111, AT-69).
@@ -86,11 +86,11 @@ func test_at_111_swap_selects_on_its_first_tap_and_acts_on_its_second() -> void:
 	_targeting(F.board_p(), BoosterRules.SWAP)
 	rig.tap(Vector2i(0, 0))
 	assert_eq(_last(rig.view().swap_selected), Vector2i(0, 0), "(0,0) is selected")
-	assert_eq(rig.session.state.score, 5000, "nothing charged yet")
+	assert_eq(rig.score(), 5000, "nothing charged yet")
 	rig.tap(Vector2i(2, 7))
-	assert_eq(rig.session.state.value_at(Vector2i(0, 0)), 32, "(0,0) = 32")
-	assert_eq(rig.session.state.value_at(Vector2i(2, 7)), 2, "(2,7) = 2")
-	assert_eq(rig.session.state.score, 4872, "score 4,872")
+	assert_eq(rig.value_at(Vector2i(0, 0)), 32, "(0,0) = 32")
+	assert_eq(rig.value_at(Vector2i(2, 7)), 2, "(2,7) = 2")
+	assert_eq(rig.score(), 4872, "score 4,872")
 	assert_eq(rig.view().swaps, [[Vector2i(0, 0), Vector2i(2, 7)]], "the view swaps the two tiles")
 	assert_eq(_last(rig.view().swap_selected), NO_CELL, "the selection is gone")
 	assert_eq(_last(rig.view().targeting), &"", "targeting ends")
@@ -135,7 +135,7 @@ func test_a_tap_near_a_tile_corner_picks_that_tile() -> void:
 	rig.down_at(corner)
 	assert_eq(_last(rig.view().pressed), Vector2i(2, 4), "press feedback on the tile")
 	rig.up_at(corner)
-	assert_eq(rig.session.state.score, 4872, "Hammer applied")
+	assert_eq(rig.score(), 4872, "Hammer applied")
 	assert_eq(rig.view().clears, [BF.cells([Vector2i(2, 4)])], "on that tile")
 
 
@@ -144,7 +144,7 @@ func test_a_tap_that_drifts_inside_the_tile_still_taps() -> void:
 	rig.down_at(rig.point(Vector2i(0, 0), Vector2(-35.0, 35.0)))
 	rig.move_to(rig.point(Vector2i(0, 0), Vector2(30.0, -36.0)))
 	rig.up_at(rig.point(Vector2i(0, 0), Vector2(36.0, -38.0)))
-	assert_eq(rig.session.state.value_at(Vector2i(0, 0)), 4, "the tile is doubled")
+	assert_eq(rig.value_at(Vector2i(0, 0)), 4, "the tile is doubled")
 
 
 func test_a_tap_in_a_gap_picks_nothing_even_within_the_join_radius() -> void:
@@ -208,7 +208,7 @@ func test_a_booster_switch_under_the_finger_picks_nothing() -> void:
 	rig.session.press_booster(BoosterRules.DOUBLE)
 	assert_eq(_last(rig.view().pressed), NO_CELL, "the press feedback goes")
 	rig.up(Vector2i(1, 1))
-	assert_eq(rig.session.state.score, 5000, "the lift applies neither booster")
+	assert_eq(rig.score(), 5000, "the lift applies neither booster")
 	assert_eq(rig.session.targeting_booster(), BoosterRules.DOUBLE, "Double is active")
 
 
@@ -216,9 +216,9 @@ func test_a_second_finger_is_ignored_while_targeting() -> void:
 	_targeting(F.board_p(), BoosterRules.HAMMER)
 	rig.down(Vector2i(1, 1), 0)
 	rig.tap(Vector2i(2, 2), 1)
-	assert_eq(rig.session.state.score, 5000, "the second finger's tap picks nothing")
+	assert_eq(rig.score(), 5000, "the second finger's tap picks nothing")
 	rig.up(Vector2i(1, 1), 0)
-	assert_eq(rig.session.state.score, 4872, "the first finger's tap applies")
+	assert_eq(rig.score(), 4872, "the first finger's tap applies")
 	assert_eq(rig.view().clears, [BF.cells([Vector2i(1, 1)])], "on its own tile")
 
 
@@ -228,7 +228,7 @@ func test_cancel_drag_drops_a_targeting_press() -> void:
 	rig.board.cancel_drag()
 	assert_eq(_last(rig.view().pressed), NO_CELL, "the press feedback goes")
 	rig.up(Vector2i(1, 1))
-	assert_eq(rig.session.state.score, 5000, "the lift picks nothing")
+	assert_eq(rig.score(), 5000, "the lift picks nothing")
 	assert_eq(rig.session.targeting_booster(), BoosterRules.HAMMER, "Hammer stays active")
 
 
@@ -236,7 +236,7 @@ func test_a_mouse_click_is_a_tap() -> void:
 	_targeting(F.board_p(), BoosterRules.HAMMER)
 	rig.send(BF.mouse_button(rig.point(Vector2i(3, 3)), true))
 	rig.send(BF.mouse_button(rig.point(Vector2i(3, 3)), false))
-	assert_eq(rig.session.state.score, 4872, "a click on a tile applies Hammer")
+	assert_eq(rig.score(), 4872, "a click on a tile applies Hammer")
 
 
 # The view mirrors targeting_changed.

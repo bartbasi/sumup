@@ -49,7 +49,7 @@ func _profile_path() -> String:
 
 
 func _state(score: int) -> RunState:
-	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 32), score, PackedInt64Array(), 0, 0, 0, 1000)
+	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 5), score, PackedInt64Array(), 0, 0, 0, 1000)
 
 
 func _run_bytes(score: int) -> PackedByteArray:
@@ -58,7 +58,7 @@ func _run_bytes(score: int) -> PackedByteArray:
 
 func _profile_bytes(best_score: int) -> PackedByteArray:
 	var records: Records = Records.new()
-	records.best_score = best_score
+	records.best_score = BigNum.from_int(best_score)
 	return F.to_text(SaveCodec.profile_to_data(Settings.new(), records)).to_utf8_buffer()
 
 
@@ -72,13 +72,13 @@ static func _with_high_byte(bytes: PackedByteArray, high: int) -> PackedByteArra
 
 func _loaded_score() -> int:
 	var state: RunState = _service.load_run(_config)
-	return -1 if state == null else state.score
+	return -1 if state == null else state.score.to_int()
 
 
 func _loaded_best_score() -> int:
 	var records: Records = Records.new()
 	_service.load_profile(Settings.new(), records)
-	return records.best_score
+	return records.best_score.to_int()
 
 
 func test_plain_ascii_check() -> void:
@@ -129,7 +129,7 @@ func test_a_utf8_byte_order_mark_is_refused() -> void:
 	assert_eq(_loaded_score(), -1, "the game never writes one")
 
 
-func test_64_kb_of_high_bytes_is_refused_fast_and_quietly() -> void:
+func test_256_kb_of_high_bytes_is_refused_fast_and_quietly() -> void:
 	var bytes: PackedByteArray = PackedByteArray()
 	bytes.resize(SaveService.MAX_BYTES)
 	bytes.fill(0xFF)
@@ -146,7 +146,7 @@ func test_64_kb_of_high_bytes_is_refused_fast_and_quietly() -> void:
 	assert_eq(_loaded_best_score(), 0, "profile defaults")
 	assert_eq(_loaded_score(), -1, "no run")
 	var spent: int = Time.get_ticks_msec() - start
-	assert_true(spent < 300, "six 64 KB files refused in %d ms" % spent)
+	assert_true(spent < 300, "six 256 KB files refused in %d ms" % spent)
 	assert_eq(_log.errors, 0, "no error logged")
 
 

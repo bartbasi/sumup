@@ -96,7 +96,7 @@ func test_free_goes_when_none_is_held() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var bar: SkinBoosterBar = _bar(skin_id)
 		bar.show_boosters(Fixtures.free_statuses())
-		bar.show_boosters(Fixtures.plain_statuses(128))
+		bar.show_boosters(Fixtures.plain_statuses(7))
 		for button: Control in _buttons(bar):
 			assert_false(bool(button.get(&"free")), "%s the cost is back" % skin_id)
 			var star: SkinIcon = button.call(&"free_star") as SkinIcon
@@ -109,7 +109,7 @@ func test_qa6_05_every_booster_touch_area_is_at_least_touch_min() -> void:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		for width: float in [1080.0, 1200.0, 1220.0]:
 			var bar: SkinBoosterBar = _bar(skin_id, width)
-			bar.show_boosters(Fixtures.plain_statuses(128))
+			bar.show_boosters(Fixtures.plain_statuses(7))
 			for button: Control in _buttons(bar):
 				assert_true(button.size.x >= skin.num(&"touch_min") and button.size.y >= skin.num(&"touch_min"), "%s at %d: touch area %s" % [skin_id, width, button.size])
 
@@ -120,7 +120,7 @@ func test_qa6_08_the_bar_lays_out_inside_a_narrow_column() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var bar: SkinBoosterBar = _bar(skin_id, width)
-		bar.show_boosters(Fixtures.plain_statuses(128))
+		bar.show_boosters(Fixtures.plain_statuses(7))
 		var buttons: Array[Control] = _buttons(bar)
 		var margin: float = skin.num(&"board_margin")
 		match skin_id:

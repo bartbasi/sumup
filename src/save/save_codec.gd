@@ -1,26 +1,31 @@
 class_name SaveCodec extends RefCounted
 ## Turns the run and the profile into JSON shaped data and back
-## (docs/ARCHITECTURE.md section 10, GDD 15.1). Pure: no files. SaveService
-## does the reading and writing.
+## (docs/ARCHITECTURE.md sections 10 and 17, GDD 15.1). Pure: no files.
+## SaveService does the reading and writing.
 ##
-## Godot's JSON parser returns every number as a float, which cannot hold a 64
-## bit integer exactly. So tile values are stored as exponents (2 is 1, 1024 is
-## 10, 2^62 is 62) and scores and points as strings of decimal digits.
+## Godot's JSON parser returns every number as a float, which cannot hold a
+## large integer exactly. So tiles are stored as exponents (2 is 1, 1024 is
+## 10, 2^56 is 56) and scores and points as strings of decimal digits. Since
+## 2026-10-21 neither has a 64 bit limit: exponents go up to max_exponent and
+## digit strings up to the length of 2^max_score_bits, with the value below
+## 2^max_score_bits (GDD D-37). The format itself did not change, so every
+## earlier save loads unchanged and writes back byte for byte the same.
 ##
 ## Loading trusts nothing. The input is only ever plain JSON values
 ## (Dictionary, Array, String, float, bool, null), and nothing here turns data
 ## into objects or code. Every field is checked for type, exact keys and range.
 ## Numbers may arrive as float (from the JSON parser) or int (from code); both
-## must be whole and in range.
+## must be whole and in range. A digit string is refused by its length before
+## any of it is converted, so a huge one costs nothing.
 ##
 ## Run files are written as format 2. A format 1 run file, from builds before
 ## D-46, still loads: it has exactly the format 1 keys, and loads with
-## free_used 0 and best_at_start -1 (unknown). Anything else is invalid.
+## free_used 0 and best_at_start null (unknown). Anything else is invalid.
 ##
-## A state whose best_at_start is -1 is never written. run_to_data encodes it
-## as "-1", which data_to_run refuses, so SaveService refuses the save and the
-## last good file stays. In play this never happens: GameSession sets
-## best_at_start when a run starts, and on resume turns -1 into the loaded
+## A state whose best_at_start is null is never written. run_to_data encodes
+## it as JSON null, which data_to_run refuses, so SaveService refuses the save
+## and the last good file stays. In play this never happens: GameSession sets
+## best_at_start when a run starts, and on resume turns null into the loaded
 ## Best Score (ARCHITECTURE.md section 5), so the next save writes that value.
 
 const RUN_FORMAT: int = 2              # D-46 added free_used, QA6-03 best_at_start; format 1 run files still load
@@ -34,22 +39,21 @@ const _PROFILE_KEYS: Array[String] = ["format", "settings", "records"]
 const _SETTINGS_KEYS: Array[String] = ["sound_on", "skin"]
 const _RECORDS_KEYS: Array[String] = ["best_score", "best_tile"]
 
-const _MAX_EXPONENT: int = 62              # the largest tile is 2^62 (D-37)
 const _MIN_SNAPSHOT_POINTS: int = 4        # the smallest chain, 2 + 2 (GDD 15.1)
-const _MAX_DIGITS: int = 19
-const _INT64_MAX_TEXT: String = "9223372036854775807"
 const _SKIN_ID_MAX_LENGTH: int = 32
-const _CHAR_ZERO: int = 48
-const _CHAR_NINE: int = 57
 const _CHAR_A: int = 97
 const _CHAR_Z: int = 122
 const _CHAR_UNDERSCORE: int = 95
+const _LOG10_2: float = 0.30102999566398120
+
+## _max_digits worked out per max_score_bits, so it is computed once.
+static var _digits_for_bits: Dictionary[int, int] = {}
 
 
-## The run in the save format, always format 2. A state that breaks a rule (a
-## value that is not a power of two, a negative score, free_used above what
-## was earned, best_at_start -1) still encodes, but data_to_run refuses the
-## result, and SaveService checks that before it writes.
+## The run in the save format, always format 2. A state that breaks a rule (an
+## empty cell, a negative score, free_used above what was earned,
+## best_at_start null) still encodes, but data_to_run refuses the result, and
+## SaveService checks that before it writes.
 @warning_ignore("integer_division")
 static func run_to_data(state: RunState) -> Dictionary:
 	if state == null:
@@ -60,33 +64,34 @@ static func run_to_data(state: RunState) -> Dictionary:
 	var snapshot: Variant = null
 	if state.has_snapshot():
 		snapshot = {
-			"cells": _exponents_of(state.snapshot_cells),
-			"points": str(state.snapshot_points),
+			"cells": _list_of(state.snapshot_cells),
+			"points": _text_of(state.snapshot_points),
 		}
 	return {
 		"format": RUN_FORMAT,
 		"columns": state.columns,
 		"rows": rows,
-		"cells": _exponents_of(state.cells),
-		"score": str(state.score),
-		"run_highest": _exponent_of(state.run_highest),
+		"cells": _list_of(state.cells),
+		"score": _text_of(state.score),
+		"run_highest": state.run_highest,
 		"free_used": state.free_used,
-		"best_at_start": str(state.best_at_start),
+		"best_at_start": _text_of(state.best_at_start),
 		"snapshot": snapshot,
 	}
 
 
 ## TH18. The run in data, or null when anything about it is invalid. Follows
 ## GDD 15.1 exactly: format 2 with exactly its keys, or format 1 with exactly
-## the format 1 keys; the board size of config; every value a power of two
-## from 2 to 2^62; a score of 0 or more; a run highest tile at least the
-## highest value on the board and on the snapshot board; a snapshot that is
-## null or a full board plus points of 4 or more. Format 2 also needs
-## free_used, a whole number from 0 up to CoreRules.free_earned(run_highest),
-## and best_at_start, a digit string (0 or more, not checked against the
-## records). Format 1 loads with free_used 0 and best_at_start -1.
+## the format 1 keys; the board size of config; every exponent from 1 to
+## config.max_exponent; a score of 0 or more and below 2^max_score_bits; a run
+## highest tile at least the highest exponent on the board and on the snapshot
+## board; a snapshot that is null or a full board plus points of 4 or more
+## (and below the ceiling). Format 2 also needs free_used, a whole number from
+## 0 up to CoreRules.free_earned(run_highest), and best_at_start, a digit
+## string under the same ceiling (not checked against the records). Format 1
+## loads with free_used 0 and best_at_start null.
 static func data_to_run(data: Variant, config: GameConfig) -> RunState:
-	if config == null or config.columns < 1 or config.rows < 1:
+	if config == null or config.columns < 1 or config.rows < 1 or config.max_exponent < 1 or config.max_score_bits < 1:
 		return null
 	if typeof(data) != TYPE_DICTIONARY:
 		return null
@@ -106,18 +111,17 @@ static func data_to_run(data: Variant, config: GameConfig) -> RunState:
 		return null
 	if _read_whole(run["rows"], config.rows, config.rows) < 0:
 		return null
-	var cells: PackedInt64Array = _read_board(run["cells"], config.cell_count())
+	var cells: PackedInt64Array = _read_board(run["cells"], config.cell_count(), config.max_exponent)
 	if cells.is_empty():
 		return null
-	var score: int = _read_digits(run["score"])
-	if score < 0:
+	var score: BigNum = _read_number(run["score"], config.max_score_bits)
+	if score == null:
 		return null
-	var highest_exponent: int = _read_whole(run["run_highest"], 1, _MAX_EXPONENT)
-	if highest_exponent < 0:
+	var run_highest: int = _read_whole(run["run_highest"], 1, config.max_exponent)
+	if run_highest < 0:
 		return null
-	var run_highest: int = 1 << highest_exponent
 	var snapshot_cells: PackedInt64Array = PackedInt64Array()
-	var snapshot_points: int = 0
+	var snapshot_points: BigNum = null
 	var snapshot_data: Variant = run["snapshot"]
 	if typeof(snapshot_data) != TYPE_NIL:
 		if typeof(snapshot_data) != TYPE_DICTIONARY:
@@ -125,22 +129,22 @@ static func data_to_run(data: Variant, config: GameConfig) -> RunState:
 		var snapshot: Dictionary = snapshot_data
 		if not _has_exact_keys(snapshot, _SNAPSHOT_KEYS):
 			return null
-		snapshot_cells = _read_board(snapshot["cells"], config.cell_count())
+		snapshot_cells = _read_board(snapshot["cells"], config.cell_count(), config.max_exponent)
 		if snapshot_cells.is_empty():
 			return null
-		snapshot_points = _read_digits(snapshot["points"])
-		if snapshot_points < _MIN_SNAPSHOT_POINTS:
+		snapshot_points = _read_number(snapshot["points"], config.max_score_bits)
+		if snapshot_points == null or snapshot_points.compare(BigNum.from_int(_MIN_SNAPSHOT_POINTS)) < 0:
 			return null
 	if run_highest < CoreRules.highest(cells) or run_highest < CoreRules.highest(snapshot_cells):
 		return null
 	var free_used: int = 0
-	var best_at_start: int = -1
+	var best_at_start: BigNum = null
 	if format == RUN_FORMAT:
 		free_used = _read_whole(run["free_used"], 0, CoreRules.free_earned(run_highest, config))
 		if free_used < 0:
 			return null
-		best_at_start = _read_digits(run["best_at_start"])
-		if best_at_start < 0:
+		best_at_start = _read_number(run["best_at_start"], config.max_score_bits)
+		if best_at_start == null:
 			return null
 	return RunState.create(cells, score, snapshot_cells, snapshot_points, run_highest, config.columns, free_used, best_at_start)
 
@@ -150,9 +154,6 @@ static func data_to_run(data: Variant, config: GameConfig) -> RunState:
 static func profile_to_data(settings: Settings, records: Records) -> Dictionary:
 	var source_settings: Settings = settings if settings != null else Settings.new()
 	var source_records: Records = records if records != null else Records.new()
-	var best_tile: int = 0
-	if source_records.best_tile != 0:
-		best_tile = _exponent_of(source_records.best_tile)
 	return {
 		"format": PROFILE_FORMAT,
 		"settings": {
@@ -160,8 +161,8 @@ static func profile_to_data(settings: Settings, records: Records) -> Dictionary:
 			"skin": String(source_settings.skin_id),
 		},
 		"records": {
-			"best_score": str(source_records.best_score),
-			"best_tile": best_tile,
+			"best_score": _text_of(source_records.best_score),
+			"best_tile": source_records.best_tile,
 		},
 	}
 
@@ -174,9 +175,12 @@ static func profile_to_data(settings: Settings, records: Records) -> Dictionary:
 ## settings.skin, records.best_score, records.best_tile) is checked on its own:
 ## a valid one is applied, a missing or invalid one leaves the value the
 ## object already holds (the default for a fresh object). Keys outside the
-## format are reported and never read. Settings change through their setters, so their signals fire
-## only for values that really change.
+## format are reported and never read. Settings change through their setters,
+## so their signals fire only for values that really change. The ceiling is
+## GameConfig's: best_tile 0 to max_exponent, best_score below
+## 2^max_score_bits.
 static func data_to_profile(data: Variant, settings: Settings, records: Records) -> PackedStringArray:
+	var limits: GameConfig = GameConfig.new()
 	var problems: PackedStringArray = PackedStringArray()
 	if typeof(data) != TYPE_DICTIONARY:
 		problems.append("profile is not an object")
@@ -204,41 +208,52 @@ static func data_to_profile(data: Variant, settings: Settings, records: Records)
 	else:
 		problems.append("settings.skin is missing or invalid")
 
-	var best_score: int = -1
+	var best_score: BigNum = null
 	if records_data.has("best_score"):
-		best_score = _read_digits(records_data["best_score"])
-	if best_score >= 0:
+		best_score = _read_number(records_data["best_score"], limits.max_score_bits)
+	if best_score != null:
 		if records != null:
 			records.best_score = best_score
 	else:
 		problems.append("records.best_score is missing or invalid")
 
-	var best_tile_exponent: int = -1
+	var best_tile: int = -1
 	if records_data.has("best_tile"):
-		best_tile_exponent = _read_whole(records_data["best_tile"], 0, _MAX_EXPONENT)
-	if best_tile_exponent >= 0:
+		best_tile = _read_whole(records_data["best_tile"], 0, limits.max_exponent)
+	if best_tile >= 0:
 		if records != null:
-			records.best_tile = 0 if best_tile_exponent == 0 else 1 << best_tile_exponent
+			records.best_tile = best_tile
 	else:
 		problems.append("records.best_tile is missing or invalid")
 	return problems
 
 
-## The exponent k of value 2^k for k from 1 to 62, or -1 for anything else.
-static func _exponent_of(value: int) -> int:
-	if not CoreRules.is_power_of_two(value) or value < 2:
-		return -1
-	var exponent: int = 0
-	while (value >> exponent) > 1:
-		exponent += 1
-	return exponent
+## The most decimal digits a number below 2^bits can have: the digit count of
+## 2^bits, floor(bits * log10(2)) + 1 (65600 bits give 19,748). bits * log10(2)
+## is never a whole number for bits above 0, and the float error at these
+## sizes is far below the distance to one, so the floor is exact.
+## tests/save checks it against BigNum.pow2(bits).to_decimal().
+static func _max_digits(bits: int) -> int:
+	if bits < 1:
+		return 1
+	if not _digits_for_bits.has(bits):
+		_digits_for_bits[bits] = int(floor(float(bits) * _LOG10_2)) + 1
+	return _digits_for_bits[bits]
 
 
-static func _exponents_of(values: PackedInt64Array) -> Array:
-	var exponents: Array = []
+## The exponents of a board as a JSON list, unchanged.
+static func _list_of(values: PackedInt64Array) -> Array:
+	var list: Array = []
 	for value: int in values:
-		exponents.append(_exponent_of(value))
-	return exponents
+		list.append(value)
+	return list
+
+
+## A BigNum as its digit string, or null (which never loads back) for none.
+static func _text_of(value: BigNum) -> Variant:
+	if value == null:
+		return null
+	return value.to_decimal()
 
 
 ## A whole number from low to high (low is 0 or more), or -1 when value is not
@@ -252,14 +267,14 @@ static func _read_whole(value: Variant, low: int, high: int) -> int:
 				return whole
 		TYPE_FLOAT:
 			var number: float = value
-			if is_finite(number) and number == floorf(number) and number >= low and number <= high:
+			if is_finite(number) and number == floorf(number) and number >= float(low) and number <= float(high):
 				return int(number)
 	return -1
 
 
-## A board of exactly count exponents, as tile values, or an empty array when
-## the data is not one.
-static func _read_board(value: Variant, count: int) -> PackedInt64Array:
+## A board of exactly count exponents from 1 to max_exponent, or an empty
+## array when the data is not one.
+static func _read_board(value: Variant, count: int, max_exponent: int) -> PackedInt64Array:
 	var cells: PackedInt64Array = PackedInt64Array()
 	if typeof(value) != TYPE_ARRAY:
 		return cells
@@ -267,36 +282,24 @@ static func _read_board(value: Variant, count: int) -> PackedInt64Array:
 	if list.size() != count:
 		return cells
 	for item: Variant in list:
-		var exponent: int = _read_whole(item, 1, _MAX_EXPONENT)
+		var exponent: int = _read_whole(item, 1, max_exponent)
 		if exponent < 0:
 			return PackedInt64Array()
-		cells.append(1 << exponent)
+		cells.append(exponent)
 	return cells
 
 
-## A string of 1 to 19 ASCII digits with no leading zero (unless it is "0")
-## that fits in a signed 64 bit integer, as its value, or -1 when value is not
-## one. Signs, spaces, exponents and non ASCII digits are all refused.
-static func _read_digits(value: Variant) -> int:
+## A string of ASCII digits with no leading zero (unless it is "0"), at most
+## _max_digits(bits) long, whose value is below 2^bits, or null when value is
+## not one. BigNum.parse refuses a string that is too long before reading it,
+## and refuses signs, spaces, exponents and non ASCII digits.
+static func _read_number(value: Variant, bits: int) -> BigNum:
 	if typeof(value) != TYPE_STRING:
-		return -1
-	var text: String = value
-	var length: int = text.length()
-	if length < 1 or length > _MAX_DIGITS:
-		return -1
-	if length > 1 and text.unicode_at(0) == _CHAR_ZERO:
-		return -1
-	for index: int in length:
-		var code: int = text.unicode_at(index)
-		if code < _CHAR_ZERO or code > _CHAR_NINE:
-			return -1
-	# Same length strings of digits compare in numeric order.
-	if length == _MAX_DIGITS and text > _INT64_MAX_TEXT:
-		return -1
-	var result: int = 0
-	for index: int in length:
-		result = result * 10 + (text.unicode_at(index) - _CHAR_ZERO)
-	return result
+		return null
+	var number: BigNum = BigNum.parse(value, _max_digits(bits))
+	if number == null or number.bit_length() > bits:
+		return null
+	return number
 
 
 ## A skin id of 1 to 32 characters from a to z and underscore, or "" when

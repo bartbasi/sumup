@@ -166,14 +166,14 @@ func _menu() -> void:
 	tiles.alignment = BoxContainer.ALIGNMENT_BEGIN if start else BoxContainer.ALIGNMENT_CENTER
 	brand.add_child(tiles)
 	for value: int in [2, 4, 8, 16]:
-		tiles.add_child(UiParts.tile(_skin, value, 160.0))
+		tiles.add_child(UiParts.tile(_skin, Kit.exponent(value), 160.0))
 	root.add_child(_ratio_spacer(3.0))
 	var records_box: MarginContainer = _margins(root, margin, margin)
 	var records: VBoxContainer = UiParts.vbox(0.0)
 	records_box.add_child(records)
 	records.add_child(UiParts.record_row(_skin, "Best score", UiParts.label(_skin, &"BodyLabel", "96,520")))
 	records.add_child(UiParts.divider())
-	records.add_child(UiParts.record_row(_skin, "Best tile", UiParts.tile(_skin, 8192, 72.0)))
+	records.add_child(UiParts.record_row(_skin, "Best tile", UiParts.tile(_skin, Kit.exponent(8192), 72.0)))
 	root.add_child(Kit.spacer(_skin.num(&"space_l")))
 	var buttons_box: MarginContainer = _margins(root, margin, margin)
 	var buttons: VBoxContainer = UiParts.vbox(_skin.num(&"space_s"))
@@ -191,8 +191,8 @@ func _menu() -> void:
 
 func _play(values: Array[int], score: int) -> void:
 	var records: Records = Records.new()
-	records.best_score = 96520 if score < 96520 else 412900
-	records.best_tile = 16384
+	records.best_score = BigNum.from_int(96520 if score < 96520 else 412900)
+	records.best_tile = Kit.exponent(16384)
 	var rng: RunRandom = RunRandom.new()
 	rng.set_seed(1)
 	_session = GameSession.new(null, rng, records)
@@ -203,8 +203,8 @@ func _play(values: Array[int], score: int) -> void:
 	_game.setup(_session, Settings.new(), audio, _skin)
 	var cells: PackedInt64Array = PackedInt64Array()
 	for value: int in values:
-		cells.append(value)
-	_session.resume(RunState.create(cells, score))
+		cells.append(Kit.exponent(value))
+	_session.resume(RunState.create(cells, BigNum.from_int(score)))
 	if _session.is_waiting_for_view():
 		_session.move_shown()
 
@@ -214,7 +214,7 @@ func _play(values: Array[int], score: int) -> void:
 func _overlay_star_moment() -> void:
 	var hud: SkinHud = _game.hud()
 	var overlay: Control = _overlay_over(hud)
-	var notice: Control = _star_notice(PackedInt64Array([2]), 1)
+	var notice: Control = _star_notice(PackedInt64Array([Kit.exponent(2)]), 1)
 	if _skin.id == &"slate":
 		# Slate flashes the counter in paper as the notice cuts in.
 		_draw_counter(overlay, 1, 0, true)

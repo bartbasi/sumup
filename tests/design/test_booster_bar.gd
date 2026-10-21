@@ -74,14 +74,14 @@ func test_suggested_badge_hides_while_any_booster_is_active() -> void:
 func test_show_boosters_again_reuses_the_buttons() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var bar: SkinBoosterBar = _bar(skin_id)
-		bar.show_boosters(Fixtures.plain_statuses(128))
+		bar.show_boosters(Fixtures.plain_statuses(7))
 		var first: Array[Control] = _buttons(bar)
 		bar.show_boosters(Fixtures.offer_statuses())
 		var second: Array[Control] = _buttons(bar)
 		for i: int in first.size():
 			assert_true(first[i] == second[i], "%s button %d reused" % [skin_id, i])
 		assert_eq(second[0].get(&"cost_text"), "2K", "%s new cost shown" % skin_id)
-		bar.show_boosters(Fixtures.plain_statuses(256))
+		bar.show_boosters(Fixtures.plain_statuses(8))
 		assert_eq(second[1].get(&"look"), SkinIcon.LOOK_NORMAL, "%s active ends" % skin_id)
 
 
@@ -98,7 +98,7 @@ func test_taps_emit_only_for_usable_boosters() -> void:
 
 func test_a_release_outside_the_button_does_not_tap() -> void:
 	var bar: SkinBoosterBar = _bar(&"gumdrop")
-	bar.show_boosters(Fixtures.plain_statuses(128))
+	bar.show_boosters(Fixtures.plain_statuses(7))
 	var heard: Array[StringName] = []
 	bar.booster_pressed.connect(func(id: StringName) -> void: heard.append(id))
 	var button: Control = _buttons(bar)[0]
@@ -111,7 +111,7 @@ func test_preferred_height_and_content_top() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var bar: SkinBoosterBar = _bar(skin_id)
-		bar.show_boosters(Fixtures.plain_statuses(128))
+		bar.show_boosters(Fixtures.plain_statuses(7))
 		assert_eq(bar.preferred_height(), skin.num(&"bar_height"), "%s height" % skin_id)
 		var top: float = bar.content_top()
 		match skin_id:
@@ -131,7 +131,7 @@ func test_buttons_are_touch_targets() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var bar: SkinBoosterBar = _bar(skin_id)
-		bar.show_boosters(Fixtures.plain_statuses(128))
+		bar.show_boosters(Fixtures.plain_statuses(7))
 		for button: Control in _buttons(bar):
 			assert_true(button.size.x >= skin.num(&"touch_min"), "%s button width %d" % [skin_id, button.size.x])
 			assert_true(button.size.y >= skin.num(&"touch_min"), "%s button height %d" % [skin_id, button.size.y])
@@ -140,7 +140,7 @@ func test_buttons_are_touch_targets() -> void:
 func test_gumdrop_buttons_fill_the_dock() -> void:
 	var skin: SkinData = SkinCatalog.get_skin(&"gumdrop")
 	var bar: SkinBoosterBar = _bar(&"gumdrop")
-	bar.show_boosters(Fixtures.plain_statuses(128))
+	bar.show_boosters(Fixtures.plain_statuses(7))
 	var buttons: Array[Control] = _buttons(bar)
 	var pad: float = skin.num(&"space_xs")
 	var expected_height: float = skin.num(&"dock_height") - skin.num(&"button_lip") - pad * 2.0
@@ -158,7 +158,7 @@ func test_gumdrop_buttons_fill_the_dock() -> void:
 func test_qa6_05_gumdrop_buttons_take_touch_on_the_whole_dock_face() -> void:
 	var skin: SkinData = SkinCatalog.get_skin(&"gumdrop")
 	var bar: SkinBoosterBar = _bar(&"gumdrop")
-	bar.show_boosters(Fixtures.plain_statuses(128))
+	bar.show_boosters(Fixtures.plain_statuses(7))
 	var buttons: Array[Control] = _buttons(bar)
 	var margin: float = skin.num(&"board_margin")
 	var face: float = skin.num(&"dock_height") - skin.num(&"button_lip")
@@ -194,7 +194,7 @@ func test_hints_take_the_skin_case() -> void:
 func _offer(active: int) -> Array[BoosterStatus]:
 	var statuses: Array[BoosterStatus] = []
 	for i: int in Fixtures.BOOSTERS.size():
-		statuses.append(Fixtures.status(Fixtures.BOOSTERS[i], 2048, true, BoosterStatus.Usability.USABLE, i == active, i == 2))
+		statuses.append(Fixtures.status(Fixtures.BOOSTERS[i], 11, true, BoosterStatus.Usability.USABLE, i == active, i == 2))
 	return statuses
 
 

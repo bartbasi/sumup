@@ -50,7 +50,7 @@ func test_score_label_shows_the_score() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var hud: SkinHud = _hud(skin_id)
-		hud.set_scores(41286, 96520)
+		hud.set_scores(Fixtures.big(41286), Fixtures.big(96520))
 		var label: Label = hud.score_label()
 		assert_true(label != null and hud.is_ancestor_of(label), "%s score label is the HUD's" % skin_id)
 		assert_eq(label.text, "41,286", "%s score text" % skin_id)
@@ -62,9 +62,9 @@ func test_the_longest_score_fits_its_slot() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var hud: SkinHud = _hud(skin_id)
-		hud.set_scores(LONGEST_SCORE, LONGEST_SCORE)
+		hud.set_scores(Fixtures.big(LONGEST_SCORE), Fixtures.big(LONGEST_SCORE))
 		var label: Label = hud.score_label()
-		var text: String = NumberFormat.score(LONGEST_SCORE)
+		var text: String = NumberFormat.score(Fixtures.big(LONGEST_SCORE))
 		assert_eq(label.text, text, "%s longest score text" % skin_id)
 		var size: int = label.get_theme_font_size(&"font_size")
 		assert_eq(size, skin.score_font_size(text, label.size.x), "%s size comes from score_font_size for the slot" % skin_id)
@@ -81,7 +81,7 @@ func test_gumdrop_and_nova_scores_end_above_the_notice() -> void:
 		var notice_top: float = skin.num(&"hud_height") + skin.num(&"space_s") - skin.num(&"notice_height") * 0.5
 		for score: int in [41286, LONGEST_SCORE]:
 			var hud: SkinHud = _hud(skin_id)
-			hud.set_scores(score, LONGEST_SCORE)
+			hud.set_scores(Fixtures.big(score), Fixtures.big(LONGEST_SCORE))
 			var label: Label = hud.score_label()
 			var size: int = label.get_theme_font_size(&"font_size")
 			var baseline: float = label.position.y + skin.font(&"display").get_ascent(size)
@@ -129,12 +129,12 @@ func test_preview_slot_and_context_row() -> void:
 
 func test_clear_notice_copy_matches_the_design() -> void:
 	var cases: Array[PackedInt64Array] = [
-		PackedInt64Array([2]),
-		PackedInt64Array([2, 4]),
-		PackedInt64Array([2, 4, 8]),
-		PackedInt64Array([2, 4, 8, 16, 32]),
-		PackedInt64Array([2048]),
-		PackedInt64Array([1024, 2048]),
+		PackedInt64Array([1]),
+		PackedInt64Array([1, 2]),
+		PackedInt64Array([1, 2, 3]),
+		PackedInt64Array([1, 2, 3, 4, 5]),
+		PackedInt64Array([11]),
+		PackedInt64Array([10, 11]),
 	]
 	var expected: Dictionary[StringName, PackedStringArray] = {
 		&"gumdrop": PackedStringArray(["No more 2s", "No more 2s or 4s", "No more 2s to 8s", "No more 2s to 32s", "No more 2Ks", "No more 1024s or 2Ks"]),

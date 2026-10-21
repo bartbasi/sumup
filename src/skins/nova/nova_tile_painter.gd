@@ -95,7 +95,8 @@ func _setup() -> void:
 	# On every orb with the colors of dark_rim_from (the white hole) the
 	# chained rim is ink_dark: a white rim on a white orb vanishes. It goes by
 	# the color position, since the color cycle puts other colors above it.
-	var dark_rim_position: int = skin.color_position(int(skin.num(&"dark_rim_from")))
+	var dark_rim_exponent: int = skin.token_exponent(&"dark_rim_from")
+	var dark_rim_position: int = skin.color_position(dark_rim_exponent) if dark_rim_exponent > 0 else -1
 	var dark_rim: Color = skin.color(&"ink_dark")
 	_rim_colors.resize(count)
 	_ray_colors.resize(count)
@@ -111,8 +112,8 @@ func _setup() -> void:
 		ray.a *= ray_alpha
 		_ray_colors[index] = ray
 		_chain_rims[index] = dark_rim if dark_rim_position >= 0 and positions[index] == dark_rim_position else _chain_color
-		# Both run by ramp index from value 2 to 131072; above that they stay
-		# at the top.
+		# Both run by k from 1 to 17 (styles 0 to 16); every style above the
+		# ramp stays at the top.
 		var t: float = clampf(float(index) / float(SkinData.RAMP_SIZE - 1), 0.0, 1.0)
 		_glow_spreads[index] = lerpf(spread_low, spread_high, t)
 		_glow_alphas[index] = lerpf(alpha_low, alpha_high, t)
@@ -151,8 +152,8 @@ func glow_of(chain: float, join: float, target: float) -> float:
 
 ## The glow behind an orb in tile space. glow multiplies it: how bright it
 ## is at the orb edge and how far it spreads.
-func draw_glow(canvas: RID, base: Transform2D, value: int, glow: float) -> void:
-	var index: int = index_of(value)
+func draw_glow(canvas: RID, base: Transform2D, exponent: int, glow: float) -> void:
+	var index: int = style_of(exponent)
 	var radius: float = side * 0.5
 	if index < 0 or glow <= 0.0 or radius <= 0.0:
 		return
@@ -170,13 +171,13 @@ func draw_glow(canvas: RID, base: Transform2D, value: int, glow: float) -> void:
 ## The orb in tile space: flat fill, corona rays on specials, the rim
 ## (widening to the chain rim in chain as chain goes to 1), the number, and
 ## the joinable orbit as join goes to 1.
-func draw_orb(canvas: RID, base: Transform2D, value: int, chain: float, join: float) -> void:
-	var index: int = index_of(value)
+func draw_orb(canvas: RID, base: Transform2D, exponent: int, chain: float, join: float) -> void:
+	var index: int = style_of(exponent)
 	if index < 0:
 		return
 	begin(canvas, base)
 	var radius: float = side * 0.5
-	if value >= special_from:
+	if is_special(exponent):
 		var inner: float = radius * _ray_inner
 		var outer: float = radius * _ray_outer
 		for direction: Vector2 in _ray_directions:
@@ -186,7 +187,8 @@ func draw_orb(canvas: RID, base: Transform2D, value: int, chain: float, join: fl
 	var rim: Color = _rim_colors[index].lerp(_chain_rims[index], chain)
 	RenderingServer.canvas_item_add_circle(canvas, Vector2.ZERO, radius, rim, true)
 	RenderingServer.canvas_item_add_circle(canvas, Vector2.ZERO, maxf(0.0, radius - rim_width), fills[index], true)
-	labels.draw_centered(canvas, Vector2.ZERO, index, inks[index])
+	if label_shown:
+		labels.draw_centered(canvas, Vector2.ZERO, exponent, inks[index])
 	if join > 0.0:
 		RenderingServer.canvas_item_add_polyline(canvas, _joinable_points, _colors(_joinable_array, _joinable_color, join), _joinable_ring * unit, true)
 	end(canvas)
@@ -207,8 +209,8 @@ func draw_dashed_orbit(canvas: RID, center: Vector2, turn: float, breath: float,
 ## The sparks of a clearing orb centered on center at a progress from 0 to 1,
 ## in its fill lightened by ray_lighten: they drift from the orb edge out to
 ## spark_reach of the diameter and fade.
-func draw_sparks(canvas: RID, center: Vector2, value: int, progress: float) -> void:
-	var index: int = index_of(value)
+func draw_sparks(canvas: RID, center: Vector2, exponent: int, progress: float) -> void:
+	var index: int = style_of(exponent)
 	if index < 0 or progress <= 0.0 or progress >= 1.0:
 		return
 	var distance: float = lerpf(side * 0.5, side * _spark_reach, progress)
@@ -218,9 +220,9 @@ func draw_sparks(canvas: RID, center: Vector2, value: int, progress: float) -> v
 		RenderingServer.canvas_item_add_circle(canvas, center + direction * distance, spark_radius, color, true)
 
 
-func draw_single(canvas: RID, center: Vector2, value: int) -> void:
-	draw_glow(canvas, at(center), value, 1.0)
-	draw_orb(canvas, at(center), value, 0.0, 0.0)
+func draw_single(canvas: RID, center: Vector2, exponent: int) -> void:
+	draw_glow(canvas, at(center), exponent, 1.0)
+	draw_orb(canvas, at(center), exponent, 0.0, 0.0)
 
 
 ## The full strength array when alpha is 1, so a steady orbit never writes

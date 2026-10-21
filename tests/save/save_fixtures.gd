@@ -82,52 +82,82 @@ static func padded(text: String, size: int) -> String:
 	return text + " ".repeat(maxi(0, size - bytes))
 
 
-## GDD 19.0 Board D: no valid move, H = 16.
+## GDD 19.0 Board D as exponents: no valid move, H = 16 (exponent 4).
 static func board_d() -> PackedInt64Array:
 	var cells: PackedInt64Array = PackedInt64Array()
 	for row: int in 8:
 		for column: int in 5:
 			if row % 2 == 0:
-				cells.append(2 if column % 2 == 0 else 4)
+				cells.append(1 if column % 2 == 0 else 2)
 			else:
-				cells.append(8 if column % 2 == 0 else 16)
+				cells.append(3 if column % 2 == 0 else 4)
 	return cells
 
 
-## board with one cell changed. The board passed in is not changed.
-static func with_cell(board: PackedInt64Array, cell: Vector2i, value: int) -> PackedInt64Array:
+## board with one cell changed to exponent. The board passed in is not changed.
+static func with_cell(board: PackedInt64Array, cell: Vector2i, exponent: int) -> PackedInt64Array:
 	var cells: PackedInt64Array = board.duplicate()
-	cells[cell.y * 5 + cell.x] = value
+	cells[cell.y * 5 + cell.x] = exponent
 	return cells
 
 
-## A board of 40 different values from 2^62 down to 2^24, then a 2 in the
-## last cell: the largest values the save format allows.
+## A board of 40 different exponents from max_exponent (65535) down, then a 2
+## in the last cell: the largest tiles the save format allows.
 static func board_huge() -> PackedInt64Array:
+	var top: int = GameConfig.new().max_exponent
 	var cells: PackedInt64Array = PackedInt64Array()
 	for index: int in 39:
-		cells.append(1 << (62 - index))
-	cells.append(2)
+		cells.append(top - index)
+	cells.append(1)
 	return cells
+
+
+## value as a BigNum: an int (0 or more) is converted, a digit String is
+## parsed, a BigNum is kept, and null or -1 is null (unknown).
+static func num(value: Variant) -> BigNum:
+	match typeof(value):
+		TYPE_INT:
+			var whole: int = value
+			return null if whole < 0 else BigNum.from_int(whole)
+		TYPE_STRING:
+			return BigNum.parse(value, 100000)
+		TYPE_OBJECT:
+			return value as BigNum
+	return null
+
+
+## A BigNum as its digits, or "null" for none, for assert_eq.
+static func text(value: BigNum) -> String:
+	return "null" if value == null else value.to_decimal()
+
+
+## The digits of 2^bits plus delta (delta may be negative), built exactly.
+static func pow2_plus(bits: int, delta: int) -> BigNum:
+	var power: BigNum = BigNum.pow2(bits)
+	if delta >= 0:
+		return power.add(BigNum.from_int(delta))
+	return power.sub(BigNum.from_int(-delta))
 
 
 ## A run state that can be saved: like RunState.create, but the Best Score
-## when the run began defaults to 0 (known) instead of -1 (unknown), as
-## GameSession sets it for every live run. A state with -1 is never written.
-static func run(cells: PackedInt64Array, score: int, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: int = 0, run_highest: int = 0, free_used: int = 0, best_at_start: int = 0) -> RunState:
-	return RunState.create(cells, score, snapshot_cells, snapshot_points, run_highest, 5, free_used, best_at_start)
+## when the run began defaults to 0 (known) instead of null (unknown), as
+## GameSession sets it for every live run. A state with null is never
+## written. Scores take an int, a digit String or a BigNum (see num).
+static func run(cells: PackedInt64Array, score: Variant, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: Variant = 0, run_highest: int = 0, free_used: int = 0, best_at_start: Variant = 0) -> RunState:
+	return RunState.create(cells, num(score), snapshot_cells, num(snapshot_points), run_highest, 5, free_used, num(best_at_start))
 
 
-## The AT-95 control run: Board D with a 1024 on (2,0), score 41,286, run
-## highest 2048, an Undo snapshot of Board D worth 96 points, no free booster
-## used, and a Best Score of 38,500 when the run began.
+## The AT-95 control run: Board D with a 1024 (exponent 10) on (2,0), score
+## 41,286, run highest 2048 (exponent 11), an Undo snapshot of Board D worth
+## 96 points, no free booster used, and a Best Score of 38,500 when the run
+## began.
 static func control_run() -> RunState:
-	return run(with_cell(board_d(), Vector2i(2, 0), 1024), 41286, board_d(), 96, 2048, 0, 38500)
+	return run(with_cell(board_d(), Vector2i(2, 0), 10), 41286, board_d(), 96, 11, 0, 38500)
 
 
 ## A run with no snapshot.
 static func plain_run() -> RunState:
-	return run(with_cell(board_d(), Vector2i(0, 0), 32), 1500, PackedInt64Array(), 0, 0, 0, 1000)
+	return run(with_cell(board_d(), Vector2i(0, 0), 5), 1500, PackedInt64Array(), 0, 0, 0, 1000)
 
 
 ## A run file as a build before D-46 wrote it: format 1, without free_used and
@@ -140,9 +170,9 @@ static func format_1_data(state: RunState) -> Dictionary:
 	return data
 
 
-## state as it loads from a format 1 file: free_used 0, best_at_start -1.
+## state as it loads from a format 1 file: free_used 0, best_at_start null.
 static func as_format_1(state: RunState) -> RunState:
 	var loaded: RunState = state.copy()
 	loaded.free_used = 0
-	loaded.best_at_start = -1
+	loaded.best_at_start = null
 	return loaded

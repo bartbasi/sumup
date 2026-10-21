@@ -1,6 +1,6 @@
 class_name InfoPanel extends "res://src/ui/reading_screen.gd"
 ## Info (GDD D-44 and section 21, DESIGN_SYSTEM.md 7.11 and 7.12): a reading
-## screen titled "Info" with the sixteen sections IN1 to IN16, each title and
+## screen titled "Info" with the seventeen sections IN1 to IN17, each title and
 ## text word for word, always opened scrolled to the top. Example rows sit
 ## under the text after space_m, left aligned on one line, vertically centered:
 ## - a chain row: the chain drawn by the skin's own board view as a one row
@@ -111,7 +111,7 @@ func finish() -> void:
 		_stage = Stage.DONE
 
 
-## True once all sixteen sections are built.
+## True once all seventeen sections are built.
 func is_built() -> bool:
 	return _next >= _pending.size()
 
@@ -218,11 +218,12 @@ func apply_skin(skin: SkinData) -> void:
 	setup(skin)
 
 
-## TH21. One Dictionary per section IN1 to IN16, in order: {"title": String,
+## TH21. One Dictionary per section IN1 to IN17, in order: {"title": String,
 ## "text": String, "example": PackedInt64Array (the joined tiles, or the one
 ## changed tile for a change row; empty for none), "result": int (0 for
 ## none), "row": &"chain", &"change" or &"", "icon": the booster icon name for
-## IN9 to IN13 or &""}. A copy: changing it changes nothing shown.
+## IN9 to IN13 or &""}. Tiles are exponents (ARCHITECTURE.md section 17).
+## A copy: changing it changes nothing shown.
 func content() -> Array[Dictionary]:
 	var copied: Array[Dictionary] = []
 	for section: Dictionary in Copy.info_sections():

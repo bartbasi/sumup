@@ -46,7 +46,7 @@ func test_at_104_a_chain_merges_then_clears_small_tiles_then_falls_and_spawns() 
 	rig = BF.rig(_clear_board(), 10000)
 	rig.play([Vector2i(4, 6), Vector2i(4, 7)])
 	assert_eq(_effects(), PackedStringArray(["play_merge", "play_clear", "play_fall", "play_spawn", "set_board"]), "merge, clear, fall and spawn, then the final board")
-	assert_eq(rig.view().merges, [[BF.cells([Vector2i(4, 6), Vector2i(4, 7)]), Vector2i(4, 7), 2048]], "the merge")
+	assert_eq(rig.view().merges, [[BF.cells([Vector2i(4, 6), Vector2i(4, 7)]), Vector2i(4, 7), F.e(2048)]], "the merge")
 	assert_eq(rig.view().clears, [BF.cells([Vector2i(0, 3)])], "the 2 clears inside the move")
 	_assert_shown("chain with a clear")
 
@@ -119,7 +119,7 @@ func test_at_101_double_that_clears_changes_the_value_then_clears_falls_and_spaw
 	rig.session.press_booster(BoosterRules.DOUBLE)
 	rig.tap(Vector2i(2, 0))
 	assert_eq(_effects(), PackedStringArray(["play_value_change", "play_clear", "play_fall", "play_spawn", "set_board"]), "value, clear, then fall and spawn")
-	assert_eq(rig.view().value_changes, [[Vector2i(2, 0), 2048]], "the 1024 becomes 2048")
+	assert_eq(rig.view().value_changes, [[Vector2i(2, 0), F.e(2048)]], "the 1024 becomes 2048")
 	assert_eq(rig.view().clears, [BF.cells([Vector2i(0, 3)])], "the 2 clears")
 	_assert_shown("Double with a clear")
 	assert_false(rig.session.is_offer_open(), "the offer closes once the move is shown")
@@ -137,7 +137,7 @@ func test_a_new_run_spawns_every_tile() -> void:
 
 func test_a_resumed_run_just_shows_the_board() -> void:
 	rig = BF.rig(F.board_p(), 0)
-	var saved: RunState = RunState.create(F.board_all(8), 1234)
+	var saved: RunState = RunState.create(F.board_all(8), BigNum.from_int(1234))
 	rig.session.resume(saved)
 	assert_eq(_effects(), PackedStringArray(["set_board"]), "no effect")
 	assert_eq(rig.view().boards[0], F.board_all(8), "the saved board")
@@ -146,7 +146,7 @@ func test_a_resumed_run_just_shows_the_board() -> void:
 
 func test_a_resumed_dead_board_opens_the_offer_once_shown() -> void:
 	rig = BF.rig(F.board_p(), 0)
-	rig.session.resume(RunState.create(_double_board(), 5000))
+	rig.session.resume(RunState.create(_double_board(), BigNum.from_int(5000)))
 	assert_true(rig.session.is_offer_open(), "move_shown ran the move check (GO7)")
 
 
@@ -253,7 +253,7 @@ func test_a_finger_put_down_during_a_move_stays_ignored_after_it() -> void:
 	rig.up(Vector2i(1, 7))
 	assert_eq(rig.chain_events.size(), events, "input is ignored, not queued")
 	rig.play([Vector2i(0, 7), Vector2i(1, 7)])
-	assert_eq(rig.session.state.score, 4 + 16, "a fresh touch works")
+	assert_eq(rig.score(), 4 + 16, "a fresh touch works")
 
 
 func test_a_new_run_during_a_move_replaces_it() -> void:
@@ -283,7 +283,7 @@ func test_set_skin_rebuilds_the_view_and_keeps_the_board() -> void:
 	assert_eq(rig.view().boards, [rig.session.state.cells], "showing the same board")
 	assert_eq(rig.view().get_parent(), rig.board, "inside the board")
 	rig.play([Vector2i(0, 7), Vector2i(1, 7)])
-	assert_eq(rig.session.state.score, 4 + 16, "play goes on")
+	assert_eq(rig.score(), 4 + 16, "play goes on")
 
 
 func test_set_skin_keeps_targeting_and_the_swap_selection() -> void:
@@ -300,11 +300,11 @@ func test_set_skin_during_a_drag_keeps_the_chain() -> void:
 	rig.drag_cells([Vector2i(1, 6), Vector2i(2, 6)])
 	rig.board.set_skin(SkinCatalog.get_skin(&"slate"))
 	assert_eq(rig.view().chain, BF.cells([Vector2i(1, 6), Vector2i(2, 6)]), "the chain")
-	assert_eq(rig.view().preview, 4, "the preview")
+	assert_eq(rig.view_preview(), 4, "the preview")
 	assert_eq(rig.view().joinable, BF.cells([Vector2i(1, 5), Vector2i(3, 6)]), "the highlight")
 	rig.move(Vector2i(3, 6))
 	rig.up(Vector2i(3, 6))
-	assert_eq(rig.session.state.score, 8, "the drag goes on and commits")
+	assert_eq(rig.score(), 8, "the drag goes on and commits")
 
 
 func test_set_skin_during_a_move_finishes_it() -> void:

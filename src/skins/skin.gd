@@ -13,15 +13,17 @@ class_name SkinData extends Resource
 ## (magenta for colors, 0 for numbers). validate() lets tests catch it first.
 
 ## Lowest and highest value the ramp lists. Index 0 is value 2, index 16 is
-## value 131072. Every value above 131072 takes its colors from tile_cycle
-## (DESIGN_SYSTEM.md 3.3) and its tier from beyond_tier.
+## value 131072. Tiles are passed to the methods below by exponent k (the
+## tile is 2^k, docs/ARCHITECTURE.md 17): k from 1 to 17 is the ramp, and
+## every k above 17 takes its colors from tile_cycle (DESIGN_SYSTEM.md 3.3)
+## and its tier from beyond_tier, up to GameConfig.max_exponent.
 const RAMP_LOW: int = 2
 const RAMP_HIGH: int = 131072
 const RAMP_SIZE: int = 17
 ## Shortest color cycle allowed: no two of any 13 consecutive values may
 ## share a fill (DESIGN_SYSTEM.md 3.3).
 const CYCLE_MIN: int = 13
-## Power of two of the first value that walks the color cycle (262144).
+## Exponent of the first tile that walks the color cycle (2^18, 256K).
 const CYCLE_FIRST_POWER: int = 18
 
 ## Case rules a type role can carry.
@@ -70,7 +72,7 @@ const FALLBACK_TILE_SIZE: int = 1
 @export var tile_fill: PackedColorArray = PackedColorArray()
 @export var tile_ink: PackedColorArray = PackedColorArray()
 ## Ramp positions, in order, that the values above 131072 walk round:
-## value 2^k with k of 18 or more takes the fill and number color of
+## the tile 2^k with k of 18 or more takes the fill and number color of
 ## tile_cycle[(k - 18) mod size] (DESIGN_SYSTEM.md 3.3).
 @export var tile_cycle: PackedInt32Array = PackedInt32Array()
 ## Tier per value 2 to 131072, 17 entries. What a tier changes is per skin.
@@ -91,20 +93,24 @@ const FALLBACK_TILE_SIZE: int = 1
 ## not for tile), weight (100 to 900), tracking (px between glyphs) and case.
 @export var type_roles: Dictionary[StringName, Dictionary] = {}
 ## Tile label size by label length (1 to 4 characters), share of the tile side.
+## Labels of 5 and 6 characters start from the 4 character size (2.5).
 @export var tile_number_scale: PackedFloat32Array = PackedFloat32Array()
 ## Spacing, radii, sizes and shares: the shared names plus this skin's extras.
 @export var numbers: Dictionary[StringName, float] = {}
 ## Motion name to {duration, trans, ease} plus the extras the skin lists.
 @export var motion: Dictionary[StringName, Dictionary] = {}
 
+static var _max_exponent: int = 0
+
 var _font_cache: Dictionary[StringName, Font] = {}
 var _base_font: Font = null
 var _reported: Dictionary[String, bool] = {}
 
 
-## Ramp index for a tile value: 0 for 2, 16 for 131072, RAMP_SIZE for any
-## power of two above 131072, and -1 for anything that is not a power of two
-## of at least 2.
+## Ramp index for a tile value (not an exponent): 0 for 2, 16 for 131072,
+## RAMP_SIZE for any power of two above 131072, and -1 for anything that is
+## not a power of two of at least 2. Value tokens such as special_from and
+## "tile:<value>" references name values; exponent_of turns them into k.
 static func ramp_index(value: int) -> int:
 	if value < RAMP_LOW or (value & (value - 1)) != 0:
 		return -1
@@ -118,53 +124,86 @@ static func ramp_index(value: int) -> int:
 	return index
 
 
-## Ramp position whose fill and number color a tile value takes
-## (DESIGN_SYSTEM.md 3.3): its ramp index from 2 to 131072, then round
-## tile_cycle. -1 for anything that is not a tile value, or when the cycle
-## is missing or holds a position outside the ramp.
-func color_position(value: int) -> int:
-	var index: int = _checked_ramp_index(value)
-	if index < RAMP_SIZE:
-		return index
-	if tile_cycle.is_empty():
-		_report("tile_cycle", "%s: tile_cycle is empty" % id)
+## The exponent of a value token: 1 for 2, 17 for 131072, 62 for 2^62. -1 for
+## anything that is not a power of two of at least 2.
+static func exponent_of(value: int) -> int:
+	if value < RAMP_LOW or (value & (value - 1)) != 0:
 		return -1
-	var power: int = CYCLE_FIRST_POWER
-	var v: int = value >> CYCLE_FIRST_POWER
+	var power: int = 0
+	var v: int = value
 	while v > 1:
 		v = v >> 1
 		power += 1
-	var position: int = tile_cycle[(power - CYCLE_FIRST_POWER) % tile_cycle.size()]
+	return power
+
+
+## Highest exponent a tile may hold (GameConfig.max_exponent), read once.
+static func max_exponent() -> int:
+	if _max_exponent <= 0:
+		_max_exponent = GameConfig.new().max_exponent
+	return _max_exponent
+
+
+## True for the exponent of a tile: 1 to max_exponent().
+static func is_tile(exponent: int) -> bool:
+	return exponent >= 1 and exponent <= max_exponent()
+
+
+## Ramp position whose fill and number color the tile 2^exponent takes
+## (DESIGN_SYSTEM.md 3.3): exponent - 1 from 1 to 17, then round tile_cycle.
+## Plain int math, so it holds up to max_exponent. -1 for anything that is
+## not a tile, or when the cycle is missing or holds a position outside the
+## ramp.
+func color_position(exponent: int) -> int:
+	if not _checked_tile(exponent):
+		return -1
+	if exponent <= RAMP_SIZE:
+		return exponent - 1
+	if tile_cycle.is_empty():
+		_report("tile_cycle", "%s: tile_cycle is empty" % id)
+		return -1
+	var position: int = tile_cycle[(exponent - CYCLE_FIRST_POWER) % tile_cycle.size()]
 	if position < 0 or position >= RAMP_SIZE:
 		_report("tile_cycle", "%s: tile_cycle holds %d, outside the ramp" % [id, position])
 		return -1
 	return position
 
 
-## Tile fill for a value.
-func fill_for(value: int) -> Color:
-	var position: int = color_position(value)
+## Tile fill for the tile 2^exponent.
+func fill_for(exponent: int) -> Color:
+	var position: int = color_position(exponent)
 	if position < 0 or tile_fill.size() != RAMP_SIZE:
 		return MISSING_COLOR
 	return tile_fill[position]
 
 
-## Number color for a value.
-func ink_for(value: int) -> Color:
-	var position: int = color_position(value)
+## Number color for the tile 2^exponent.
+func ink_for(exponent: int) -> Color:
+	var position: int = color_position(exponent)
 	if position < 0 or tile_ink.size() != RAMP_SIZE:
 		return MISSING_COLOR
 	return tile_ink[position]
 
 
-## Tier for a value. 0 for anything that is not a tile value.
-func tier_for(value: int) -> int:
-	var index: int = _checked_ramp_index(value)
-	if index < 0 or tile_tier.size() != RAMP_SIZE:
+## Tier for the tile 2^exponent: tile_tier up to 17, beyond_tier above. 0 for
+## anything that is not a tile.
+func tier_for(exponent: int) -> int:
+	if not _checked_tile(exponent) or tile_tier.size() != RAMP_SIZE:
 		return 0
-	if index >= RAMP_SIZE:
+	if exponent > RAMP_SIZE:
 		return beyond_tier
-	return tile_tier[index]
+	return tile_tier[exponent - 1]
+
+
+## The exponent of a value token of this skin (special_from, Nova's
+## dark_rim_from): the token keeps its written value and the code compares
+## exponents (DESIGN_SYSTEM.md 14.3). -1 when the token is missing or not a
+## power of two.
+func token_exponent(token: StringName) -> int:
+	var power: int = exponent_of(int(num(token)))
+	if power < 0:
+		_report("exponent:%s" % token, "%s: %s is not a tile value" % [id, token])
+	return power
 
 
 ## A named palette color.
@@ -350,11 +389,11 @@ func _role(role: StringName) -> Dictionary:
 	return type_roles[role]
 
 
-func _checked_ramp_index(value: int) -> int:
-	var index: int = ramp_index(value)
-	if index < 0:
-		_report("value:%d" % value, "%s: %d is not a tile value" % [id, value])
-	return index
+func _checked_tile(exponent: int) -> bool:
+	if is_tile(exponent):
+		return true
+	_report("exponent:%d" % exponent, "%s: %d is not a tile exponent" % [id, exponent])
+	return false
 
 
 ## The font file, loaded once. null for the system font, or when the file is

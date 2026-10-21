@@ -157,7 +157,7 @@ static func example_row(skin: SkinData, values: Array[int], result: int) -> HBox
 	var cells: PackedInt64Array = PackedInt64Array()
 	var chain: Array[Vector2i] = []
 	for i: int in count:
-		cells.append(values[i])
+		cells.append(exponent(values[i]))
 		chain.append(Vector2i(i, 0))
 	board.set_board(cells)
 	board.set_chain(chain, Vector2(-1.0, -1.0))
@@ -168,10 +168,22 @@ static func example_row(skin: SkinData, values: Array[int], result: int) -> HBox
 	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(arrow)
 	row.add_child(_gap(skin.num(&"space_m")))
-	var tile: SkinTileView = UiParts.tile(skin, result, side)
+	var tile: SkinTileView = UiParts.tile(skin, exponent(result), side)
 	tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(tile)
 	return row
+
+
+## The exponent k of a tile value 2^k, as boards and skins take it since
+## 2026-10-21 (ARCHITECTURE.md 17); 0 for 0 (empty). The mockups keep
+## writing tile values, which read more plainly.
+static func exponent(value: int) -> int:
+	if value <= 0:
+		return 0
+	var k: int = 0
+	while (1 << k) < value:
+		k += 1
+	return k
 
 
 static func _gap(width: float) -> Control:

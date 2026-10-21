@@ -156,10 +156,12 @@ func _render_moment(_t: float) -> void:
 # Shared helpers for the skins.
 
 ## The score's font size for a slot this wide: score_font_size (2.6), which
-## stops at display_fit_min. A score longer than the 13 characters that floor
-## is made for (only from a hand edited save, QA6-10) keeps shrinking below it
-## until it fits, so it never runs into the parts beside its slot. When the
-## score fits at score_font_size's size, that size is kept unchanged.
+## stops at display_fit_min. display_fit_min is made for 15 characters
+## (9,999,999,999zz, the longest normal play reaches, 14.2). A longer score
+## (16 characters, only from a score of 1,754 digits or more) keeps shrinking
+## below it until it fits, so it never runs into the parts beside its slot
+## (the QA6-10 rule, kept). When the score fits at score_font_size's size,
+## that size is kept unchanged.
 func _fit_score_size(text: String, slot_width: float) -> int:
 	var fitted: int = _skin.font_size(&"display")
 	if slot_width <= 0.0:

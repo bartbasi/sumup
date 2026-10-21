@@ -106,7 +106,7 @@ static func case_rule(skin: SkinData, type_role: StringName) -> String:
 
 ## A chain as a one row board in the skin's own board view (DESIGN_SYSTEM.md
 ## 7.2 and 7.12): every cell chained in drag order, no preview and no
-## highlight, sized for side px tiles.
+## highlight, sized for side px tiles. values are exponents.
 static func chain_board(skin: SkinData, values: PackedInt64Array, side: float) -> SkinBoardView:
 	var count: int = values.size()
 	var board: SkinBoardView = SkinCatalog.make_board_view(skin)
@@ -246,12 +246,14 @@ static func icon_button_inset(skin: SkinData) -> float:
 	return maxf(0.0, skin.num(&"board_margin") - (skin.num(&"touch_min") - icon_face(skin)) * 0.5)
 
 
-## One tile drawn by the skin's own tile component, side px square.
-static func tile(skin: SkinData, value: int, side: float) -> SkinTileView:
+## One tile drawn by the skin's own tile component, side px square. exponent
+## is the tile's exponent (2 is 1, 1024 is 10), as everywhere since
+## ARCHITECTURE.md section 17.
+static func tile(skin: SkinData, exponent: int, side: float) -> SkinTileView:
 	var view: SkinTileView = SkinCatalog.make_tile_view(skin)
 	view.custom_minimum_size = Vector2(side, side)
 	view.size = Vector2(side, side)
-	view.set_value(value)
+	view.set_value(exponent)
 	return view
 
 

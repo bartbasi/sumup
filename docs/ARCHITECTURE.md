@@ -977,3 +977,6 @@ The run stays format 2 and the profile format 1, because they already store expo
 - GameConfig: new `label_letters`, `score_full_max_digits = 10`, `max_exponent`, `max_score_bits`; `label_suffixes` is K, M, B, T, Q. `spawn_top_min`, `spawn_top_divisor`, `cost_basis_min` and `label_step` stay plain values (16, 64, 128, 1024); core reads their exponents.
 - `merge_result` has no ceiling of its own; joining and commit enforce it. `tile_label` of 0 or less is "0".
 - Tests for one area: `godot --headless --path . --script res://tests/run_tests.gd -- --only=boosters` (a comma list works too).
+- SkinTileView gains `func set_label_shown(shown: bool) -> void` (default true). When false the skin draws the tile's shape, fill, lip, rim and glow with no label. Used by the clear notice mini tiles, which draw a label only when it has 3 characters or fewer (DESIGN_SYSTEM 4.7, 14.1). Every other tile view keeps the default.
+- BoosterRules: `cost_basis` and `cost` return exponents; `charge` returns a `BigNum` (zero while a free booster is held, else `pow2(cost)`). `GameSession.preview_value` returns an exponent.
+- Screens: `GameScreen.shown_score()` returns a BigNum (null before the first score); `OfferPanel.show_offer(statuses, score: BigNum)`; TH21's Info "example" and "result" hold exponents.

@@ -81,7 +81,7 @@ func _game(size_px: Vector2i, skin_id: StringName, cells: PackedInt64Array) -> G
 	host.add_child(game)
 	U.fit(game, Vector2(size_px))
 	game.setup(session, Settings.new(), audio, SkinCatalog.get_skin(skin_id))
-	session.resume(RunState.create(cells, 5000))
+	session.resume(U.run(cells, 5000))
 	session.move_shown()
 	return game
 

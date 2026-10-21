@@ -14,11 +14,12 @@ func setup(_skin: SkinData) -> void:
 	_missing(&"setup")
 
 
-## Shows the score and the Best Score, formatted with NumberFormat.score. The
-## score's size fits its slot (DESIGN_SYSTEM.md 2.6). To count the score up,
-## call set_scores with the new values first, so the size fits the final
-## value, then Motion.count_up on score_label().
-func set_scores(_score: int, _best_score: int) -> void:
+## Shows the score and the Best Score, formatted with NumberFormat.score
+## (9,221,253,119B past 10 digits). The score's size fits its slot
+## (DESIGN_SYSTEM.md 2.6). To count the score up, call set_scores with the new
+## values first, so the size fits the final value, then Motion.count_up on
+## score_label().
+func set_scores(_score: BigNum, _best_score: BigNum) -> void:
 	_missing(&"set_scores")
 
 

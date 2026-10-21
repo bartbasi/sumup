@@ -82,7 +82,7 @@ func _start(skin_id: StringName) -> App:
 		_dir = U.make_temp_dir()
 	var settings: Settings = Settings.new()
 	settings.set_skin_id(skin_id)
-	U.save_game(_dir, RunState.create(U.board_p(), 5000), 6000, 64, settings)
+	U.save_game(_dir, U.run(U.board_p(), 5000), 6000, 6, settings)
 	_app = U.start_app(_dir, _quits)
 	return _app
 
@@ -361,7 +361,7 @@ func test_coffee_button_only_on_splash_and_about() -> void:
 		_app.open_settings()
 		assert_true(_coffee_nodes(_app.top_panel()).is_empty(), "%s: not in Settings over Pause" % skin_id)
 		var offer_session: GameSession = GameSession.new()
-		offer_session.resume(RunState.create(U.board_d(), 100000))
+		offer_session.resume(U.run(U.board_d(), 100000))
 		offer_session.move_shown()
 		var offer: OfferPanel = (load("res://scenes/ui/offer_panel.tscn") as PackedScene).instantiate() as OfferPanel
 		_host(skin_id).add_child(offer)
@@ -369,10 +369,10 @@ func test_coffee_button_only_on_splash_and_about() -> void:
 		offer.show_offer(offer_session.booster_statuses(), offer_session.state.score)
 		assert_true(_coffee_nodes(offer).is_empty(), "%s: not on the offer" % skin_id)
 		var summary: RunSummary = RunSummary.new()
-		summary.final_score = 1000
-		summary.best_score = 6000
-		summary.best_tile = 64
-		summary.run_highest = 64
+		summary.final_score = BigNum.from_int(1000)
+		summary.best_score = BigNum.from_int(6000)
+		summary.best_tile = 6
+		summary.run_highest = 6
 		var end: EndPanel = (load("res://scenes/ui/end_panel.tscn") as PackedScene).instantiate() as EndPanel
 		_host(skin_id).add_child(end)
 		end.setup(skin)
@@ -429,8 +429,8 @@ func test_splash_brand_stays_in_band_with_the_one_to_one_split() -> void:
 	assert_eq(SplashScreen.SPLIT_ABOVE_BRAND, 1.0, "1 to 1: above")
 	assert_eq(SplashScreen.SPLIT_BELOW_BRAND, 1.0, "1 to 1: below")
 	var with_tile: Records = Records.new()
-	with_tile.best_score = 96520
-	with_tile.best_tile = 8192
+	with_tile.best_score = BigNum.from_int(96520)
+	with_tile.best_tile = 13
 	for skin_id: StringName in SkinCatalog.IDS:
 		var shown: float = _brand_share(skin_id, with_tile)
 		var first: float = _brand_share(skin_id, Records.new())
@@ -441,8 +441,8 @@ func test_splash_brand_stays_in_band_with_the_one_to_one_split() -> void:
 
 func test_splash_fits_the_shortest_safe_area() -> void:
 	var with_tile: Records = Records.new()
-	with_tile.best_score = 96520
-	with_tile.best_tile = 8192
+	with_tile.best_score = BigNum.from_int(96520)
+	with_tile.best_tile = 13
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var splash: SplashScreen = _splash(skin_id, with_tile, WIDE)

@@ -290,8 +290,8 @@ func draw_slot(canvas: RID, rect: Rect2) -> void:
 ##   join: 0 to 1, lifted with the joinable ring (D-40)
 ##   press: 0 to 1, press feedback in targeting (D-43)
 ##   select: 0 to 1, Swap's selected tile, lifted with the target ring
-func draw_tile(canvas: RID, base: Transform2D, value: int, chain: float, join: float, press: float, select: float) -> void:
-	var index: int = index_of(value)
+func draw_tile(canvas: RID, base: Transform2D, exponent: int, chain: float, join: float, press: float, select: float) -> void:
+	var index: int = style_of(exponent)
 	if index < 0:
 		return
 	var half: float = side * 0.5
@@ -308,7 +308,7 @@ func draw_tile(canvas: RID, base: Transform2D, value: int, chain: float, join: f
 	_face_box.bg_color = fills[index]
 	_face_box.draw(canvas, face)
 	var outside: float = 0.0
-	if value >= special_from:
+	if is_special(exponent):
 		_draw_rim(canvas, base, face)
 		outside = _rim_width * unit
 	if _has_shine[index] != 0:
@@ -321,23 +321,24 @@ func draw_tile(canvas: RID, base: Transform2D, value: int, chain: float, join: f
 	var target: float = maxf(press, select)
 	if target > 0.0:
 		_double_ring(canvas, body, radius, outside, _target_ring * unit, _target_color, target)
-	labels.draw_centered(canvas, face.get_center(), index, inks[index])
+	if label_shown:
+		labels.draw_centered(canvas, face.get_center(), exponent, inks[index])
 	end(canvas)
 
 
 ## The merge preview: the result as a resting tile with a ring_width ring in
 ## chain just outside it, lip included, centered on center.
-func draw_preview(canvas: RID, center: Vector2, value: int, ring_width: float) -> void:
-	if index_of(value) < 0:
+func draw_preview(canvas: RID, center: Vector2, exponent: int, ring_width: float) -> void:
+	if index_of(exponent) < 0:
 		return
 	var radius: float = _radius_share * side
 	var body: Rect2 = Rect2(center - Vector2(side, side) * 0.5, Vector2(side, side))
 	_ring(canvas, body, radius, ring_width, ring_width, _chain_color)
-	draw_tile(canvas, at(center), value, 0.0, 0.0, 0.0, 0.0)
+	draw_tile(canvas, at(center), exponent, 0.0, 0.0, 0.0, 0.0)
 
 
-func draw_single(canvas: RID, center: Vector2, value: int) -> void:
-	draw_tile(canvas, at(center), value, 0.0, 0.0, 0.0, 0.0)
+func draw_single(canvas: RID, center: Vector2, exponent: int) -> void:
+	draw_tile(canvas, at(center), exponent, 0.0, 0.0, 0.0, 0.0)
 
 
 ## A ring width px wide whose outer edge sits grow px outside rect, keeping

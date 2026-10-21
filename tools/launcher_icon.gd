@@ -54,7 +54,8 @@ const GLOW_RADIUS: float = 260.0
 
 ## Foreground: two 2 tiles about to merge, joined by the rope. Positions are
 ## tile centers in layer px; turns are degrees, positive is clockwise.
-const TILE_VALUE: int = 2
+## The tile 2 as the skins take it: its exponent (ARCHITECTURE.md 17).
+const TILE_EXPONENT: int = 1
 const TILE_SIDE: float = 92.0
 ## Lip depth, share of the tile side.
 const TILE_LIP: float = 0.075
@@ -122,13 +123,13 @@ class IconArt extends Node2D:
 		layer = p_layer
 		origin = p_origin
 		px_per_unit = p_px_per_unit
-		fill = skin.fill_for(TILE_VALUE)
+		fill = skin.fill_for(TILE_EXPONENT)
 		lip = fill.darkened(skin.num(&"lip_darken"))
-		ink = skin.ink_for(TILE_VALUE)
+		ink = skin.ink_for(TILE_EXPONENT)
 		chain = skin.color(&"chain")
 		radius_share = skin.num(&"tile_radius")
 		font = skin.font(&"tile")
-		label = str(TILE_VALUE)
+		label = NumberFormat.tile_label(TILE_EXPONENT)
 		label_size = roundi(float(skin.tile_font_size(TILE_SIDE, label)) * px_per_unit)
 		_box = StyleBoxFlat.new()
 		_box.anti_aliasing = false

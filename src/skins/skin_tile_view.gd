@@ -18,9 +18,17 @@ func setup(_skin: SkinData) -> void:
 	_missing("setup")
 
 
-## The tile value. 0 shows nothing.
+## The tile, by its exponent k (the tile is 2^k, ARCHITECTURE.md 17). 0
+## shows nothing.
 func set_value(_value: int) -> void:
 	_missing("set_value")
+
+
+## Whether the tile draws its label (default true). When false the tile
+## shows its shape, fill, lip, rim and glow with no label (ARCHITECTURE.md
+## 17 additions: the clear notice mini tiles).
+func set_label_shown(_shown: bool) -> void:
+	_missing("set_label_shown")
 
 
 func _missing(method_name: String) -> void:

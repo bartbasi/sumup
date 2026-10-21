@@ -55,6 +55,9 @@ var _caption_font: Font = null
 var _caption_size: int = 1
 var _number_font: Font = null
 var _number_size: int = 1
+## The Best number's size: the body size, or smaller when a long best score
+## would reach the star and free pills (4.7).
+var _best_size: int = 1
 var _pill_rect: Rect2 = Rect2()
 var _caption_origin: Vector2 = Vector2.ZERO
 var _number_origin: Vector2 = Vector2.ZERO
@@ -102,12 +105,12 @@ func setup(skin: SkinData) -> void:
 	_best_caption = skin.cased(&"label", "Best")
 	_star.setup(GumdropIcon.STAR, skin.color(&"badge"), skin.num(&"star_icon"))
 	if _score_text.is_empty():
-		set_scores(0, 0)
+		set_scores(BigNum.zero(), BigNum.zero())
 	_shown_count = -1
 	_show_stars(_count, _free)
 
 
-func set_scores(score: int, best_score: int) -> void:
+func set_scores(score: BigNum, best_score: BigNum) -> void:
 	_score_text = NumberFormat.score(score)
 	_best_text = NumberFormat.score(best_score)
 	_score.text = _score_text
@@ -141,6 +144,11 @@ func counter_star() -> Control:
 ## none is held). For tests.
 func counter_texts() -> PackedStringArray:
 	return PackedStringArray([_count_text, _free_text])
+
+
+## The Best number's font size. For tests.
+func best_number_size() -> int:
+	return _best_size
 
 
 ## The star pill's, the free pill's (empty while none is held) and the Best
@@ -305,6 +313,32 @@ func _set_counts(count_now: int, free_now: int) -> void:
 	_layout()
 
 
+## The Best number's size for this much room: the body size when it fits,
+## else the largest size that fits, down to the label role size (4.7). Only
+## when even that size does not fit (star and free counts in the thousands,
+## far past any real run) does it keep shrinking until it fits, the QA6-10
+## rule the score follows, so the pills never overlap.
+func _fit_best_size(room: float) -> int:
+	var floor_size: int = _skin.font_size(&"label")
+	var fitted: int = _number_size
+	var width: float = _number_font.get_string_size(_best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	if width <= room:
+		return fitted
+	fitted = clampi(floori(float(fitted) * maxf(room, 0.0) / width), floor_size, fitted)
+	width = _number_font.get_string_size(_best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	while width > room and fitted > floor_size:
+		fitted -= 1
+		width = _number_font.get_string_size(_best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	if width <= room:
+		return fitted
+	fitted = maxi(floori(float(fitted) * maxf(room, 0.0) / width), 1)
+	width = _number_font.get_string_size(_best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	while width > room and fitted > 1:
+		fitted -= 1
+		width = _number_font.get_string_size(_best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted).x
+	return fitted
+
+
 func _on_pause_tapped() -> void:
 	pause_pressed.emit()
 
@@ -327,21 +361,14 @@ func _layout() -> void:
 	_pause.position = Vector2(margin + face * 0.5 - touch * 0.5, 0.0)
 	_pause.size = Vector2(touch, touch)
 
-	# Best pill, its face centered on the pause face, right edge on the margin.
+	# Every pill's face is centered on the pause face, and every pill's texts
+	# share one baseline, the digits centered on the face.
 	var pad: float = _skin.num(&"space_s")
 	var gap: float = _skin.num(&"space_xs")
-	var caption_width: float = _caption_font.get_string_size(_best_caption, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _caption_size).x
-	var number_width: float = _number_font.get_string_size(_best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _number_size).x
 	var pill_height: float = _skin.num(&"pill_height")
 	var pill_face: float = pill_height - lip
 	var pill_top: float = face * 0.5 - pill_face * 0.5
-	var pill_width: float = pad + caption_width + gap + number_width + pad
-	_pill_rect = Rect2(size.x - margin - pill_width, pill_top, pill_width, pill_height)
-	# Every pill's texts share one baseline, the digits centered on the face.
-	var baseline: float = pill_top + pill_face * 0.5 + _number_font.get_ascent(_number_size) * 0.5 \
-		- _number_font.get_descent(_number_size) * 0.5
-	_caption_origin = Vector2(_pill_rect.position.x + pad, baseline)
-	_number_origin = Vector2(_caption_origin.x + caption_width + gap, baseline)
+	var baseline: float = pill_top + pill_face * 0.5 + _number_font.get_ascent(_number_size) * 0.5 		- _number_font.get_descent(_number_size) * 0.5
 
 	# Star pill: space_s right of the pause face, but never inside the pause
 	# button's touch area (QA6-05): with touch_min 160 it starts at 164.
@@ -352,10 +379,25 @@ func _layout() -> void:
 	_star.size = Vector2(star_side, star_side)
 	_star.position = Vector2(star_x + pad, face * 0.5 - star_side * 0.5)
 	_count_origin = Vector2(star_x + pad + star_side + gap, baseline)
+	var row_end: float = _star_pill_rect.end.x
 	if not _free_text.is_empty():
 		var free_width: float = pad * 2.0 + _number_font.get_string_size(_free_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _number_size).x
 		_free_rect = Rect2(_star_pill_rect.end.x + gap, pill_top, free_width, pill_height)
 		_free_origin = Vector2(_free_rect.position.x + pad, baseline)
+		row_end = _free_rect.end.x
+
+	# Best pill, right edge on the margin. Its left edge stays at least
+	# space_s right of the free pill's end (the star pill's end when none
+	# shows): the number shrinks from the body size to fit, never below the
+	# label role size (4.7). Up to 13 characters it keeps the body size.
+	var caption_width: float = _caption_font.get_string_size(_best_caption, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _caption_size).x
+	var room: float = size.x - margin - (row_end + pad) - pad - caption_width - gap - pad
+	_best_size = _fit_best_size(room)
+	var number_width: float = _number_font.get_string_size(_best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _best_size).x
+	var pill_width: float = pad + caption_width + gap + number_width + pad
+	_pill_rect = Rect2(size.x - margin - pill_width, pill_top, pill_width, pill_height)
+	_caption_origin = Vector2(_pill_rect.position.x + pad, baseline)
+	_number_origin = Vector2(_caption_origin.x + caption_width + gap, baseline)
 
 	# Score: centered, fitted to the width inside the margins. Its comma tail
 	# ends space_xs above the top of the clear notice, which is centered on the
@@ -377,7 +419,7 @@ func _draw() -> void:
 	var ink: Color = _skin.color(&"ink")
 	draw_style_box(_pill, _pill_rect)
 	draw_string(_caption_font, _caption_origin, _best_caption, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _caption_size, _skin.color(&"ink_muted"))
-	draw_string(_number_font, _number_origin, _best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _number_size, ink)
+	draw_string(_number_font, _number_origin, _best_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _best_size, ink)
 	draw_style_box(_pill, _star_pill_rect)
 	draw_string(_number_font, _count_origin, _count_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _number_size, ink)
 	if _free_text.is_empty():

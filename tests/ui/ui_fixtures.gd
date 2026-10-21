@@ -51,15 +51,18 @@ static func stop_app(app: App) -> void:
 
 
 ## Writes a saved run and a profile into folder, as a previous session would.
-static func save_game(folder: String, state: RunState, best_score: int = 0, best_tile: int = 0, settings: Settings = null) -> void:
+## best_score takes an int, a digit String or a BigNum; best_tile is an
+## exponent (0 for none).
+static func save_game(folder: String, state: RunState, best_score: Variant = 0, best_tile: int = 0, settings: Settings = null) -> void:
 	var service: SaveService = SaveService.new(folder)
+	var best: BigNum = num(best_score)
 	if state != null:
-		# A real run always knows its starting Best Score (QA6-03); the codec refuses -1.
-		if state.best_at_start < 0:
-			state.best_at_start = best_score
+		# A real run always knows its starting Best Score (QA6-03); the codec refuses null.
+		if state.best_at_start == null:
+			state.best_at_start = best
 		service.save_run(state)
 	var records: Records = Records.new()
-	records.best_score = best_score
+	records.best_score = best
 	records.best_tile = best_tile
 	service.save_profile(settings if settings != null else Settings.new(), records)
 
@@ -68,26 +71,41 @@ static func board_d() -> PackedInt64Array:
 	return SaveFixtures.board_d()
 
 
-static func with_cell(board: PackedInt64Array, cell: Vector2i, value: int) -> PackedInt64Array:
-	return SaveFixtures.with_cell(board, cell, value)
+static func with_cell(board: PackedInt64Array, cell: Vector2i, exponent: int) -> PackedInt64Array:
+	return SaveFixtures.with_cell(board, cell, exponent)
 
 
-## Board D1024 (GDD 19.0): no valid move, H = 1024.
+## value as a BigNum (see save_fixtures.gd num).
+static func num(value: Variant) -> BigNum:
+	return SaveFixtures.num(value)
+
+
+## A BigNum as its digits, or "null", for assert_eq.
+static func text(value: BigNum) -> String:
+	return SaveFixtures.text(value)
+
+
+## A run state that can be saved, scores as ints (see save_fixtures.gd run).
+static func run(cells: PackedInt64Array, score: Variant, snapshot_cells: PackedInt64Array = PackedInt64Array(), snapshot_points: Variant = 0, run_highest: int = 0, free_used: int = 0, best_at_start: Variant = -1) -> RunState:
+	return SaveFixtures.run(cells, score, snapshot_cells, snapshot_points, run_highest, free_used, best_at_start)
+
+
+## Board D1024 (GDD 19.0): no valid move, H = 1024 (exponent 10).
 static func board_d1024() -> PackedInt64Array:
-	return with_cell(board_d(), Vector2i(2, 0), 1024)
+	return with_cell(board_d(), Vector2i(2, 0), 10)
 
 
-## Board P (GDD 19.0), H = 32.
+## Board P (GDD 19.0), H = 32, as exponents.
 static func board_p() -> PackedInt64Array:
 	var rows: Array[PackedInt64Array] = [
-		PackedInt64Array([2, 4, 2, 4, 2]),
-		PackedInt64Array([8, 16, 8, 16, 8]),
-		PackedInt64Array([2, 4, 2, 4, 2]),
-		PackedInt64Array([8, 16, 8, 16, 8]),
-		PackedInt64Array([2, 4, 2, 4, 2]),
-		PackedInt64Array([8, 4, 8, 16, 8]),
-		PackedInt64Array([2, 2, 2, 4, 2]),
-		PackedInt64Array([8, 8, 32, 8, 8]),
+		PackedInt64Array([1, 2, 1, 2, 1]),
+		PackedInt64Array([3, 4, 3, 4, 3]),
+		PackedInt64Array([1, 2, 1, 2, 1]),
+		PackedInt64Array([3, 4, 3, 4, 3]),
+		PackedInt64Array([1, 2, 1, 2, 1]),
+		PackedInt64Array([3, 2, 3, 4, 3]),
+		PackedInt64Array([1, 1, 1, 2, 1]),
+		PackedInt64Array([3, 3, 5, 3, 3]),
 	]
 	var cells: PackedInt64Array = PackedInt64Array()
 	for row: PackedInt64Array in rows:
@@ -97,7 +115,7 @@ static func board_p() -> PackedInt64Array:
 
 ## A snapshot board with a valid move, for states that need Undo.
 static func snapshot_board() -> PackedInt64Array:
-	return with_cell(board_d(), Vector2i(1, 7), 8)
+	return with_cell(board_d(), Vector2i(1, 7), 3)
 
 
 ## Waits for the App's queued saves, before a test reads the files through

@@ -87,37 +87,41 @@ const HINTS: Dictionary[StringName, String] = {
 const SWAP_SECOND: String = "Now tap the tile to swap with"
 
 
-## The suggested buy button: "Shuffle for 4K". The cost uses the tile label
-## format (D-32). While a free booster is held: "Shuffle for free" (D-46).
+## The suggested buy button: "Shuffle for 4K". cost is the price's exponent
+## and uses the tile label format (D-32), whose letters are never cased.
+## While a free booster is held: "Shuffle for free" (D-46).
 static func buy(booster_id: StringName, cost: int, free: bool = false) -> String:
 	if free:
 		return "%s for free" % booster_name(booster_id)
 	return "%s for %s" % [booster_name(booster_id), NumberFormat.tile_label(cost)]
 
 
-## GDD 21.2, IN1 to IN16, word for word (TH21). Each section: {"title":
+## GDD 21.2, IN1 to IN17, word for word (TH21). Each section: {"title":
 ## String, "text": String, "example": PackedInt64Array (the joined tiles in
 ## drag order, or the one tile a booster changes; empty for none), "result":
 ## int (the result tile, 0 for none), "row": &"chain", &"change" or &"" for
 ## none, "icon": the booster icon name for IN9 to IN13, &"" for none}.
+## Tiles are exponents (docs/ARCHITECTURE.md section 17): the GDD's 2, 2, 4
+## and 8 are 1, 1, 2 and 3 here.
 static func info_sections() -> Array[Dictionary]:
 	return [
-		_section("Make a chain", "Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it. A tile that does not fit simply does not join.", [2, 2, 4], 8),
-		_section("Merge", "Lift your finger to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 2, 2, 2 makes 4. The new tile lands where your chain ended.", [2, 2, 2], 4),
+		_section("Make a chain", "Slide across touching tiles, diagonals too, starting with two equal ones. Each next tile must match the last one or double it. A tile that does not fit simply does not join.", [1, 1, 2], 3),
+		_section("Merge", "Lift your finger to merge, or lift on one tile to cancel. The tiles add up and round down to a tile number, so 2, 2, 2 makes 4. The new tile lands where your chain ended.", [1, 1, 1], 2),
 		_section("While you drag", "While you drag, you see the tile your chain will make, and the tiles that can join next are highlighted. Slide back onto the previous tile to drop the last one."),
 		_section("Points", "A chain scores the sum of its tiles, so 2, 2, 2 scores 6 although it makes 4. Only chains score. Your score never drops below zero."),
 		_section("New tiles", "Tiles above fall into the gaps, and new tiles drop in from the top. New tiles are 2 to 16 at first and move up as your highest tile grows."),
-		_section("Moving up", "When your highest tile reaches 2K (2048), and each time it doubles after that, the smallest number stops dropping in and its tiles clear from the board. Cleared tiles score no points.", [1024, 1024], 2048),
+		_section("Moving up", "When your highest tile reaches 2K (2048), and each time it doubles after that, the smallest number stops dropping in and its tiles clear from the board. Cleared tiles score no points.", [10, 10], 11),
 		_section("Stars", "Each number that stops dropping in earns a star, once per run. Every 3 stars give you a free booster: the next booster you use costs nothing. Stars and free boosters end with the run."),
 		_section("Boosters", "Boosters are paid from your score and never add points. Prices follow your highest tile, and a booster you can't afford is switched off. To cancel before you tap a tile, tap the booster again: nothing is charged."),
 		_section("Hammer", "Tap Hammer, then a tile to smash it. The tiles above fall and a new tile drops in.", [], 0, &"hammer"),
 		_section("Swap", "Tap Swap, then two tiles anywhere on the board, and they trade places. The two must be different numbers.", [], 0, &"swap"),
 		_section("Shuffle", "Tap Shuffle to mix the same tiles into new places. You always get at least one move.", [], 0, &"shuffle"),
-		_section("Double", "Tap Double, then a tile to double it, so 8 becomes 16. It costs twice as much as Hammer.", [8], 16, &"double"),
+		_section("Double", "Tap Double, then a tile to double it, so 8 becomes 16. It costs twice as much as Hammer.", [3], 4, &"double"),
 		_section("Undo", "Undo takes back your last chain and its points, and any booster used since. It goes back one step only, and what you paid stays paid. Your score without that chain's points must cover its price.", [], 0, &"undo"),
 		_section("Out of moves", "When no two touching tiles match, play stops and you can pick any booster you can afford, with one marked as suggested. Or tap End run. If you can't afford any, the run ends."),
 		_section("Records", "Best score and Best tile are kept across runs, and spending never lowers them. When a run ends you see its score, its highest tile and New best if you beat your Best score."),
 		_section("Saving and settings", "Your run saves after every move, and Play takes you back to it. New game in Pause starts over. Pick a skin and turn sound on or off in Settings."),
+		_section("Big numbers", "Big tiles are shortened: 2048 shows as 2K, then come M, B, T and Q. After Q, labels go on with letters: aa, ab and so on. More letters means a bigger number."),
 	]
 
 

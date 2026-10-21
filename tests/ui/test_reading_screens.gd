@@ -69,7 +69,7 @@ func _count_tap() -> void:
 func _gdd_sections() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	var text: String = FileAccess.get_file_as_string(GDD_PATH)
-	var row_name: RegEx = RegEx.create_from_string("^IN([1-9]|1[0-6])$")
+	var row_name: RegEx = RegEx.create_from_string("^IN([1-9]|1[0-7])$")
 	for line: String in text.split("\n"):
 		var cells: PackedStringArray = line.split("|")
 		# The 21.2 table: | IN1 | title | text | example | result |
@@ -79,25 +79,34 @@ func _gdd_sections() -> Array[Dictionary]:
 		var example_text: String = cells[4].strip_edges()
 		if example_text != "none":
 			for value: String in example_text.split(","):
-				example.append(int(value.strip_edges()))
+				example.append(_exponent(int(value.strip_edges())))
 		var result_text: String = cells[5].strip_edges()
 		var result: int = 0
 		if result_text == "2K":
-			result = 2048
+			result = 11
 		elif result_text != "none":
-			result = int(result_text)
+			result = _exponent(int(result_text))
 		rows.append({"title": cells[2].strip_edges(), "text": cells[3].strip_edges(), "example": example, "result": result})
 	return rows
+
+
+## The exponent of a tile value from the GDD (2 is 1, 1024 is 10): the
+## content holds exponents since ARCHITECTURE.md section 17.
+static func _exponent(value: int) -> int:
+	var exponent: int = 0
+	while (1 << (exponent + 1)) <= value:
+		exponent += 1
+	return exponent
 
 
 # Info: TH21 and AT-116
 
 func test_at_116_th21_content_is_gdd_21_2_word_for_word() -> void:
 	var expected: Array[Dictionary] = _gdd_sections()
-	assert_eq(expected.size(), 16, "the GDD lists sixteen sections")
+	assert_eq(expected.size(), 17, "the GDD lists seventeen sections")
 	var panel: InfoPanel = _info(&"gumdrop")
 	var content: Array[Dictionary] = panel.content()
-	assert_eq(content.size(), 16, "sixteen sections")
+	assert_eq(content.size(), 17, "seventeen sections")
 	var total: int = 0
 	for index: int in mini(content.size(), expected.size()):
 		var section: Dictionary = content[index]
@@ -119,7 +128,9 @@ func test_at_116_th21_content_is_gdd_21_2_word_for_word() -> void:
 		var icon: StringName = section["icon"]
 		var expected_icon: StringName = [&"hammer", &"swap", &"shuffle", &"double", &"undo"][index - 8] if index >= 8 and index <= 12 else &""
 		assert_eq(icon, expected_icon, "%s booster icon" % tag)
-	assert_eq(total, 469, "469 words in all, as the GDD counts")
+	assert_eq(total, 502, "502 words in all, as the GDD counts")
+	if content.size() == 17:
+		assert_eq(content[16]["title"], "Big numbers", "IN17 is Big numbers")
 	assert_eq(panel.title_text(), "Info", "the screen title")
 
 
@@ -136,30 +147,30 @@ func test_at_116_example_rows_check_out_on_the_rules_model() -> void:
 		# Laid out as touching cells along the top row of a board of 2s.
 		var cells: PackedInt64Array = PackedInt64Array()
 		cells.resize(config.cell_count())
-		cells.fill(2)
+		cells.fill(1)
 		for index: int in example.size():
 			cells[index] = example[index]
 		if section["row"] == &"change":
 			changes += 1
 			# The IN12 row: Double on a tile of 8 (TH11) makes the result tile.
-			var state: RunState = RunState.create(cells, 100000)
+			var state: RunState = U.run(cells, 100000)
 			var rng: RunRandom = RunRandom.new()
 			rng.set_seed(1)
 			var result: MoveResult = BoosterRules.apply(&"double", state, Records.new(), [Vector2i(0, 0)] as Array[Vector2i], rng, config)
-			assert_true(result.accepted, "Double applies to the %d" % example[0])
-			assert_eq(state.value_at(Vector2i(0, 0)), section["result"], "%d doubles to its result tile" % example[0])
+			assert_true(result.accepted, "Double applies to the 2^%d" % example[0])
+			assert_eq(state.value_at(Vector2i(0, 0)), section["result"], "2^%d doubles to its result tile" % example[0])
 			continue
 		chains += 1
 		assert_eq(section["row"], &"chain", "%s: a chain row" % str(example))
 		var chain: Array[Vector2i] = []
 		for index: int in example.size():
 			chain.append(Vector2i(index, 0))
-		assert_true(CoreRules.is_valid_chain(cells, chain, config), "%s: a valid chain" % str(example))
+		assert_true(CoreRules.is_valid_chain(cells, BigNum.zero(), chain, config), "%s: a valid chain" % str(example))
 		assert_eq(CoreRules.merge_result(example), section["result"], "%s: its result is the merge result" % str(example))
 	assert_eq(chains, 3, "three chain rows")
 	assert_eq(changes, 1, "one change row")
-	assert_eq(NumberFormat.tile_label(1024), "1024", "the label 1024")
-	assert_eq(NumberFormat.tile_label(2048), "2K", "the label 2K")
+	assert_eq(NumberFormat.tile_label(10), "1024", "the label 1024")
+	assert_eq(NumberFormat.tile_label(11), "2K", "the label 2K")
 
 
 func test_content_is_a_copy() -> void:
@@ -177,7 +188,7 @@ func test_at_115_rows_are_real_tiles_in_each_skin() -> void:
 		var panel: InfoPanel = _info(skin_id)
 		var rows: Array[HBoxContainer] = panel.example_rows()
 		assert_eq(rows.size(), 4, "%s: four example rows" % skin_id)
-		var expected: Array[PackedInt64Array] = [PackedInt64Array([2, 2, 4]), PackedInt64Array([2, 2, 2]), PackedInt64Array([1024, 1024])]
+		var expected: Array[PackedInt64Array] = [PackedInt64Array([1, 1, 2]), PackedInt64Array([1, 1, 1]), PackedInt64Array([10, 10])]
 		for index: int in rows.size():
 			var row: HBoxContainer = rows[index]
 			var arrow: SkinIcon = row.get_node("Arrow") as SkinIcon
@@ -192,8 +203,8 @@ func test_at_115_rows_are_real_tiles_in_each_skin() -> void:
 				# IN12, the change row: two plain tiles, no board and no chain.
 				var before: SkinTileView = row.get_child(0) as SkinTileView
 				assert_not_null(before, "%s: the change row starts with a tile view" % skin_id)
-				assert_eq(int(before.get(&"_value")), 8, "%s: 8" % skin_id)
-				assert_eq(int(result.get(&"_value")), 16, "%s: then 16" % skin_id)
+				assert_eq(int(before.get(&"_value")), 3, "%s: 8" % skin_id)
+				assert_eq(int(result.get(&"_value")), 4, "%s: then 16" % skin_id)
 				assert_eq(row.find_children("*", "SkinBoardView", true, false).size(), 0, "%s: no board view" % skin_id)
 				continue
 			var board: SkinBoardView = row.get_child(0) as SkinBoardView
@@ -213,7 +224,7 @@ func test_spl_02_info_builds_across_frames() -> void:
 		panel.frame_budget_usec = 0
 		panel.setup(SkinCatalog.get_skin(skin_id))
 		assert_eq(panel.built_sections(), 0, "%s: setup builds no section in the tap's frame" % skin_id)
-		assert_eq(panel.content().size(), 16, "%s: content() is whole before the build" % skin_id)
+		assert_eq(panel.content().size(), 17, "%s: content() is whole before the build" % skin_id)
 		panel.play_in()
 		assert_eq(panel.modulate.a, 0.0, "%s: invisible until its first screenful" % skin_id)
 		var frames: int = 0
@@ -238,7 +249,8 @@ func test_spl_02_info_builds_across_frames() -> void:
 			panel.step(0.0)
 			frames += 1
 		assert_eq(panel.stage(), InfoPanel.Stage.DONE, "%s: then the rest builds" % skin_id)
-		assert_eq(panel.built_sections(), 16, "%s: all sixteen sections" % skin_id)
+		assert_eq(panel.built_sections(), 17, "%s: all seventeen sections" % skin_id)
+
 		assert_true(frames > 2, "%s: over several frames (%d)" % [skin_id, frames])
 		assert_eq(panel.example_rows().size(), 4, "%s: the same rows as a whole build" % skin_id)
 		assert_eq(panel.section_icons().size(), 5, "%s: and icons" % skin_id)

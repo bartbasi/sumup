@@ -24,15 +24,26 @@ var labels: TileLabels = null
 var side: float = 0.0
 var unit: float = 1.0
 
-## Per label index (0 is value 2): fill, number color, tier, and the ramp
-## position the colors come from (DESIGN_SYSTEM.md 3.3). Colors follow the
-## position, size follows the value through the tier.
+## Every tile is passed by its exponent k (the tile is 2^k, ARCHITECTURE.md
+## 17). Its looks are held per style: style k - 1 for k from 1 to 17 (the
+## ramp), then one style per entry of tile_cycle, shared by every k above 17
+## that lands on it (style_of). So the arrays below stay small however high k
+## goes. Per style: fill, number color, tier, and the ramp position the
+## colors come from (DESIGN_SYSTEM.md 3.3). Colors follow the position, size
+## follows the value through the tier (beyond_tier for every style above the
+## ramp).
 var fills: PackedColorArray = PackedColorArray()
 var inks: PackedColorArray = PackedColorArray()
 var tiers: PackedInt32Array = PackedInt32Array()
 var positions: PackedInt32Array = PackedInt32Array()
-var special_from: int = 0
+## Exponent of special_from: a tile is special when k is at least this
+## (DESIGN_SYSTEM.md 14.3).
+var special_exponent: int = 0
+## false draws tiles with no label: shape, fill, lip, rim and glow only
+## (SkinTileView.set_label_shown). The board keeps it true.
+var label_shown: bool = true
 
+var _cycle_size: int = 1
 var _reference_side: float = 0.0
 
 
@@ -40,18 +51,23 @@ func setup(p_skin: SkinData) -> void:
 	skin = p_skin
 	labels = TileLabels.new()
 	labels.setup(skin)
-	var count: int = TileLabels.MAX_INDEX + 1
+	_cycle_size = maxi(1, skin.tile_cycle.size())
+	var count: int = SkinData.RAMP_SIZE + _cycle_size
 	fills.resize(count)
 	inks.resize(count)
 	tiers.resize(count)
 	positions.resize(count)
-	for index: int in count:
-		var value: int = TileLabels.value_of(index)
-		fills[index] = skin.fill_for(value)
-		inks[index] = skin.ink_for(value)
-		tiers[index] = skin.tier_for(value)
-		positions[index] = skin.color_position(value)
-	special_from = int(skin.num(&"special_from"))
+	for style: int in count:
+		var exponent: int = style + 1
+		if style >= SkinData.RAMP_SIZE:
+			exponent = SkinData.CYCLE_FIRST_POWER + style - SkinData.RAMP_SIZE
+		fills[style] = skin.fill_for(exponent)
+		inks[style] = skin.ink_for(exponent)
+		tiers[style] = skin.tier_for(exponent)
+		positions[style] = skin.color_position(exponent)
+	special_exponent = skin.token_exponent(&"special_from")
+	if special_exponent < 0:
+		special_exponent = SkinData.max_exponent() + 1
 	# The px tokens are drawn for the base canvas width and the game's column
 	# count.
 	var canvas_width: float = float(ProjectSettings.get_setting("display/window/size/viewport_width"))
@@ -88,14 +104,31 @@ func board_metrics(width: float, columns: int) -> Vector3:
 	return Vector3(tile_side, gap, pad)
 
 
-## Draws one resting tile centered on center, as the tile view shows it.
-func draw_single(_canvas: RID, _center: Vector2, _value: int) -> void:
+## Draws one resting tile 2^exponent centered on center, as the tile view
+## shows it.
+func draw_single(_canvas: RID, _center: Vector2, _exponent: int) -> void:
 	push_error("tile painter does not implement draw_single()")
 
 
-## Label index of a value, -1 when it is not a tile value.
-static func index_of(value: int) -> int:
-	return TileLabels.index_of(value)
+## Label index of a tile exponent: k - 1, or -1 when it is not a tile. The
+## board keys its cells by it.
+static func index_of(exponent: int) -> int:
+	return exponent - 1 if SkinData.is_tile(exponent) else -1
+
+
+## Style of a tile exponent (see fills): k - 1 up to 17, then the tile_cycle
+## entry k lands on. -1 when it is not a tile.
+func style_of(exponent: int) -> int:
+	if not SkinData.is_tile(exponent):
+		return -1
+	if exponent <= SkinData.RAMP_SIZE:
+		return exponent - 1
+	return SkinData.RAMP_SIZE + (exponent - SkinData.CYCLE_FIRST_POWER) % _cycle_size
+
+
+## True when the tile 2^exponent gets its skin's special look.
+func is_special(exponent: int) -> bool:
+	return exponent >= special_exponent
 
 
 ## Places tile space in a canvas item with base.

@@ -48,7 +48,7 @@ func _profile_temp() -> String:
 
 
 func _state(score: int) -> RunState:
-	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 32), score, PackedInt64Array(), 0, 0, 0, 1000)
+	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 5), score, PackedInt64Array(), 0, 0, 0, 1000)
 
 
 func _text_of(score: int) -> String:
@@ -57,8 +57,8 @@ func _text_of(score: int) -> String:
 
 func _records(best_score: int) -> Records:
 	var records: Records = Records.new()
-	records.best_score = best_score
-	records.best_tile = 2048
+	records.best_score = BigNum.from_int(best_score)
+	records.best_tile = 11
 	return records
 
 
@@ -74,13 +74,13 @@ func _reopen() -> SaveService:
 
 func _loaded_score() -> int:
 	var state: RunState = _service.load_run(_config)
-	return -1 if state == null else state.score
+	return -1 if state == null else state.score.to_int()
 
 
 func _loaded_best_score() -> int:
 	var records: Records = Records.new()
 	_service.load_profile(Settings.new(), records)
-	return records.best_score
+	return records.best_score.to_int()
 
 
 ## Three ways a file renamed just before a power cut can come back.
@@ -188,8 +188,8 @@ func test_a_damaged_profile_loads_the_bak() -> void:
 		var settings: Settings = Settings.new()
 		var records: Records = Records.new()
 		_service.load_profile(settings, records)
-		assert_eq(records.best_score, 5000, "%s profile.json: Best Score from the .bak" % what)
-		assert_eq(records.best_tile, 2048, "%s profile.json: Best Tile from the .bak" % what)
+		assert_eq(F.text(records.best_score), "5000", "%s profile.json: Best Score from the .bak" % what)
+		assert_eq(records.best_tile, 11, "%s profile.json: Best Tile from the .bak" % what)
 
 
 func test_a_missing_run_loads_the_bak() -> void:
@@ -203,13 +203,13 @@ func test_a_missing_run_loads_the_bak() -> void:
 func test_a_profile_with_one_bad_field_loads_the_bak() -> void:
 	_save_two_profiles()
 	var data: Dictionary = SaveCodec.profile_to_data(Settings.new(), _records(9000))
-	(data["records"] as Dictionary)["best_tile"] = 99
+	(data["records"] as Dictionary)["best_tile"] = 65536
 	F.write_text(_profile_path(), F.to_text(data))
 	_reopen()
 	var records: Records = Records.new()
 	_service.load_profile(Settings.new(), records)
-	assert_eq(records.best_score, 5000, "the whole .bak is used, not part of each")
-	assert_eq(records.best_tile, 2048, "Best Tile from the .bak")
+	assert_eq(F.text(records.best_score), "5000", "the whole .bak is used, not part of each")
+	assert_eq(records.best_tile, 11, "Best Tile from the .bak")
 
 
 func test_the_next_save_after_a_bak_load_keeps_the_bak() -> void:
@@ -273,7 +273,7 @@ func test_a_damaged_temp_does_not_hide_the_bak() -> void:
 ## .bak contents that must be refused, each with a damaged run.json.
 func _bad_run_baks() -> Dictionary[String, PackedByteArray]:
 	var bad: Dictionary[String, PackedByteArray] = _damaged(_text_of(111))
-	bad["over 64 KB"] = F.padded(_text_of(111), SaveService.MAX_BYTES + 1).to_utf8_buffer()
+	bad["over 256 KB"] = F.padded(_text_of(111), SaveService.MAX_BYTES + 1).to_utf8_buffer()
 	bad["nested too deep"] = ("[".repeat(40) + "]".repeat(40)).to_utf8_buffer()
 	var negative: Dictionary = SaveCodec.run_to_data(_state(111))
 	negative["score"] = "-5"
@@ -302,13 +302,13 @@ func test_a_damaged_run_bak_is_refused() -> void:
 
 func test_a_damaged_profile_bak_is_refused() -> void:
 	var bad: Dictionary[String, PackedByteArray] = _damaged(_profile_text(5000))
-	bad["over 64 KB"] = F.padded(_profile_text(5000), SaveService.MAX_BYTES + 1).to_utf8_buffer()
+	bad["over 256 KB"] = F.padded(_profile_text(5000), SaveService.MAX_BYTES + 1).to_utf8_buffer()
 	bad["nested too deep"] = ("[".repeat(40) + "]".repeat(40)).to_utf8_buffer()
 	var negative: Dictionary = SaveCodec.profile_to_data(Settings.new(), _records(5000))
 	(negative["records"] as Dictionary)["best_score"] = "-1"
 	bad["negative Best Score"] = F.to_text(negative).to_utf8_buffer()
 	var high: Dictionary = SaveCodec.profile_to_data(Settings.new(), _records(5000))
-	(high["records"] as Dictionary)["best_tile"] = 63
+	(high["records"] as Dictionary)["best_tile"] = 65536
 	bad["Best Tile out of range"] = F.to_text(high).to_utf8_buffer()
 	for what: String in bad:
 		F.write_text(_profile_path(), "")
@@ -317,7 +317,7 @@ func test_a_damaged_profile_bak_is_refused() -> void:
 		var settings: Settings = Settings.new()
 		var records: Records = Records.new()
 		_service.load_profile(settings, records)
-		assert_eq(records.best_score, 0, "%s .bak: default Best Score" % what)
+		assert_eq(F.text(records.best_score), "0", "%s .bak: default Best Score" % what)
 		assert_eq(records.best_tile, 0, "%s .bak: default Best Tile" % what)
 		assert_true(settings.sound_on, "%s .bak: default sound" % what)
 		assert_false(FileAccess.file_exists(_profile_bak()), "%s .bak: deleted" % what)
@@ -325,12 +325,12 @@ func test_a_damaged_profile_bak_is_refused() -> void:
 
 func test_a_damaged_profile_with_part_valid_keeps_that_part_when_the_bak_is_bad() -> void:
 	var data: Dictionary = SaveCodec.profile_to_data(Settings.new(), _records(9000))
-	(data["records"] as Dictionary)["best_tile"] = 99
+	(data["records"] as Dictionary)["best_tile"] = 65536
 	F.write_text(_profile_path(), F.to_text(data))
 	F.write_text(_profile_bak(), "")
 	var records: Records = Records.new()
 	_service.load_profile(Settings.new(), records)
-	assert_eq(records.best_score, 9000, "the valid part of profile.json is kept, as before")
+	assert_eq(F.text(records.best_score), "9000", "the valid part of profile.json is kept, as before")
 	assert_eq(records.best_tile, 0, "the bad part is the default")
 
 
@@ -370,12 +370,12 @@ func test_delete_run_leaves_the_profile_bak() -> void:
 
 ## Run A, score 19,000 with an Undo snapshot.
 func _at_154_a() -> RunState:
-	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 32), 19000, F.board_d(), 40, 0, 0, 18000)
+	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 5), 19000, F.board_d(), 40, 0, 0, 18000)
 
 
 ## Run B, one chain later: score 20,000.
 func _at_154_b() -> RunState:
-	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 64), 20000, F.with_cell(F.board_d(), Vector2i(0, 0), 32), 1000, 0, 0, 18000)
+	return F.run(F.with_cell(F.board_d(), Vector2i(0, 0), 6), 20000, F.with_cell(F.board_d(), Vector2i(0, 0), 5), 1000, 0, 0, 18000)
 
 
 ## The setup: a profile with Best Score 20,000, run A then run B saved, then
@@ -397,7 +397,7 @@ func test_at_154_a_a_damaged_run_continues_the_last_good_copy() -> void:
 	var loaded: RunState = _service.load_run(_config)
 	assert_not_null(loaded, "a run loads")
 	assert_true(loaded != null and loaded.equals(_at_154_a()), "run A, equal in every field")
-	assert_eq(loaded.best_at_start if loaded != null else -1, 18000, "its starting Best Score too")
+	assert_eq(F.text(loaded.best_at_start) if loaded != null else "", "18000", "its starting Best Score too")
 	assert_false(FileAccess.file_exists(_run_path()), "the damaged run.json is deleted")
 	assert_eq(_loaded_best_score(), 20000, "the profile is untouched: Best Score 20,000")
 	assert_eq(F.read_bytes(_profile_path()), profile, "byte for byte")

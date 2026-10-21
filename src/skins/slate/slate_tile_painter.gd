@@ -99,15 +99,15 @@ func draw_empty(canvas: RID, rect: Rect2) -> void:
 ## Fill, the special inner frame in the tile's number color, and the chained
 ## or joinable frame, in tile space placed by base. flash shows the paper of
 ## the merge flash.
-func draw_body(canvas: RID, base: Transform2D, value: int, flash: bool, chain: float, join: float) -> void:
-	var index: int = index_of(value)
+func draw_body(canvas: RID, base: Transform2D, exponent: int, flash: bool, chain: float, join: float) -> void:
+	var index: int = style_of(exponent)
 	if index < 0:
 		return
 	begin(canvas, base)
 	var rect: Rect2 = _tile_rect()
 	_fill_box.bg_color = _paper if flash else fills[index]
 	_fill_box.draw(canvas, rect)
-	if value >= special_from and not flash:
+	if is_special(exponent) and not flash:
 		_special_box.border_color = inks[index]
 		_special_box.draw(canvas, rect.grow(-_special_inset * side))
 	# The chained and joinable frames sit frame_inset inside the edge, so a
@@ -128,8 +128,8 @@ func draw_body(canvas: RID, base: Transform2D, value: int, flash: bool, chain: f
 ## over the whole label box grown by number_plate px, so the line never shows
 ## between the glyphs. The number's cap top sits number_inset of the side
 ## from the top and left edges.
-func draw_marks(canvas: RID, base: Transform2D, value: int, flash: bool, chain: float, join: float) -> void:
-	var index: int = index_of(value)
+func draw_marks(canvas: RID, base: Transform2D, exponent: int, flash: bool, chain: float, join: float) -> void:
+	var index: int = style_of(exponent)
 	if index < 0:
 		return
 	begin(canvas, base)
@@ -146,22 +146,25 @@ func draw_marks(canvas: RID, base: Transform2D, value: int, flash: bool, chain: 
 		var mark: Color = _dark if positions[index] >= BLOCK_FROM_POSITION else _joinable_color
 		_outline(canvas, square, stroke + 2.0 * edge, faded(_edge_color, join))
 		_outline(canvas, square, stroke, faded(mark, join))
+	if not label_shown:
+		end(canvas)
+		return
 	var top_left: Vector2 = _tile_rect().position + Vector2.ONE * _number_inset * side
 	if chain > 0.0:
-		var plate: Rect2 = labels.box_top_left(top_left, index).grow(_number_plate * unit)
+		var plate: Rect2 = labels.box_top_left(top_left, exponent).grow(_number_plate * unit)
 		RenderingServer.canvas_item_add_rect(canvas, plate, _paper if flash else fills[index])
-	labels.draw_top_left(canvas, top_left, index, _dark if flash else inks[index])
+	labels.draw_top_left(canvas, top_left, exponent, _dark if flash else inks[index])
 	end(canvas)
 
 
 ## A whole tile in one go, for moving tiles, ghosts and the tile view.
-func draw_whole(canvas: RID, base: Transform2D, value: int, flash: bool, chain: float, join: float) -> void:
-	draw_body(canvas, base, value, flash, chain, join)
-	draw_marks(canvas, base, value, flash, chain, join)
+func draw_whole(canvas: RID, base: Transform2D, exponent: int, flash: bool, chain: float, join: float) -> void:
+	draw_body(canvas, base, exponent, flash, chain, join)
+	draw_marks(canvas, base, exponent, flash, chain, join)
 
 
-func draw_single(canvas: RID, center: Vector2, value: int) -> void:
-	draw_whole(canvas, at(center), value, false, 0.0, 0.0)
+func draw_single(canvas: RID, center: Vector2, exponent: int) -> void:
+	draw_whole(canvas, at(center), exponent, false, 0.0, 0.0)
 
 
 ## Four corner brackets in target, target_ring thick, arms target_bracket of

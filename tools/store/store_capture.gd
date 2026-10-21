@@ -260,8 +260,8 @@ func _render(shot: Shot) -> bool:
 			var splash: SplashScreen = SPLASH_SCENE.instantiate() as SplashScreen
 			root.add_child(splash)
 			var records: Records = Records.new()
-			records.best_score = SPLASH_BEST_SCORE
-			records.best_tile = SPLASH_BEST_TILE
+			records.best_score = BigNum.from_int(SPLASH_BEST_SCORE)
+			records.best_tile = _exponent(SPLASH_BEST_TILE)
 			splash.setup(skin, records)
 			await _frames(WAIT_FRAMES)
 		"info":
@@ -338,11 +338,11 @@ func _build_feature(root: Control, skin: SkinData) -> void:
 	brand.alignment = BoxContainer.ALIGNMENT_CENTER
 	var row: HBoxContainer = UiParts.hbox(0.0)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_child(UiParts.chain_board(skin, PackedInt64Array(SUM_VALUES), FEATURE_TILE))
+	row.add_child(UiParts.chain_board(skin, _exponents(SUM_VALUES), FEATURE_TILE))
 	row.add_child(UiParts.spacer(0.0, skin.num(&"space_m")))
 	row.add_child(UiParts.arrow(skin, FEATURE_ARROW))
 	row.add_child(UiParts.spacer(0.0, skin.num(&"space_m")))
-	var result: SkinTileView = UiParts.tile(skin, SUM_RESULT, FEATURE_TILE)
+	var result: SkinTileView = UiParts.tile(skin, _exponent(SUM_RESULT), FEATURE_TILE)
 	result.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(result)
 	var wordmark: SkinWordmark = UiKit.make_wordmark(skin)
@@ -364,16 +364,16 @@ func _build_board(viewport: SubViewport, root: Control, skin: SkinData, shot: Sh
 	var rng: RunRandom = RunRandom.new()
 	rng.set_seed(SEED)
 	var records: Records = Records.new()
-	records.best_score = shot.best_score
+	records.best_score = BigNum.from_int(shot.best_score)
 	var session: GameSession = GameSession.new(null, rng, records)
 	var game: GameScreen = GAME_SCENE.instantiate() as GameScreen
 	root.add_child(game)
 	game.setup(session, Settings.new(), _audio, skin)
-	var cells: PackedInt64Array = PackedInt64Array(shot.cells)
+	var cells: PackedInt64Array = _exponents(shot.cells)
 	var highest: int = 0
-	for value: int in shot.cells:
-		highest = maxi(highest, value)
-	session.resume(RunState.create(cells, shot.score, PackedInt64Array(), 0, highest))
+	for exponent: int in cells:
+		highest = maxi(highest, exponent)
+	session.resume(RunState.create(cells, BigNum.from_int(shot.score), PackedInt64Array(), null, highest))
 	if session.is_waiting_for_view():
 		session.move_shown()
 	await _frames(WAIT_FRAMES)
@@ -434,3 +434,22 @@ func _push_motion(viewport: SubViewport, point: Vector2) -> void:
 func _frames(count: int) -> void:
 	for _frame: int in count:
 		await get_tree().process_frame
+
+
+## The exponent k of a tile value 2^k, as boards and skins take it since
+## 2026-10-21 (ARCHITECTURE.md 17); 0 for 0 (empty). The shots keep writing
+## tile values, which read more plainly.
+static func _exponent(value: int) -> int:
+	if value <= 0:
+		return 0
+	var k: int = 0
+	while (1 << k) < value:
+		k += 1
+	return k
+
+
+static func _exponents(values: Array[int]) -> PackedInt64Array:
+	var cells: PackedInt64Array = PackedInt64Array()
+	for value: int in values:
+		cells.append(_exponent(value))
+	return cells

@@ -162,7 +162,7 @@ numbers = Dictionary[StringName, float]({
 &"button_height": 160.0,
 &"chain_ring": 6.0,
 &"chain_width": 8.0,
-&"display_fit_min": 96.0,
+&"display_fit_min": 76.0,
 &"flash_cut": 0.05,
 &"focus_gap": 4.0,
 &"focus_width": 4.0,

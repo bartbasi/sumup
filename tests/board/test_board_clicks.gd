@@ -32,7 +32,7 @@ func test_at_98_a_drag_backtrack_rejoin_and_lift_clicks_five_times() -> void:
 	assert_eq(rig.clicks(), 4, "the 4 again")
 	rig.up(Vector2i(3, 6))
 	assert_eq(rig.clicks(), 5, "the commit")
-	assert_eq(rig.session.state.score, 8, "the chain committed")
+	assert_eq(rig.score(), 8, "the chain committed")
 
 
 func test_at_98_b_touching_one_tile_and_lifting_clicks_once() -> void:

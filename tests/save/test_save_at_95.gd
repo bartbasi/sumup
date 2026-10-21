@@ -54,8 +54,8 @@ func _assert_profile_untouched(label: String) -> void:
 	var settings: Settings = Settings.new()
 	var records: Records = Records.new()
 	SaveService.new(_dir).load_profile(settings, records)
-	assert_eq(records.best_score, 5000, "%s: Best Score 5,000 kept" % label)
-	assert_eq(records.best_tile, 512, "%s: Best Tile 512 kept" % label)
+	assert_eq(F.text(records.best_score), "5000", "%s: Best Score 5,000 kept" % label)
+	assert_eq(records.best_tile, 9, "%s: Best Tile 512 kept" % label)
 
 
 ## Writes text as the run file and checks every AT-95 expectation.
@@ -76,8 +76,8 @@ func _assert_refused(text: String, label: String) -> void:
 	assert_true(_service.save_run(fresh), "%s: the new run saves" % label)
 	var loaded: RunState = SaveService.new(_dir).load_run(_config)
 	assert_true(loaded != null and fresh.equals(loaded), "%s: and resumes" % label)
-	assert_eq(loaded.score if loaded != null else -1, 0, "%s: with score 0" % label)
-	assert_eq(records.best_score, 5000, "%s: Best Score still 5,000" % label)
+	assert_eq(F.text(loaded.score) if loaded != null else "", "0", "%s: with score 0" % label)
+	assert_eq(F.text(records.best_score), "5000", "%s: Best Score still 5,000" % label)
 
 
 func test_at_95_control_loads_and_equals_the_saved_run() -> void:
@@ -106,10 +106,11 @@ func test_at_95_c_exponent_0() -> void:
 	_assert_refused(F.to_text(data), "(c) exponent 0")
 
 
-func test_at_95_d_exponent_63() -> void:
+func test_at_95_d_exponent_65536() -> void:
+	# Changed on 2026-10-21: it was 63, which is now a valid tile (AT-169).
 	var data: Dictionary = _control_data()
-	(data["cells"] as Array)[5] = 63
-	_assert_refused(F.to_text(data), "(d) exponent 63")
+	(data["cells"] as Array)[5] = 65536
+	_assert_refused(F.to_text(data), "(d) exponent 65536")
 
 
 func test_at_95_e_score_minus_1() -> void:
@@ -151,12 +152,15 @@ func test_at_95_j_columns_6() -> void:
 	_assert_refused(F.to_text(data), "(j) columns 6")
 
 
-func test_at_95_k_larger_than_64_kb() -> void:
+func test_at_95_k_larger_than_the_size_cap() -> void:
 	# The control file padded with trailing spaces: valid JSON, valid content,
-	# but 65 KB long.
-	var text: String = F.padded(_control_text, 65 * 1024)
-	assert_true(text.to_utf8_buffer().size() > 65536, "over 64 KB")
-	_assert_refused(text, "(k) 65 KB")
+	# but one byte over the cap, which rose from 64 KB to 256 KB on 2026-10-21
+	# (ARCHITECTURE.md section 17).
+	assert_eq(SaveService.MAX_BYTES, 256 * 1024, "the cap is 256 KB")
+	var text: String = F.padded(_control_text, SaveService.MAX_BYTES + 1)
+	assert_eq(text.to_utf8_buffer().size(), 256 * 1024 + 1, "one byte over 256 KB")
+	_assert_refused(text, "(k) over 256 KB")
+
 
 
 @warning_ignore("integer_division")

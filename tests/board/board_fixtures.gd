@@ -3,6 +3,11 @@ extends RefCounted
 ## AudioService and a BoardController on the recording stub view, plus
 ## synthetic input events. Boards come from the core fixtures (GDD 19.0),
 ## read only.
+##
+## Core works in exponents and BigNum scores (docs/ARCHITECTURE.md section
+## 17). The helpers marked "tile value" turn them back into the GDD's numbers
+## (2, 4, 1024) so the tests read like the GDD; the stub view records the
+## exponents the board passes on, unchanged.
 ## Not a test file: the runner only loads files named test_*.gd.
 
 const F := preload("res://tests/core/core_fixtures.gd")
@@ -94,11 +99,31 @@ class Rig extends RefCounted:
 	func clicks() -> int:
 		return audio.click_requests
 
+	## The run's score as an int. Only for scores that fit one.
+	func score() -> int:
+		return session.state.score.to_int()
+
+	## The tile value on cell, 0 for empty.
+	func value_at(cell: Vector2i) -> int:
+		return F.v(session.state.value_at(cell))
+
 	func last_chain() -> Array:
 		return chain_events.back()[0] if not chain_events.is_empty() else []
 
+	## The last chain_changed preview as a tile value, -1 for none sent.
 	func last_preview() -> int:
-		return chain_events.back()[1] if not chain_events.is_empty() else -1
+		return F.v(chain_events.back()[1]) if not chain_events.is_empty() else -1
+
+	## The preview the view shows now, as a tile value.
+	func view_preview() -> int:
+		return F.v(view().preview)
+
+	## The previews of every chain_changed so far, as tile values.
+	func previews() -> Array[int]:
+		var list: Array[int] = []
+		for event: Array in chain_events:
+			list.append(F.v(event[1]))
+		return list
 
 	func forget() -> void:
 		view().clear_log()
@@ -127,10 +152,15 @@ class Rig extends RefCounted:
 		move_signals.append("started")
 
 
-## A rig over board and score, resumed and shown, with the generator seeded
-## so spawns repeat, and every log cleared. durations are the stub's effect
-## lengths (0 when missing).
+## A rig over board (exponents, as the core fixtures build it) and score,
+## resumed and shown, with the generator seeded so spawns repeat, and every
+## log cleared. durations are the stub's effect lengths (0 when missing).
 static func rig(board_cells: PackedInt64Array, score: int, durations: Dictionary[StringName, float] = {}, seed_value: int = 1) -> Rig:
+	return rig_big(board_cells, BigNum.from_int(score), durations, seed_value)
+
+
+## rig() with a score of any size.
+static func rig_big(board_cells: PackedInt64Array, score: BigNum, durations: Dictionary[StringName, float] = {}, seed_value: int = 1) -> Rig:
 	var made: Rig = Rig.new()
 	made.skin = SkinCatalog.get_skin(SkinCatalog.DEFAULT_ID)
 	made.session = GameSession.new(GameConfig.new(), RunRandom.new(), Records.new())

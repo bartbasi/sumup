@@ -112,12 +112,12 @@ func setup(skin: SkinData) -> void:
 	_stars_caption = UiCopy.stars_caption(skin, &"label")
 	_star.setup(SlateIcon.STAR, skin.color(&"accent"), skin.num(&"star_icon"))
 	if _score_text.is_empty():
-		set_scores(0, 0)
+		set_scores(BigNum.zero(), BigNum.zero())
 	_shown_count = -1
 	_show_stars(_count, _free)
 
 
-func set_scores(score: int, best_score: int) -> void:
+func set_scores(score: BigNum, best_score: BigNum) -> void:
 	_score_text = NumberFormat.score(score)
 	_best_text = NumberFormat.score(best_score)
 	_score.text = _score_text

@@ -364,7 +364,7 @@ func test_star_counters_fit_at_1080() -> void:
 	# A 13 character Best Score, a two digit count and 1 free (4.7, 5.7, 6.7).
 	var gumdrop: SkinData = SkinCatalog.get_skin(&"gumdrop")
 	var hud: SkinHud = _hud(&"gumdrop")
-	hud.set_scores(LONGEST, LONGEST)
+	hud.set_scores(Fixtures.big(LONGEST), Fixtures.big(LONGEST))
 	hud.set_stars(12, 1)
 	var rects: Array[Rect2] = hud.call(&"pill_rects") as Array[Rect2]
 	var touch_right: float = gumdrop.num(&"board_margin") + gumdrop.num(&"hud_button_face") * 0.5 + gumdrop.num(&"touch_min") * 0.5
@@ -374,7 +374,7 @@ func test_star_counters_fit_at_1080() -> void:
 
 	var slate: SkinData = SkinCatalog.get_skin(&"slate")
 	var slate_hud: SkinHud = _hud(&"slate")
-	slate_hud.set_scores(LONGEST, LONGEST)
+	slate_hud.set_scores(Fixtures.big(LONGEST), Fixtures.big(LONGEST))
 	slate_hud.set_stars(12, 1)
 	var span: Vector2 = slate_hud.call(&"counter_span") as Vector2
 	var pause_left: float = 1080.0 - slate.num(&"board_margin") - (slate.num(&"touch_min") + slate.num(&"icon_hud")) * 0.5
@@ -386,7 +386,7 @@ func test_star_counters_fit_at_1080() -> void:
 
 	var nova: SkinData = SkinCatalog.get_skin(&"nova")
 	var nova_hud: SkinHud = _hud(&"nova")
-	nova_hud.set_scores(LONGEST, LONGEST)
+	nova_hud.set_scores(Fixtures.big(LONGEST), Fixtures.big(LONGEST))
 	nova_hud.set_stars(12, 1)
 	var line: Vector2 = nova_hud.call(&"best_line_span") as Vector2
 	assert_true(line.x >= nova.num(&"board_margin") and line.y <= 1080.0 - nova.num(&"board_margin"), "nova: the best line stays inside the margins (%d to %d)" % [line.x, line.y])
@@ -397,7 +397,7 @@ func test_qa6_08_the_hud_lays_out_inside_a_narrow_column() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var hud: SkinHud = _hud(skin_id, 1220.0)
-		hud.set_scores(LONGEST, LONGEST)
+		hud.set_scores(Fixtures.big(LONGEST), Fixtures.big(LONGEST))
 		hud.set_stars(12, 1)
 		for control: Control in Fixtures.controls_under(hud):
 			if control == hud:

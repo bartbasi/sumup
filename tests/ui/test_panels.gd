@@ -63,7 +63,7 @@ func _offer_panel(skin_id: StringName, session: GameSession) -> OfferPanel:
 # OfferPanel, D-42 (AT-47, AT-49, AT-109)
 
 func test_at_47_offer_marks_shuffle() -> void:
-	var session: GameSession = _offer_session(RunState.create(U.board_d1024(), 5000, U.snapshot_board(), 40))
+	var session: GameSession = _offer_session(U.run(U.board_d1024(), 5000, U.snapshot_board(), 40))
 	assert_true(session.is_offer_open(), "the offer is open")
 	var panel: OfferPanel = _offer_panel(&"gumdrop", session)
 	assert_not_null(panel.buy_button(), "a buy button")
@@ -78,7 +78,7 @@ func test_at_47_offer_marks_shuffle() -> void:
 
 
 func test_at_49_offer_marks_undo() -> void:
-	var session: GameSession = _offer_session(RunState.create(U.board_d1024(), 600, U.snapshot_board(), 40))
+	var session: GameSession = _offer_session(U.run(U.board_d1024(), 600, U.snapshot_board(), 40))
 	var panel: OfferPanel = _offer_panel(&"gumdrop", session)
 	assert_eq(panel.buy_button().text, "Undo for 512", "Undo is the rescue")
 	panel.buy_button().pressed.emit()
@@ -89,7 +89,7 @@ func test_at_109_d_offer_with_nothing_marked() -> void:
 	var config: GameConfig = GameConfig.new()
 	config.cost_shift[&"shuffle"] = 2
 	config.cost_shift[&"undo"] = 2
-	var session: GameSession = _offer_session(RunState.create(U.board_d1024(), 1500, U.snapshot_board(), 40), config)
+	var session: GameSession = _offer_session(U.run(U.board_d1024(), 1500, U.snapshot_board(), 40), config)
 	assert_true(session.is_offer_open(), "Hammer and Swap keep the offer open")
 	var panel: OfferPanel = _offer_panel(&"gumdrop", session)
 	assert_null(panel.buy_button(), "no buy button")
@@ -98,17 +98,17 @@ func test_at_109_d_offer_with_nothing_marked() -> void:
 
 
 func test_offer_rebuilds_only_when_it_changes() -> void:
-	var session: GameSession = _offer_session(RunState.create(U.board_d1024(), 5000, U.snapshot_board(), 40))
+	var session: GameSession = _offer_session(U.run(U.board_d1024(), 5000, U.snapshot_board(), 40))
 	var panel: OfferPanel = _offer_panel(&"gumdrop", session)
 	var first: Button = panel.buy_button()
 	panel.show_offer(session.booster_statuses(), session.state.score)
 	assert_true(panel.buy_button() == first, "the same offer keeps its buttons")
-	panel.show_offer(session.booster_statuses(), 4000)
+	panel.show_offer(session.booster_statuses(), BigNum.from_int(4000))
 	assert_eq(panel.score_text(), "4,000", "a new score shows")
 
 
 func test_offer_signal_label_follows_the_skin_case() -> void:
-	var session: GameSession = _offer_session(RunState.create(U.board_d1024(), 5000, U.snapshot_board(), 40))
+	var session: GameSession = _offer_session(U.run(U.board_d1024(), 5000, U.snapshot_board(), 40))
 	var slate: OfferPanel = _offer_panel(&"slate", session)
 	assert_true(_has_text(slate, "OUT OF MOVES"), "Slate's signal label is in capitals")
 	assert_eq(slate.theme_type_variation, &"", "Slate's offer has no card")
@@ -121,10 +121,10 @@ func test_offer_signal_label_follows_the_skin_case() -> void:
 
 func _summary(new_best: bool) -> RunSummary:
 	var summary: RunSummary = RunSummary.new()
-	summary.final_score = 76410
-	summary.best_score = 96520 if not new_best else 76410
-	summary.best_tile = 8192
-	summary.run_highest = 2048
+	summary.final_score = BigNum.from_int(76410)
+	summary.best_score = BigNum.from_int(96520 if not new_best else 76410)
+	summary.best_tile = 13
+	summary.run_highest = 11
 	summary.new_best_score = new_best
 	return summary
 
@@ -141,7 +141,7 @@ func test_end_panel_shows_the_run_highest_tile_and_new_best() -> void:
 	var panel: EndPanel = _end_panel(&"gumdrop", _summary(true))
 	assert_eq(panel.score_text(), "76,410", "final score")
 	assert_true(panel.shows_new_best(), "New best badge")
-	assert_eq(panel.tile_values(), PackedInt64Array([8192, 2048]), "Best Tile and this run's highest tile")
+	assert_eq(panel.tile_values(), PackedInt64Array([13, 11]), "Best Tile 8192 and this run's highest tile 2048")
 	assert_true(_has_text(panel, "New best"), "the badge text")
 	assert_true(_has_text(panel, "This run's highest tile"), "the row caption")
 
@@ -302,13 +302,14 @@ func test_settings_about_row_7_7() -> void:
 
 func test_offer_reads_for_free_while_a_free_booster_is_held() -> void:
 	# AT-135 (a): Board D1024, score 0, run highest 8192, 1 free booster held.
-	var session: GameSession = _offer_session(RunState.create(U.board_d1024(), 0, PackedInt64Array(), 0, 8192))
+	var session: GameSession = _offer_session(U.run(U.board_d1024(), 0, PackedInt64Array(), 0, 13))
 	assert_true(session.is_offer_open(), "the offer opens")
 	for skin_id: StringName in SkinCatalog.IDS:
 		var panel: OfferPanel = _offer_panel(skin_id, session)
 		assert_eq(panel.buy_button().text, SkinCatalog.get_skin(skin_id).cased(&"body", "Shuffle for free"), "%s: Shuffle for free" % skin_id)
-	assert_eq(Copy.buy(&"undo", 2048, true), "Undo for free", "any booster")
-	assert_eq(Copy.buy(&"undo", 2048, false), "Undo for 2K", "paid")
+	assert_eq(Copy.buy(&"undo", 11, true), "Undo for free", "any booster")
+	assert_eq(Copy.buy(&"undo", 11, false), "Undo for 2K", "paid: the cost is an exponent, 11 is 2K")
+	assert_eq(Copy.buy(&"shuffle", 69, false), "Shuffle for 512aa", "a lettered cost keeps its case")
 
 
 func test_settings_swatch_edge_only_when_it_matches_the_panel() -> void:
@@ -338,8 +339,8 @@ func _splash(skin_id: StringName, records: Records) -> SplashScreen:
 
 func test_splash() -> void:
 	var records: Records = Records.new()
-	records.best_score = 96520
-	records.best_tile = 8192
+	records.best_score = BigNum.from_int(96520)
+	records.best_tile = 13
 	var splash: SplashScreen = _splash(&"gumdrop", records)
 	splash.play_chosen.connect(_record.bind("play"))
 	splash.info_chosen.connect(_record.bind("info"))
@@ -394,12 +395,12 @@ func test_splash_arrangement_7_2() -> void:
 		assert_true((board.get_script() as Script).resource_path.contains(String(skin_id)), "%s: the skin's own board view" % skin_id)
 		assert_eq(int(board.get(&"columns")), 4, "%s: four cells" % skin_id)
 		assert_eq(int(board.get(&"rows")), 1, "%s: one row" % skin_id)
-		assert_eq(board.get(&"_cells"), PackedInt64Array([2, 2, 4, 8]), "%s: 2, 2, 4, 8" % skin_id)
+		assert_eq(board.get(&"_cells"), PackedInt64Array([1, 1, 2, 3]), "%s: 2, 2, 4, 8" % skin_id)
 		assert_eq((board.get(&"_chain") as Array).size(), 4, "%s: all four chained" % skin_id)
 		assert_near(board.custom_minimum_size.x, UiParts.chain_width(skin, 4, 144.0), 0.01, "%s: sized for 144 px tiles" % skin_id)
 		assert_eq(splash.sum_arrow().custom_minimum_size, Vector2(72.0, 72.0), "%s: the 72 px arrow" % skin_id)
 		assert_eq(splash.sum_result().custom_minimum_size, Vector2(144.0, 144.0), "%s: the 144 px result" % skin_id)
-		assert_eq(int(splash.sum_result().get(&"_value")), 16, "%s: the result 16" % skin_id)
+		assert_eq(int(splash.sum_result().get(&"_value")), 4, "%s: the result 16" % skin_id)
 		var row: HBoxContainer = board.get_parent() as HBoxContainer
 		assert_eq(row.alignment, BoxContainer.ALIGNMENT_BEGIN if skin_id == &"slate" else BoxContainer.ALIGNMENT_CENTER, "%s: Slate left aligns the row" % skin_id)
 		# The wordmark: the skin's drawn one, fitted to the row, never below
@@ -447,7 +448,7 @@ func test_splash_entrance() -> void:
 		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.BRAND_IN, "%s: no spawn before half of dialog_in" % skin_id)
 		splash.entrance_tween().custom_step(half * 0.2)
 		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.SPAWNING, "%s: the tiles spawn at half of dialog_in" % skin_id)
-		assert_eq(board.get(&"_cells"), PackedInt64Array([2, 2, 4, 8]), "%s: 2, 2, 4 and 8 come in" % skin_id)
+		assert_eq(board.get(&"_cells"), PackedInt64Array([1, 1, 2, 3]), "%s: 2, 2, 4 and 8 come in" % skin_id)
 		assert_true((board.get(&"_chain") as Array).is_empty(), "%s: still with no chain line" % skin_id)
 		splash.entrance_tween().custom_step(10.0)
 		assert_eq(splash.entrance_stage(), SplashScreen.Entrance.REST, "%s: the entrance ends" % skin_id)

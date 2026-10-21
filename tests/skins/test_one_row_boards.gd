@@ -8,7 +8,8 @@ extends "res://tests/base_test.gd"
 const CommonBoardView: GDScript = preload("res://src/skins/common/common_board_view.gd")
 const EXAMPLE_TILE: float = 112.0
 const NO_DRAG: Vector2 = Vector2(-1.0, -1.0)
-const VALUES: Array[int] = [2, 2, 4, 8, 16]
+## The example chain as exponents: 2, 2, 4, 8, 16.
+const VALUES: Array[int] = [1, 1, 2, 3, 4]
 const EPSILON: float = 0.01
 
 

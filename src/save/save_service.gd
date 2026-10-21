@@ -4,7 +4,9 @@ class_name SaveService extends RefCounted
 ## profile.json holds the settings and records and is kept forever. Both live
 ## in user://, or in a test folder inside user://.
 ##
-## Reading. A file over 64 KB is refused before any of it is read. A NUL byte
+## Reading. A file over 256 KB (MAX_BYTES) is refused before any of it is
+## read. A run at the score ceiling holds about 60 KB of digits, so every
+## valid file fits (docs/ARCHITECTURE.md section 17). A NUL byte
 ## (the UTF-8 decoder would silently stop there), any byte of 0x80 or above
 ## (SEC-05) or nesting deeper than _MAX_NESTING (our files nest 3 deep) is
 ## refused before parsing. Then Godot's JSON class parses the text into plain
@@ -12,7 +14,7 @@ class_name SaveService extends RefCounted
 ## into an object or code.
 ##
 ## The files are plain ASCII (SEC-05). Every key is a fixed ASCII name. Every
-## value is a bool, a small int, a string of ASCII digits (scores) or a skin
+## value is a bool, an int (exponents), a string of ASCII digits (scores) or a skin
 ## id of a to z and underscore (SaveCodec refuses anything else on load). The
 ## JSON writer adds only tabs, newlines, quotes and ASCII punctuation, and
 ## _encode refuses to write anything else. So a byte of 0x80 or above never
@@ -80,7 +82,7 @@ const RUN_FILE: String = "run.json"
 const PROFILE_FILE: String = "profile.json"
 const TEMP_SUFFIX: String = ".tmp"
 const BACKUP_SUFFIX: String = ".bak"
-const MAX_BYTES: int = 65536
+const MAX_BYTES: int = 262144    # 256 KB (AT-95 (k), ARCHITECTURE.md section 17)
 
 const _MAX_NESTING: int = 16    # our files nest 3 deep; a wrong typed field may add a little
 const _ROOT: String = "user://"

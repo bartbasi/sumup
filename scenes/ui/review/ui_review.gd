@@ -17,6 +17,10 @@ extends Control
 ##   end         the end of run panel with the New best badge
 ##   end_no_moves  the end of run panel after a run that ended at once with
 ##               nothing usable, so it says "No moves left."
+##   splash_long, end_long  the splash and the end of run with the longest
+##               numbers of a real run (DESIGN_SYSTEM.md 14): Best score
+##               "9,999,999,999zz", final score the same, Best tile and this
+##               run's highest tile 512aa (2^69)
 ##   confirm     the New game confirmation over Pause
 ##   first_launch  the real App on first launch with an empty save folder and
 ##               no simulated insets; prints where the brand block sits
@@ -66,7 +70,8 @@ const REPORT_AFTER_FRAMES: int = 4
 ## The capture tool's default simulated safe area (tools/capture.gd).
 const SAFE_INSETS: Vector2 = Vector2(120.0, 66.0)
 
-## The Phase 1 mock moments (tools/directions/shared/mock_state.gd).
+## The Phase 1 mock moments (tools/directions/shared/mock_state.gd), as tile
+## values; _board turns them into the exponents the game holds.
 const MID_GAME: Array[int] = [
 	2, 16, 4, 2, 8,
 	4, 1024, 64, 8, 2,
@@ -90,7 +95,10 @@ const NO_MOVES: Array[int] = [
 const SCORE: int = 41286
 const FINAL_SCORE: int = 76410
 const BEST_SCORE: int = 96520
-const BEST_TILE: int = 8192
+const BEST_TILE: int = 13    # 8192, as an exponent
+## The long pages: 2^69 reads "512aa", and 1,753 nines read "9,999,999,999zz".
+const LONG_TILE: int = 69
+const LONG_DIGITS: int = 1753
 ## The Best Score before the run on the end page, below its final score.
 const END_OLD_BEST: int = 70000
 ## A score below every cost on the no moves board (4096 is its highest tile).
@@ -107,7 +115,7 @@ var _skin: SkinData = null
 var _app: App = null
 var _folder: String = ""
 var _frames: int = 0
-var _best_score: int = BEST_SCORE
+var _best_score: BigNum = BigNum.from_int(BEST_SCORE)
 var _session: GameSession = null
 var _audio: AudioService = null
 ## The page's reading screen or dialog panel, for the measurements.
@@ -139,12 +147,15 @@ func _ready() -> void:
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 			get_tree().process_frame.connect(_time_info_open)
 			return
-		"splash", "splash_first":
+		"splash", "splash_first", "splash_long":
 			var splash: SplashScreen = SPLASH_SCENE.instantiate() as SplashScreen
 			add_child(splash)
 			var records: Records = _records()
 			if page == "splash_first":
 				records.best_tile = 0
+			elif page == "splash_long":
+				records.best_score = _long_score()
+				records.best_tile = LONG_TILE
 			splash.setup(_skin, records)
 			_shown = splash
 		"play":
@@ -174,17 +185,25 @@ func _ready() -> void:
 			config.cost_shift[&"shuffle"] = 2
 			config.cost_shift[&"undo"] = 2
 			_game(_board(NO_MOVES), 5000, config)
+		"end_long":
+			var summary: RunSummary = RunSummary.new()
+			summary.final_score = _long_score()
+			summary.best_score = _long_score()
+			summary.best_tile = LONG_TILE
+			summary.run_highest = LONG_TILE
+			summary.new_best_score = true
+			_show_end(summary)
 		"end":
 			# A run that beat the old Best Score, so the New best badge shows,
 			# ended from the offer with End run.
-			_best_score = END_OLD_BEST
+			_best_score = BigNum.from_int(END_OLD_BEST)
 			_game(_board(NO_MOVES), FINAL_SCORE, null)
 			_session.run_ended.connect(_show_end)
 			_session.end_run()
 		"end_no_moves":
 			# No valid move and nothing affordable: the run ends at once, and
 			# the panel says no moves were left (GDD 12.2 step 3, QA4-01).
-			_best_score = END_OLD_BEST
+			_best_score = BigNum.from_int(END_OLD_BEST)
 			var rng: RunRandom = RunRandom.new()
 			rng.set_seed(1)
 			_session = GameSession.new(null, rng, _records())
@@ -192,7 +211,7 @@ func _ready() -> void:
 			add_child(game)
 			game.setup(_session, Settings.new(), _audio, _skin)
 			_session.run_ended.connect(_show_end)
-			_session.resume(RunState.create(_board(NO_MOVES), NO_MOVES_SCORE))
+			_session.resume(RunState.create(_board(NO_MOVES), BigNum.from_int(NO_MOVES_SCORE)))
 			if _session.is_waiting_for_view():
 				_session.move_shown()
 		"confirm":
@@ -355,11 +374,16 @@ func _show_end(summary: RunSummary) -> void:
 	end.show_summary(summary)
 
 
+## The mock tile values as the exponents the game holds.
 func _board(values: Array[int]) -> PackedInt64Array:
 	var cells: PackedInt64Array = PackedInt64Array()
 	for value: int in values:
-		cells.append(value)
+		cells.append(SkinData.exponent_of(value))
 	return cells
+
+
+static func _long_score() -> BigNum:
+	return BigNum.parse("9".repeat(LONG_DIGITS), LONG_DIGITS)
 
 
 ## The play screen showing a resumed run: the board appears at once and the
@@ -372,7 +396,8 @@ func _game(cells: PackedInt64Array, score: int, config: GameConfig, run_highest:
 	add_child(game)
 	_game_screen = game
 	game.setup(_session, Settings.new(), _audio, _skin)
-	_session.resume(RunState.create(cells, score, PackedInt64Array(), 0, run_highest))
+	_session.resume(RunState.create(cells, BigNum.from_int(score), PackedInt64Array(), null, SkinData.exponent_of(run_highest) if run_highest > 0 else 0))
+
 	if _session.is_waiting_for_view():
 		_session.move_shown()
 

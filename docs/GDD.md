@@ -73,6 +73,7 @@ One line per designer decision. Bart signed off on D-01 to D-37 at Hard Stop 1. 
 - On 2026-10-14 Bart replaced the main menu with a splash screen that shows every time the app opens, with PLAY, INFO and ABOUT (D-47, section 15.4). It replaces his 2026-10-11 rule that reopening the app with a saved run goes straight back into the run. INFO is one full guide to the game and replaces How to play everywhere, Pause included (D-44 and section 21, rewritten). Every test that started from the main menu or relied on reopening straight into the run now goes through the splash. New tests AT-147 to AT-153. After QA's SPL-01, 15.1 also says which saved copy of the run loads (the last good copy of SEC-02, which Bart approved), with examples LG1 to LG4, and AT-154 tests it. D-44 and D-47 go to Bart for review through the DM, with one point to confirm: "every time the app opens" is read as every launch, not every return from the background (15.4).
 - On 2026-10-17 Bart incorporated as Play, Inc. The attribution in About now reads "Copyright 2026 Play, Inc." exactly (AT-141). "Made by Bart Basi" stays. The same day he added a Buy me a coffee button at the bottom of the splash and a support block with the same button in About (section 15.5). The button hands one fixed https address to the phone's browser; the game itself still sends and receives nothing. It holds no game rules, so it has no new D number; D-47 now lists it. New tests AT-155 to AT-158. The INFO guide (section 21) says nothing about being offline or collecting no data, so it stays accurate as written.
 - On 2026-10-21 Bart reached the 64 bit score limit in real play. His saved run had a score of 9,221,253,119,629,040,934 on a board of mostly 2^56 tiles. The smallest join on it (two 2^50) would score 2^51, which no longer fit under 2^63 minus 1, so every chain was refused while the joinable highlight still showed. The old D-37 had said only a hand edited save could come near the limit; that was wrong (D-37 explains why). Bart approved all the recommendations ("approve all recommendations"): the score is kept exactly with no 64 bit limit; tiles keep doubling past 2^62; a far ceiling remains only against tampered saves (MAX_EXPONENT 65535, MAX_SCORE_BITS 65600); long scores show at most 10 digits plus a letter (D-32); tile labels continue past T with Q and then a letter scheme (D-31). Rewritten: D-04, D-15, D-25, D-31, D-32, D-37, the 6.1 and 6.7 joining and highlight lists, 13.1 usability, 13.2 costs, 13.5 Shuffle's fallback, 13.6 Double's targets, 15.1 save ranges, sections 17 and 18. The save format does not change, and every earlier save loads unchanged, Bart's included. AT-143 and AT-144 now test the new ceiling; AT-85 to AT-88, AT-95, AT-117 and AT-56 are updated; AT-159 to AT-169 are new.
+- Also on 2026-10-21 Bart asked for the Buy me a coffee button on the play screen too, never in the way of play (section 15.5, placement in DESIGN_SYSTEM.md 7.15). It holds no game rules, so it has no D number. It shows only where the screen has spare room, hides while the offer, Pause, targeting, the new game confirmation or the end of run screen is open, and fires only on its own tap. AT-155 and AT-157 are updated; AT-170 and AT-171 are new.
 
 ### 1.2 Decisions highlighted for Hard Stop 1
 
@@ -1373,9 +1374,11 @@ Worked examples:
 | SP9 | The saved run file and its last good copy are both damaged, and there is no valid temp file. The player opens the app. | The splash, with the records kept. PLAY starts a new run (LG2). |
 | SP10 | On the splash with a saved run, the player taps Buy me a coffee, looks at the page, then switches back to the game. | The splash as they left it. PLAY opens the run unchanged (section 15.5). |
 
-### 15.5 Buy me a coffee (Bart, 2026-10-17)
+### 15.5 Buy me a coffee (Bart, 2026-10-17; play screen added 2026-10-21)
 
 Bart's decision (2026-10-17): a small, quiet "Buy me a coffee" button at the bottom of the splash, below Play, Info and About, and a support block with the same button in About. Tapping opens the address in the phone's browser; nothing else in the app touches the network. The GitHub address stays plain text. It holds no game rules, so it has no D number of its own.
+
+Bart's decision (2026-10-21): the same button on the play screen too, placed so it never gets in the way of play. This replaces the rule that it shows only on the splash and in About.
 
 Where it is:
 
@@ -1384,12 +1387,22 @@ Where it is:
   "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated."
 - The button reads "Buy me a coffee" in both places. The casing in each skin follows DESIGN_SYSTEM.md, like every other label.
 - The support block never pushes the attribution "Copyright 2026 Play, Inc." out of About's first screenful.
-- Nowhere else: not on the play screen, in Pause, on the out of moves offer, on the end of run screen, in Settings itself or in INFO.
-- It is drawn in every skin, in that skin's style. Its layout and look are DESIGN_SYSTEM.md's.
+- On the play screen (2026-10-21), by the rules below.
+- Nowhere else: not in Pause, on the out of moves offer, on the end of run screen, in Settings itself or in INFO.
+- It is drawn in every skin, in that skin's style. Its layout and look are DESIGN_SYSTEM.md's (7.15 for the play screen).
+
+On the play screen:
+
+- It goes only where the screen has room that nothing else uses. It never covers, moves or shrinks the board, the HUD or the booster bar. On a phone with no such room it is not shown at all: no smaller version, no icon. Where that room is, per skin and screen shape, is DESIGN_SYSTEM.md 7.15's.
+- It shows only on the plain play screen. It is hidden, not just covered, while any of these is open: the out of moves offer, Pause and anything opened from Pause, targeting (a booster is active), the new game confirmation, and the end of run screen. It comes back when they close. While hidden it reacts to nothing.
+- It stays visible during a drag and while a move is finishing on screen, but neither can set it off (next rule).
+- It reacts only to a tap on itself: a touch that went down on the button and came up on the button, without moving further than an ordinary tap allows. A touch that went down anywhere else never sets it off, even if it is lifted over the button. That covers a chain, a chain cancelled at 1 tile, a drag that left the board (D-06: lifting off the board commits the chain and does nothing else) and a targeting tap. A second finger is ignored while the first is on the board (D-08).
+- A tap is not a move. It plays no click (D-36), and it changes nothing in the run: board, score, Undo snapshot and cost, stars, free boosters, records and settings stay exactly as they were.
+- Going to the browser from the play screen is an ordinary switch away from the app, like the home button (6.5, 15.1, D-47). The saved run is the run as it was. Coming back, the player sees the play screen as they left it and the run goes on. If the system ended the app meanwhile, the return is a launch: the splash, and PLAY continues the saved run.
 
 What a tap does:
 
-- It hands one fixed https address, the Buy Me a Coffee page, to the phone's system, which opens it in the browser. Both buttons use the same address, written once in the code. Nothing is added to it: no run data, no device data, nothing from the player.
+- It hands one fixed https address, the Buy Me a Coffee page, to the phone's system, which opens it in the browser. Every button (splash, About, play screen) uses the same address, written once in the code. Nothing is added to it: no run data, no device data, nothing from the player.
 - The game itself still sends and receives nothing. It opens no connection, asks for no Android permission, and waits for no answer.
 - The "github.com/bartbasi/sumup" line in About stays plain text. Tapping it does nothing.
 - If the phone cannot open the address (for example no browser is installed), nothing happens: no message, and the screen stays as it was.
@@ -1401,7 +1414,7 @@ What it does not do:
 
 Coming back:
 
-- When the player returns to the app, they see the screen they left: the splash, or About with whatever it was opened over (the splash, or Settings from the splash or from Pause).
+- When the player returns to the app, they see the screen they left: the splash, About with whatever it was opened over (the splash, or Settings from the splash or from Pause), or the play screen.
 - If the system ended the app while the browser was open, the return is a launch, so the splash shows (D-47) and PLAY continues the saved run.
 
 Reasoning:
@@ -1420,6 +1433,11 @@ Worked examples:
 | BC4 | Same as BC2, but the system ended the app while the browser was open. | The return is a launch: the splash. PLAY opens the run at 12,400 as saved. |
 | BC5 | In About, the player taps the "github.com/bartbasi/sumup" line. | Nothing happens. No browser opens. |
 | BC6 | A phone with no browser. The player taps Buy me a coffee on the splash. | Nothing happens, no message. The splash stays. |
+| BC7 | During a run at score 12,400 with Undo enabled, on a phone with room for it, the player taps the play screen button, looks at the page, then returns. | The play screen as left: same board, score 12,400, Undo enabled at the same cost. Play goes on. |
+| BC8 | The player drags a chain and lifts the finger over the button. | The chain commits (or cancels, at 1 tile) as usual. The button does nothing and no browser opens. |
+| BC9 | The player taps Hammer to target a tile. | The button is hidden until targeting ends. |
+| BC10 | The out of moves offer opens. | The button is hidden. It comes back once a booster gives a valid move and the offer closes. |
+| BC11 | A 16:9 phone with no spare room on the play screen. | No button on the play screen. The splash and About still have theirs. |
 
 ## 16. Click sound triggers (D-36)
 
@@ -2165,19 +2183,22 @@ Expected:
 
 The attribution itself is tested in AT-141 (now "Copyright 2026 Play, Inc.") and the NOTICE text in AT-142.
 
-**AT-155. The button is on the splash and in About, in every skin.** Type: Play. Setup: 360 x 640 dp and 360 x 720 dp portrait screens. Action: for each skin (Gumdrop, Slate, Nova), select it in Settings, go to the splash, then open About from the splash and from Settings, and scroll About to the end. Expected:
+**AT-155. Where the button shows, in every skin.** Type: Both. Updated on 2026-10-21 for the play screen button. Setup: 360 x 640 dp and 360 x 720 dp portrait screens, plus the phone shapes DESIGN_SYSTEM.md 7.15 lists (Bart's Fold5 cover and inner screens included). Action: for each skin (Gumdrop, Slate, Nova), select it in Settings, go to the splash, then open About from the splash and from Settings, and scroll About to the end. Then start or continue a run and look at the play screen; then in turn open the out of moves offer, Pause, Settings and About from Pause, Hammer targeting, the new game confirmation and the end of run screen. Expected:
 - The splash shows PLAY, INFO and ABOUT in that order, then a "Buy me a coffee" button below them at the bottom. It is fully visible without scrolling and not clipped.
 - About shows the support block with its "Buy me a coffee" button, whether opened from the splash or from Settings.
 - "Copyright 2026 Play, Inc." is still in About's first screenful without scrolling.
-- The button appears nowhere else: not on the play screen, in Pause, on the out of moves offer, on the end of run screen, in Settings itself or in INFO.
+- On the plain play screen, the button is shown exactly where DESIGN_SYSTEM.md 7.15 says for that skin and screen shape, and is not shown where it says there is no room. Where shown, it does not cover, overlap, move or shrink the board, the HUD or the booster bar: they are in the same place and size as with the button left out.
+- On the play screen it is hidden while the out of moves offer, Pause, anything opened from Pause, targeting, the new game confirmation or the end of run screen is open, and tapping where it was does nothing. It shows again when each closes back to the plain play screen.
+- The button appears nowhere else: not in Pause, on the out of moves offer, on the end of run screen, in Settings itself or in INFO.
 - The button is drawn in the current skin's style in every case.
+- Unit (UI test of the play screen): for each of the hiding states above, the button is hidden and ignores a press and release on its rect; with none open, it is visible where shown at all.
 
 **AT-156. The About support text is exact.** Type: Both. Setup: none. Action: open About in each skin and read the support block. Expected:
 - The text reads exactly: "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated."
 - The button follows the text, in the same block.
 - Unit (TH22): the About text contains that sentence group exactly, character for character as written above. The "github.com/bartbasi/sumup" line is plain text with no link.
 
-**AT-157. Both buttons hand off one fixed https address and nothing else.** Type: Both. Setup: (Unit) the splash and About built with the hand off captured (TH24), so no browser opens. (Play) a phone with a browser. Action: (Unit) tap the splash button, then the About button, then each three times more. (Play) tap each button, then tap the GitHub line in About. Expected:
+**AT-157. Every button hands off one fixed https address and nothing else.** Type: Both. Updated on 2026-10-21 for the play screen button. Setup: (Unit) the splash, About and the play screen (on a screen shape where the button shows) built with the hand off captured (TH24), so no browser opens. (Play) a phone with a browser where the play screen button shows. Action: (Unit) tap the splash button, the About button and the play screen button, then each three times more. (Play) tap each button, then tap the GitHub line in About. Expected:
 - Unit: every tap makes exactly one hand off. Every hand off carries the same address, it starts with "https://", and it equals the one address constant in the code. No other network call is made, and the app asks for no permission.
 - Play: each button opens the Buy Me a Coffee page in the browser. The GitHub line opens nothing.
 - With no browser able to open it (Unit: the capture reports failure), nothing changes on screen and no message shows.
@@ -2286,7 +2307,30 @@ Expected:
 - (b), (d) and (e) are refused as in AT-95: the run is discarded, nothing crashes, and the profile is untouched.
 - (h) and (i) are refused as a broken profile is today (docs/ARCHITECTURE.md section 10), and nothing crashes.
 
-### 19.18 Coverage
+### 19.18 Added on 2026-10-21: Buy me a coffee on the play screen (section 15.5)
+
+AT-155 and AT-157 were updated for the play screen button too.
+
+**AT-170. The play screen button never fires from a drag that started elsewhere.** Type: Both. Setup: (Unit) the play screen on a screen shape where the button shows, with the hand off captured (TH24), on Board P, score 5,000. (Play) the same on a phone where the button shows. Action, in turn:
+- (a) Drag the chain (1,6), (2,6), (3,6), then slide off the board onto the button and lift there.
+- (b) Touch (2,7) alone (a 1 tile chain), slide onto the button and lift there.
+- (c) Tap Hammer, put a finger down on (0,0), slide onto the button and lift there.
+- (d) Start a chain with one finger and, while it is down, tap the button with a second finger; then lift the first finger on the board.
+- (e) Put a finger down on the button, move it well beyond a tap's movement (for example onto the board), and lift.
+- (f) Put a finger down on the HUD or the booster bar's empty space, slide onto the button and lift.
+- (g) Tap the button cleanly.
+
+Expected:
+- (a) to (f): no hand off and no browser. (a) the chain commits as usual (score 5,008, D-06). (b) the chain cancels and nothing changes. (c) nothing is hammered, nothing is charged, and Hammer stays active (D-43), and the button is hidden throughout. (d) the second finger does nothing, and the chain commits on the first finger's lift. (e) and (f) nothing happens.
+- (g): exactly one hand off.
+
+**AT-171. A tap on the play screen button during a run leaves the run and the save untouched.** Type: Both. Setup: a run in progress right after a chain, with Undo enabled, at least 3 stars and 1 free booster held, on a phone where the button shows. Note the board, score, records, run highest tile, stars, free boosters held, Undo cost, skin and sound. Copy the save files aside. Action, in turn: (a) tap the button, wait on the page 10 seconds, return to the app from recent apps; (b) as (a), but tap the button while a move is still finishing on screen (right after committing another chain; note the state after that chain instead); (c) as (a), but end the app from recent apps while the browser is open, then open it again and tap PLAY. Expected:
+- (a) and (b): the play screen as it was left, with no splash, and play goes on. The board, score, records, run highest tile, stars, free boosters held (every booster reads Free) and Undo cost are exactly as noted. Undo gives the board from before the last chain. Skin and sound are unchanged.
+- (c): the splash (a launch, D-47); PLAY shows the run exactly as noted.
+- The tap itself plays no click and changes nothing in the run.
+- Unit (TH18, TH24): after the captured tap and a simulated pause and resume, the run and profile read from the save equal, field by field, the ones from the copies set aside.
+
+### 19.19 Coverage
 
 | Decision or rule | Tests |
 |---|---|
@@ -2338,7 +2382,7 @@ Expected:
 | D-46 Free boosters | AT-43, AT-75, AT-84, AT-127 to AT-139, AT-143, AT-144 |
 | D-47 Splash screen | AT-44, AT-54, AT-95, AT-112, AT-147 to AT-155, AT-157, AT-158 |
 | About screen (no D number) | AT-140 to AT-142, AT-151, AT-155 to AT-158 |
-| Buy me a coffee (no D number, section 15.5) | AT-155 to AT-158 |
+| Buy me a coffee (no D number, section 15.5), play screen button added 2026-10-21 | AT-155 to AT-158, AT-170, AT-171 |
 | Confirmed: chain rules | AT-06 to AT-16 |
 | Confirmed: merge and after merge | AT-17, AT-26, AT-29 to AT-31 |
 | Confirmed: score, Best Score and Best Tile kept separately | AT-39 to AT-44 |
@@ -2407,7 +2451,7 @@ For the contract in docs/ARCHITECTURE.md. The rules model (core and boosters) mu
 | TH21 | Read the INFO content the screen shows: screen title, section titles, texts, example rows and result tiles. | ui | AT-116 |
 | TH22 | Read the About screen's text and each license text it shows. | ui | AT-141, AT-142, AT-156 |
 | TH23 | Hold back the save writer and release it, and read whether the board view has started showing the last move. | save, ui | AT-146 |
-| TH24 | Capture the address each Buy me a coffee button hands to the system instead of opening a browser, count the hand offs, and make the hand off report failure. | ui | AT-157 |
+| TH24 | Capture the address each Buy me a coffee button hands to the system instead of opening a browser, count the hand offs, and make the hand off report failure. | ui | AT-157, AT-170, AT-171 |
 
 ## 21. INFO guide (D-44)
 

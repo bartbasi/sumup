@@ -1,6 +1,6 @@
 # SumUp Design System
 
-Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5). The 2026-10-14 splash screen, the Info guide that replaces How to play, and the source code line on About are specified in place too; section 11 lists where. The 2026-10-17 copyright line ("Copyright 2026 Play, Inc.") and the Buy me a coffee button are specified in place too; section 13 lists where. The 2026-10-21 unlimited numbers (longer tile labels and scores, colors by exponent up to 2^65535) are specified in place too; section 14 lists where and gives the measurements.
+Owner: senior-graphic-designer. Status: Phase 3. The production review decisions are recorded in place. The 2026-10-13 additions (How to play, About, stars and free boosters, the SumUp wordmark) are specified in place too; section 10 lists where. They are built, and the production review of the builds (docs/design/briefs/additions-review.md) is recorded in place as well (10.5). The 2026-10-14 splash screen, the Info guide that replaces How to play, and the source code line on About are specified in place too; section 11 lists where. The 2026-10-17 copyright line ("Copyright 2026 Play, Inc.") and the Buy me a coffee button are specified in place too; section 13 lists where. The 2026-10-21 unlimited numbers (longer tile labels and scores, colors by exponent up to 2^65535) are specified in place too; section 14 lists where and gives the measurements. The 2026-10-21 Buy me a coffee button on the play screen is in 7.15.
 
 This document specifies every visual value of the three built in skins: **Gumdrop** (the default), **Slate** and **Nova**. By Bart's decision the tile-board-artist writes the SkinData resources (src/skins/<id>/<id>.tres) from it, the ui-motion-artist builds the Themes, icons and motion helpers from it, and the senior-graphic-designer reviews both. Nobody invents a value: if one is missing, ask.
 
@@ -595,6 +595,7 @@ A committed chain settles in about 0.75 s: travel 0.18, pop and clear 0.28, then
 **Clear notice (AT-104)**
 - A badge pill, `notice_height` tall, in badge with a badge_lip lip. It is centered horizontally on the board's top edge, overlapping the seam between HUD and board, so it never covers the rows the player works in.
 - Content: a mini tile (`notice_tile_scale` of `notice_height`) of each value the notice names with a `notice_strike` px badge_ink strike line across it, corner to corner from bottom left to top right, then the text in the body role, badge_ink. Padding `space_s` left and right, items `space_xs` apart. In every skin the strike runs the same way.
+- *Mini tile labels (2026-10-21, every skin):* a mini tile shows its label only when the label is 3 characters or fewer (for example 2, 512, 64K, 4aa). A longer label is not drawn: the tile is a color chip with its strike, because at this size a 4 to 6 character label is 2.6 to 4 dp tall and the strike runs through it (14.1). The text beside it always names the values.
 - Which values (GDD D-45): every value that left the spawn window in this move, from the floor before the move up to half the new floor, whether or not a tile of it was on the board. The notice shows when the move removed tiles or earned a star; a floor rise that removed nothing and earned nothing shows none.
 - Text: "No more 2s" for one value, "No more 2s or 4s" for two, "No more 2s to 8s" for three or more. Values use the tile label format ("No more 2Ks"). A value whose label ends in a lowercase letter takes no plural "s": "No more 64aa", "No more 128aa to 512aa" (7.10).
 - **Stars earned:** when the move earned stars, the copy is followed by `space_s`, then "+1" (the number of stars) in the same role and badge_ink, a gap of 0.25 of the role's font size, then the star icon (filled) in badge_ink, its box the role's font size, centered on the copy's cap middle. The pill widens to fit; its padding stays. The star earned effect leaves from this star.
@@ -1553,6 +1554,36 @@ One reading screen per license, opened from its About row. Title: "SumUp license
   - The page grows below what the player sees and the scroll indicator shrinks as it grows. That is accepted: it never jumps the visible text.
 - Reference: docs/design/additions/<skin>-license.png (Godot's view, whose text needs no file).
 
+### 7.15 Buy me a coffee on the play screen (2026-10-21)
+
+Bart asked for the Buy me a coffee button on the play screen too, never in the way of play. It goes only where the screen already has room that nothing uses; it never moves or shrinks the board, the HUD or the booster bar, and on a phone with no such room it is not shown.
+
+**The button.** The splash button exactly (7.2): the cup icon and "Buy me a coffee" in ink_muted, no face at rest, the RowButton pressed fill, `touch_min` tall, content plus `space_s` each side wide, the same tap rule and hand off, the same component (src/ui/coffee_button.gd). Its color pairs are the splash's (4.3, 5.3, 6.3: ink_muted on bg at rest, on surface_raised or surface pressed); the play screen's backdrop is the splash's, so nothing new. Icon and label, not the icon alone: a lone cup is easy to read as "take a break", while the label says what it does, and the quiet muted look already keeps it from competing with play.
+
+**Where, in this order** (worked out in GameScreen's layout, from the same rects it already places):
+1. *Below the board.* The board sits centered in the region between HUD and bar (2.3), so on tall phones there is equal slack above and below it, inside the `space_s` gaps. When the slack below the board is at least `touch_min`, the button goes there: centered horizontally in the content column, its touch area centered vertically in the slack. Its touch area is then at least `space_s` (20 to 28 px, 7 to 9 dp) from the board's rect and from the bar's rect, and the drawn content (about 46 px tall) sits well inside it. The slack above the board is never used: the merge preview (Gumdrop, Nova), the clear notice and the flying star live there.
+2. *Else, in the left side gutter.* On wide screens the content column leaves the backdrop on both sides (2.8). When the gutter (the safe area's left edge to the column's left edge) is at least the button's content width plus 2 x `space_s`, the button goes there: centered horizontally in the gutter and vertically on the booster bar's rect. It stays outside the column, so it can never overlap the board, the bar or the HUD.
+3. *Else it is not shown.* No smaller variant, no icon only, no shrinking of anything else.
+
+**Measured** (tools/coffee_space.gd, logical px; the system bars assumed as in 2.4: a 40 dp status bar and a 22 dp gesture bar, and 24 dp and a 48 dp button bar on 16:9):
+
+| Phone | Canvas | Slack below the board: Gumdrop, Slate, Nova | Side gutter | Result |
+|---|---|---|---|---|
+| 20:9, 1080 x 2400 at 3.0 (360 x 800 dp) | 1080 x 2400 | 19, 19, 58 | 0 | Not shown: the board fills the height, and 160 px would take tiles below 56 dp |
+| Fold5 cover, 904 x 2316 at 2.625 | 1080 x 2767 | 198, 199, 238 | 0 | Below the board in every skin; touch area 19 to 39 px clear of the board beyond the `space_s` gap |
+| Fold5 inner, 1812 x 2176 at 2.625 | 1999 x 2400 | 0, 0, 0 | 445, 445, 421 | In the left gutter in every skin. Content plus margins needs 436 (Gumdrop), 414 (Slate, Segoe UI; Roboto is narrower) and 419 (Nova): Nova fits by 2 px |
+| 16:9, 1080 x 1920 at 3.0, button bar | 1350 x 2400 | 0, 0, 0 | 149, 149, 125 | Not shown |
+
+The rule is checked at layout time, so other shapes fall out of it: a taller phone gets it below the board, a tablet in the gutter, everything else nothing. Phones with smaller system bars than assumed get a little more slack.
+
+**When it shows.** Only on the plain play screen. It is hidden (not just covered) while any of these is open: the out of moves offer, Pause and anything opened from it, targeting (a booster is active), the new game confirmation, the end of run screen. It comes back when they close. Showing and hiding fade on `screen_fade` (alpha only; it ignores input while hidden or fading out). It does not hide during a drag or a move animation: it cannot be reached from one (below).
+
+**Never the tail of a drag.** It reacts only to a touch that went down on it and came up on it, moving less than the 24 px deadzone. A touch that went down on the board (a chain, a cancelled chain, a targeting tap) and is released over the button never triggers it, and neither does a second finger while the first is on the board. Godot gives the release to the control that took the press, which already gives this; GameScreen's tests prove it.
+
+**Leaving the game.** A tap opens the address in the browser, which sends the app to the background like the home button: the run is saved and pauses as it already does on home (GDD 15.1). Nothing else changes.
+
+**Backdrop.** Its rect joins the backdrop's clear rects (Nova's star dust stays off it), like the HUD and the bar.
+
 ---
 
 ## 8. Hard Stop 1 review fixes
@@ -1814,7 +1845,7 @@ Every label of every kind fits inside `label_fit` with no clipping, on both scre
 |---|---|---|---|
 | Record row mini tiles: Best tile on the splash, Best tile and this run's highest tile on the end of run | 96 px (was 72) | digits 5.7 dp (Gumdrop), 4.9 (Slate), 5.4 (Nova) | Grown, so a 5 character record reads as large as a 4 character one did at 72 px. The rows stay `row_height` tall (144 to 148 px), so no layout moves |
 | Merge preview | `preview_scale` of the tile: 79, 105, 91 px | 4.5, 5.6, 4.9 dp | Kept. It is a glance during a drag, its color is the result's, and the result lands on the board at full size a moment later |
-| Clear notice mini tiles | `notice_tile_scale` of `notice_height`: 53, 56, 48 px | 3.1, 3.0, 2.6 dp | Kept. The notice's text names the same values in the body role ("No more 128aa to 512aa"); the mini tiles are color reminders |
+| Clear notice mini tiles | `notice_tile_scale` of `notice_height`: 53, 56, 48 px | 3.1, 3.0, 2.6 dp | Labels of 4 characters or more are not drawn (4.7; from the review of the build on 2026-10-21, where "128aa" was unreadable and the strike crossed it). The tile stays as a color chip with its strike; the notice's text names the same values in the body role ("No more 128aa to 512aa") |
 | Info example tiles | 112 px | not reached | The Info rows use fixed small values |
 | Booster costs (label role) | 34, 30, 32 px | widest 6 character cost "256mmm" 152, 150, 150 px | Fits the cost line's room (163, 158, 174 px) at full size; no shrink needed |
 | Out of moves buy button ("Shuffle for 512aa") | body role | at most two characters longer than today's longest ("Shuffle for 512T") | Fits; the button spans the column |
@@ -1850,7 +1881,7 @@ So every score of up to 15 characters fits every place at or above `display_fit_
 | Slate `display_fit_min` 76 | 5.4 |
 | Gumdrop's HUD Best pill fit | 4.7 |
 | Record row mini tiles 96 px | 7.9 |
-| The clear notice's plural | 4.7, 7.10 |
+| The clear notice's plural, its mini tiles without long labels | 4.7, 7.10 |
 | Colors by exponent | 3.3, 14.3 |
 
 ### 14.5 Who builds what
@@ -1858,6 +1889,6 @@ So every score of up to 15 characters fits every place at or above `display_fit_
 Brief: docs/design/briefs/unlimited-numbers.md.
 
 - **tile-board-artist (src/skins/, tests/skins/):** the skin methods by exponent (ARCHITECTURE.md 17) with the color rule of 3.3, value tokens compared by exponent (14.3), Slate `display_fit_min` 76, and the tests.
-- **ui-motion-artist (src/design/):** the count up of 2.6, Gumdrop's HUD Best pill fit (4.7), the clear notice plural (7.10), and the HUDs and booster bars on BigNum and exponents.
+- **ui-motion-artist (src/design/):** the count up of 2.6, Gumdrop's HUD Best pill fit (4.7), the clear notice plural (7.10) and its mini tiles without labels of 4 characters or more (4.7), and the HUDs and booster bars on BigNum and exponents.
 - **ui-systems-dev (src/ui/, tests/ui/):** record row mini tiles at 96 px (7.9) on the splash and the end of run.
 - **senior-graphic-designer:** tools/label_check.gd, ramp_check.gd and contrast_check.gd after each wave, and the review of the build.

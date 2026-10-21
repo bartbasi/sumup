@@ -61,14 +61,14 @@ func _half(text: String) -> String:
 
 func _profile_text(best_score: int) -> String:
 	var records: Records = Records.new()
-	records.best_score = best_score
+	records.best_score = BigNum.from_int(best_score)
 	return F.to_text(SaveCodec.profile_to_data(Settings.new(), records))
 
 
 func _loaded_best_score() -> int:
 	var records: Records = Records.new()
 	_service.load_profile(Settings.new(), records)
-	return records.best_score
+	return records.best_score.to_int()
 
 
 # Normal saves

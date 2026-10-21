@@ -49,7 +49,7 @@ func test_the_preferred_height_comes_from_the_view() -> void:
 
 func test_setup_shows_the_session_as_it_is() -> void:
 	var session: GameSession = GameSession.new()
-	session.resume(RunState.create(F.board_p(), 5000))
+	session.resume(RunState.create(F.board_p(), BigNum.from_int(5000)))
 	session.move_shown()
 	session.press_booster(BoosterRules.SWAP)
 	session.tap_cell(Vector2i(0, 0))
@@ -73,13 +73,13 @@ func test_a_board_with_no_audio_still_plays() -> void:
 	var board: StubBoardController = StubBoardController.new()
 	_nodes.append(board)
 	board.setup(session, SkinCatalog.get_skin(SkinCatalog.DEFAULT_ID), null)
-	session.resume(RunState.create(F.board_p(), 0))
+	session.resume(RunState.create(F.board_p(), BigNum.from_int(0)))
 	var at: Vector2 = BoardGeometry.cell_center(Vector2i(1, 6), BF.StubBoardView.ORIGIN, BF.StubBoardView.PITCH)
 	var to: Vector2 = BoardGeometry.cell_center(Vector2i(2, 6), BF.StubBoardView.ORIGIN, BF.StubBoardView.PITCH)
 	board._gui_input(BF.touch(0, at, true))
 	board._gui_input(BF.drag(0, to))
 	board._gui_input(BF.touch(0, to, false))
-	assert_eq(session.state.score, 4, "the chain commits without a click service")
+	assert_eq(session.state.score.to_int(), 4, "the chain commits without a click service")
 
 
 func test_a_second_setup_moves_the_board_to_the_new_session() -> void:
@@ -88,7 +88,7 @@ func test_a_second_setup_moves_the_board_to_the_new_session() -> void:
 	var new_session: GameSession = GameSession.new()
 	rig.board.setup(new_session, rig.skin, rig.audio)
 	rig.session = new_session
-	new_session.resume(RunState.create(F.board_all(4), 0))
+	new_session.resume(RunState.create(F.board_all(4), BigNum.from_int(0)))
 	assert_eq(rig.view().boards.back(), F.board_all(4), "the new session's board shows")
 	var shown: int = rig.view().boards.size()
 	old_session.start_new_run()

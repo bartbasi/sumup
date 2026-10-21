@@ -119,7 +119,7 @@ func test_with_no_gate_a_move_shows_at_once() -> void:
 
 func test_move_started_comes_once_for_every_kind_of_move() -> void:
 	rig = BF.rig(F.board_p(), 5000)
-	rig.session.resume(RunState.create(F.board_p(), 5000))
+	rig.session.resume(RunState.create(F.board_p(), BigNum.from_int(5000)))
 	assert_eq(rig.move_signals, PackedStringArray(["started", "finished"]), "a resume, which has no effect")
 	rig.forget()
 	rig.play(PAIR)
@@ -148,11 +148,11 @@ func test_a_closed_gate_holds_the_move() -> void:
 	_gated_rig(F.board_p(), 0)
 	assert_false(rig.board.is_waiting_for_save(), "nothing waits before a move")
 	rig.play(PAIR)
-	assert_eq(rig.session.state.score, 4, "the session resolved the move")
+	assert_eq(rig.score(), 4, "the session resolved the move")
 	_assert_held("after the lift")
 	assert_eq(_gate_calls, 0, "the gate is not read inside the lift")
 	assert_eq(rig.view().chain, [] as Array[Vector2i], "the chain line cleared at the lift, as without a gate")
-	assert_eq(rig.view().preview, 0, "and the preview")
+	assert_eq(rig.view_preview(), 0, "and the preview")
 	_deferred_check()
 	_assert_held("after the deferred check")
 	_frames(30)
@@ -227,7 +227,7 @@ func test_at_146_a_held_save_keeps_the_move_off_the_board() -> void:
 	rig.advance(FRAME)
 	assert_eq(rig.started, 1, "once the save lands, the move starts")
 	assert_eq(_effects(), PackedStringArray(["play_merge"]), "with its first effect")
-	assert_eq(rig.view().merges, [[PAIR, Vector2i(2, 6), 4]], "the merge of the pair")
+	assert_eq(rig.view().merges, [[PAIR, Vector2i(2, 6), F.e(4)]], "the merge of the pair")
 	rig.settle()
 	assert_eq(rig.view().boards, [after.cells] as Array[PackedInt64Array], "the move shows once and ends on the saved board")
 	assert_true(rig.session.state.equals(after), "nothing changed meanwhile")
@@ -239,7 +239,7 @@ func test_move_shown_reaches_the_session_only_after_the_view() -> void:
 	# A method, not a lambda: a lambda that reads rig holds this test, and the
 	# session's connection would then keep the test and the rig alive (QA6-09).
 	rig.session.offer_changed.connect(_on_offer_changed)
-	rig.session.resume(RunState.create(_dead_board(), 5000))
+	rig.session.resume(RunState.create(_dead_board(), BigNum.from_int(5000)))
 	_deferred_check()
 	_frames(3)
 	_assert_held("a resumed run")
@@ -309,7 +309,7 @@ func test_input_stays_closed_while_a_move_waits() -> void:
 	rig.advance(FRAME)
 	rig.settle()
 	rig.play([Vector2i(0, 7), Vector2i(1, 7)])
-	assert_eq(rig.session.state.score, 5000 + 4 + 16, "a fresh chain works once the move has shown")
+	assert_eq(rig.score(), 5000 + 4 + 16, "a fresh chain works once the move has shown")
 
 
 # Cancel paths while a move waits.
@@ -356,7 +356,7 @@ func test_a_skin_switch_while_a_move_waits_keeps_it_waiting() -> void:
 	assert_eq(rig.started + rig.finished, 0, "nothing started or finished")
 	_open = true
 	rig.advance(FRAME)
-	assert_eq(rig.view().merges, [[PAIR, Vector2i(2, 6), 4]], "the move plays on the new view")
+	assert_eq(rig.view().merges, [[PAIR, Vector2i(2, 6), F.e(4)]], "the move plays on the new view")
 	rig.settle()
 	assert_eq(rig.view().effects, PackedStringArray(["set_board", "play_merge", "play_fall", "play_spawn", "set_board"]), "once")
 	assert_true(rig.session.state.equals(after), "the board's values are kept")

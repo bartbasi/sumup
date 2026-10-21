@@ -125,17 +125,58 @@ static func fade(item: CanvasItem, skin: SkinData, to_alpha: float) -> Tween:
 	return tween
 
 
-## Counts a label from from_value up to to_value with score_count, formatted
-## with NumberFormat.score. It only changes the text: the HUD sizes the score
-## for its final value first (DESIGN_SYSTEM.md 2.6).
-static func count_up(label: Label, skin: SkinData, from_value: int, to_value: int) -> Tween:
-	label.text = NumberFormat.score(from_value)
+## Counts a label from from_value to to_value with score_count
+## (DESIGN_SYSTEM.md 2.6). It only changes the text: the HUD sizes the score
+## for its final value first. Both texts come from NumberFormat.score and are
+## split into their shown digits and their suffix (the trailing letters, maybe
+## none). With the same suffix, the shown digits count on score_count (at most
+## 10 digits, so a plain int), each step with commas and the suffix unchanged:
+## "9,221,253,119B" rolls to "9,223,504,919B". When the suffix changes the
+## final text shows at once, since a roll from "9,999,999,999" to
+## "10,000,000K" would read as the score falling. Either way it ends exactly
+## on NumberFormat.score(to_value).
+static func count_up(label: Label, skin: SkinData, from_value: BigNum, to_value: BigNum) -> Tween:
+	var final_text: String = NumberFormat.score(to_value)
+	var from_parts: PackedStringArray = split_score(NumberFormat.score(from_value))
+	var to_parts: PackedStringArray = split_score(final_text)
 	var tween: Tween = tween_for(label, skin, &"score_count")
-	tween.tween_method(_show_count.bind(label), float(from_value), float(to_value), skin.duration(&"score_count"))
-	# Land exactly on the final value, whatever the float steps did.
-	tween.tween_callback(_show_count.bind(float(to_value), label))
+	if from_parts[1] == to_parts[1]:
+		label.text = NumberFormat.score(from_value)
+		var suffix: String = to_parts[1]
+		tween.tween_method(_show_count.bind(suffix, label), float(from_parts[0].to_int()), float(to_parts[0].to_int()), skin.duration(&"score_count"))
+	else:
+		label.text = final_text
+	# Land exactly on the final text, whatever the float steps did.
+	tween.tween_callback(_show_text.bind(final_text, label))
 	_claim(label, _CHANNEL_COUNT, tween)
 	return tween
+
+
+## A score text from NumberFormat.score split into its shown digits, commas
+## removed, and its suffix (the trailing letters, "" for none):
+## "9,221,253,119B" gives "9221253119" and "B".
+static func split_score(text: String) -> PackedStringArray:
+	var cut: int = text.length()
+	while cut > 0:
+		var code: int = text.unicode_at(cut - 1)
+		if code >= 48 and code <= 57:
+			break
+		cut -= 1
+	return PackedStringArray([text.substr(0, cut).replace(",", ""), text.substr(cut)])
+
+
+## value with a comma every three digits: 9221253119 gives "9,221,253,119".
+## The one place the count formats its int (a negative value is never shown).
+static func grouped(value: int) -> String:
+	var digits: String = str(maxi(value, 0))
+	var out: String = ""
+	var count: int = 0
+	for position: int in range(digits.length() - 1, -1, -1):
+		if count > 0 and count % 3 == 0:
+			out = "," + out
+		out = digits[position] + out
+		count += 1
+	return out
 
 
 ## The target_pulse loop, or null when the skin holds still (duration 0,
@@ -184,8 +225,11 @@ static func stop_pulse(item: CanvasItem) -> void:
 	item.modulate.a = 1.0
 
 
-static func _show_count(value: float, label: Label) -> void:
-	var text: String = NumberFormat.score(roundi(value))
+static func _show_count(value: float, suffix: String, label: Label) -> void:
+	_show_text(grouped(roundi(value)) + suffix, label)
+
+
+static func _show_text(text: String, label: Label) -> void:
 	if label.text != text:
 		label.text = text
 

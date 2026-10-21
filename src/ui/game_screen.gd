@@ -48,7 +48,7 @@ var _notice_layer: Control = null
 var _preview: SkinTileView = null
 var _chain_context: String = ""
 var _chain_preview: int = 0
-var _shown_score: int = -1
+var _shown_score: BigNum = null    # null until a score is shown
 ## True from a chain's move_resolved to the status_changed that follows it.
 var _chain_points_pending: bool = false
 ## A status_changed came while the board held a move at the gate.
@@ -57,7 +57,7 @@ var _status_held: bool = false
 var _notice_held: MoveResult = null
 ## What the HUD, the bar and the offer show now, for a rebuild while a move
 ## is held: score, Best Score, booster statuses.
-var _shown_best: int = 0
+var _shown_best: BigNum = BigNum.zero()
 var _shown_statuses: Array[BoosterStatus] = []
 var _shown_stars: int = 0
 var _shown_free: int = 0
@@ -131,9 +131,10 @@ func offer_panel() -> OfferPanel:
 	return _offer
 
 
-## The score last given to the HUD (its final value, before any count up).
+## The score last given to the HUD (its final value, before any count up),
+## or null before the first.
 ## For tests.
-func shown_score() -> int:
+func shown_score() -> BigNum:
 	return _shown_score
 
 
@@ -178,14 +179,14 @@ func _build_skinned(skin: SkinData) -> void:
 	_offer.setup(skin)
 	_hud.set_notice_layer(_notice_layer)
 	_hud.set_stars(_shown_stars, _shown_free)
-	_shown_score = -1
+	_shown_score = null
 	_layout()
 
 
 ## Re-reads everything from the session, or, while the board holds a move at
 ## its gate, shows again what was shown at the lift.
 func _refresh() -> void:
-	if _held() and _shown_score >= 0:
+	if _held() and _shown_score != null:
 		_present(_shown_score, _shown_best, _shown_statuses, _shown_stars, _shown_free, false)
 	else:
 		_show_status(false)
@@ -208,7 +209,7 @@ func _show_status(count: bool) -> void:
 
 ## Shows a status: the scores and the star counter in the HUD (D-45, D-46),
 ## the statuses in the bar and the offer.
-func _present(score: int, best_score: int, statuses: Array[BoosterStatus], stars: int, free_held: int, count: bool) -> void:
+func _present(score: BigNum, best_score: BigNum, statuses: Array[BoosterStatus], stars: int, free_held: int, count: bool) -> void:
 	_hud.set_scores(score, best_score)
 	_hud.set_stars(stars, free_held)
 	_shown_stars = stars
@@ -216,8 +217,8 @@ func _present(score: int, best_score: int, statuses: Array[BoosterStatus], stars
 	# Count up only for the points a chain just added. Any other change shows
 	# at once; that call also replaces a count still running, so a stale count
 	# can never overwrite the score.
-	var from: int = score
-	if count and _chain_points_pending and _shown_score >= 0 and score > _shown_score:
+	var from: BigNum = score
+	if count and _chain_points_pending and _shown_score != null and score.compare(_shown_score) > 0:
 		from = _shown_score
 	_chain_points_pending = false
 	if is_inside_tree():
@@ -232,7 +233,7 @@ func _present(score: int, best_score: int, statuses: Array[BoosterStatus], stars
 
 func _set_offer_open(is_open: bool) -> void:
 	if is_open:
-		if _shown_score >= 0:
+		if _shown_score != null:
 			_offer.show_offer(_shown_statuses, _shown_score)
 		else:
 			_offer.show_offer(_session.booster_statuses(), _session.state.score)
@@ -287,7 +288,7 @@ func _on_run_started(_result: MoveResult) -> void:
 	if _held():
 		_status_held = true
 		return
-	_shown_score = -1
+	_shown_score = null
 	_show_status(false)
 
 

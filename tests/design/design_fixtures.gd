@@ -46,15 +46,16 @@ const PAGE: Dictionary[StringName, StringName] = {&"gumdrop": &"bg", &"slate": &
 ## snapshot.
 static func offer_statuses() -> Array[BoosterStatus]:
 	var statuses: Array[BoosterStatus] = []
-	statuses.append(status(&"hammer", 2048, true, BoosterStatus.Usability.USABLE, false, false))
-	statuses.append(status(&"swap", 2048, true, BoosterStatus.Usability.USABLE, true, false))
-	statuses.append(status(&"shuffle", 4096, true, BoosterStatus.Usability.USABLE, false, true))
-	statuses.append(status(&"double", 131072, false, BoosterStatus.Usability.CANNOT_AFFORD, false, false))
-	statuses.append(status(&"undo", 1024, false, BoosterStatus.Usability.NO_SNAPSHOT, false, false))
+	statuses.append(status(&"hammer", 11, true, BoosterStatus.Usability.USABLE, false, false))
+	statuses.append(status(&"swap", 11, true, BoosterStatus.Usability.USABLE, true, false))
+	statuses.append(status(&"shuffle", 12, true, BoosterStatus.Usability.USABLE, false, true))
+	statuses.append(status(&"double", 17, false, BoosterStatus.Usability.CANNOT_AFFORD, false, false))
+	statuses.append(status(&"undo", 10, false, BoosterStatus.Usability.NO_SNAPSHOT, false, false))
 	return statuses
 
 
-## Every booster usable, none active or suggested, all at cost.
+## Every booster usable, none active or suggested, all at cost (an exponent:
+## the price is 2^cost).
 static func plain_statuses(cost: int) -> Array[BoosterStatus]:
 	var statuses: Array[BoosterStatus] = []
 	for id: StringName in BOOSTERS:
@@ -69,7 +70,7 @@ static func free_statuses() -> Array[BoosterStatus]:
 	for i: int in BOOSTERS.size():
 		var usable: bool = i != 4
 		var reason: BoosterStatus.Usability = BoosterStatus.Usability.USABLE if usable else BoosterStatus.Usability.NO_SNAPSHOT
-		var made: BoosterStatus = status(BOOSTERS[i], 4096, usable, reason, i == 0, false)
+		var made: BoosterStatus = status(BOOSTERS[i], 12, usable, reason, i == 0, false)
 		made.free = true
 		statuses.append(made)
 	return statuses
@@ -85,6 +86,17 @@ static func controls_under(root: Node) -> Array[Control]:
 	return found
 
 
+## A score as a BigNum, from an int.
+static func big(value: int) -> BigNum:
+	return BigNum.from_int(value)
+
+
+## A score as a BigNum, from its decimal digits (any length).
+static func digits(text: String) -> BigNum:
+	return BigNum.parse(text, text.length())
+
+
+## cost is an exponent: the price is 2^cost.
 static func status(id: StringName, cost: int, usable: bool, reason: BoosterStatus.Usability, active: bool, suggested: bool) -> BoosterStatus:
 	var made: BoosterStatus = BoosterStatus.new()
 	made.id = id
@@ -124,7 +136,9 @@ static func face_color(skin: SkinData, style: StyleBox) -> Color:
 	return skin.color(PAGE[skin.id])
 
 
+## A text pair token as a color. "tile:<value>" names a tile value (65536);
+## the skin takes the tile's exponent.
 static func _resolve(skin: SkinData, token: String) -> Color:
 	if token.begins_with("tile:"):
-		return skin.fill_for(token.substr(5).to_int())
+		return skin.fill_for(SkinData.exponent_of(token.substr(5).to_int()))
 	return skin.color(StringName(token))
