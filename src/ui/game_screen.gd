@@ -22,12 +22,27 @@ class_name GameScreen extends Control
 ## status and the newest move's notice show at the board's next
 ## move_started. A held move that a newer one replaces gets no move_started of
 ## its own, so this keeps only the latest, never a count.
+##
+## The Buy me a coffee button (DESIGN_SYSTEM.md 7.15, GDD 15.5) sits in room
+## nothing else uses: below the board when the space between the board and
+## the bar holds touch_min plus space_s each side, else in the left gutter
+## beside the column when it is wide enough, else nowhere. It never moves or
+## shrinks anything else. It is hidden
+## while the offer, targeting or any App panel over this screen (Pause and
+## what opens from it, the new game confirmation, the end of run screen) is
+## open. It reacts only to a touch that went down and came up on it: Godot
+## sends a release to the control that took the press, and the board reads
+## real touches, so a drag from the board or a second finger never reaches it.
 
 signal pause_requested()
 
 const BOARD_SCENE: PackedScene = preload("res://scenes/board/board.tscn")
 const OFFER_SCENE: PackedScene = preload("res://scenes/ui/offer_panel.tscn")
 const Copy: GDScript = preload("res://src/ui/screen_copy.gd")
+const CoffeeButton: GDScript = preload("res://src/ui/coffee_button.gd")
+
+## Where the coffee button goes (7.15).
+enum CoffeePlace { NONE, BELOW_BOARD, GUTTER }
 
 const _NO_CELL: Vector2i = Vector2i(-1, -1)
 
@@ -61,6 +76,15 @@ var _shown_best: BigNum = BigNum.zero()
 var _shown_statuses: Array[BoosterStatus] = []
 var _shown_stars: int = 0
 var _shown_free: int = 0
+## The Buy me a coffee button (7.15), just above the backdrop, so it is under
+## the board, HUD, bar, offer and notice layer (it overlaps none of them).
+var _coffee: Control = null
+## Where the last layout put it.
+var _coffee_place: CoffeePlace = CoffeePlace.NONE
+## An App panel covers this screen (set_covered).
+var _covered: bool = false
+## The button shows, or fades in: placed and nothing hides it.
+var _coffee_shown: bool = false
 
 
 func _init() -> void:
@@ -89,6 +113,13 @@ func setup(session: GameSession, settings: Settings, audio: AudioService, skin: 
 	_offer.booster_chosen.connect(_on_booster_pressed)
 	_offer.end_run_chosen.connect(_on_end_run)
 	_offer.minimum_size_changed.connect(_layout)
+	_coffee = CoffeeButton.new()
+	_coffee.visible = false
+	_coffee.modulate.a = 0.0
+	_coffee.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_coffee)
+	# Its label measures once its theme reaches it: place it again then.
+	_coffee.minimum_size_changed.connect(_layout, CONNECT_DEFERRED)
 	_notice_layer = Control.new()
 	_notice_layer.name = "NoticeLayer"
 	_notice_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -148,6 +179,29 @@ func notice_layer() -> Control:
 	return _notice_layer
 
 
+## The Buy me a coffee button. For tests.
+func coffee_button() -> Control:
+	return _coffee
+
+
+## Where the last layout placed the coffee button. For tests.
+func coffee_place() -> CoffeePlace:
+	return _coffee_place
+
+
+## True while the coffee button shows (or fades in) and takes taps.
+func is_coffee_shown() -> bool:
+	return _coffee_shown
+
+
+## The App sets this while any of its panels is open over the play screen
+## (Pause and what opens from it, the new game confirmation, the end of run
+## screen): the coffee button hides until they all close.
+func set_covered(covered: bool) -> void:
+	_covered = covered
+	_update_coffee()
+
+
 func _build_skinned(skin: SkinData) -> void:
 	for old: Control in [_backdrop, _hud, _bar]:
 		if old != null:
@@ -159,6 +213,9 @@ func _build_skinned(skin: SkinData) -> void:
 	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_backdrop)
 	move_child(_backdrop, 0)
+	_coffee.call(&"setup", skin)
+	_coffee.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	move_child(_coffee, 1)
 	_hud = UiKit.make_hud(skin)
 	_hud.name = "Hud"
 	add_child(_hud)
@@ -240,6 +297,7 @@ func _set_offer_open(is_open: bool) -> void:
 	_offer.visible = is_open
 	_hud.visible = not is_open
 	_layout()
+	_update_coffee()
 
 
 ## The targeting hint goes to the bar (Gumdrop, Nova) and the HUD context row
@@ -272,6 +330,7 @@ func _on_status_changed() -> void:
 
 func _on_targeting_changed(_booster_id: StringName, _swap_first: Vector2i) -> void:
 	_show_context()
+	_update_coffee()
 
 
 ## Comes from move_shown(), once the move has been shown: never held.
@@ -365,19 +424,34 @@ func _layout() -> void:
 	if _skin == null or _hud == null or not is_inside_tree():
 		return
 	var screen: Rect2 = get_global_rect()
-	layout_in(screen, SafeArea.content_column(get_viewport(), _skin))
+	var safe: Rect2 = SafeArea.viewport_safe_rect(get_viewport())
+	layout_in(screen, SafeArea.column_in(safe, _skin), safe)
+
+
+## Keeps the backdrop's decoration off the bar, the HUD (or the offer) and
+## the coffee button's touch area while it shows.
+func _update_clear_rects() -> void:
+	if _backdrop == null or _bar == null or not is_inside_tree():
+		return
 	var clear: Array[Rect2] = [_bar.get_global_rect()]
 	clear.append(_offer.get_global_rect() if _offer.visible else _hud.get_global_rect())
+	if _coffee_shown:
+		var reach: float = _skin.num(&"space_s")
+		clear.append(_coffee.get_global_rect().grow_individual(reach, 0.0, reach, 0.0))
 	_backdrop.set_clear_rects(clear)
 
 
-## Lays the screen out for its own rect and the content column, both in the
-## same (global) coordinates: the HUD, the offer and the bar in the column,
-## the board centered in it. _layout calls it; tests call it with rects of
-## their own, since headless tests never enter the scene tree.
-func layout_in(screen: Rect2, column: Rect2) -> void:
+## Lays the screen out for its own rect, the content column and the safe
+## area, all in the same (global) coordinates: the HUD, the offer and the bar
+## in the column, the board centered in it, then the coffee button where
+## there is room (7.15). An empty safe rect counts as the column (no gutter).
+## _layout calls it; tests call it with rects of their own, since headless
+## tests never enter the scene tree.
+func layout_in(screen: Rect2, column: Rect2, safe: Rect2 = Rect2()) -> void:
 	if _skin == null or _hud == null:
 		return
+	if safe.size.x <= 0.0 or safe.size.y <= 0.0:
+		safe = column
 	var inner: Rect2 = Rect2(column.position - screen.position, column.size)
 	var margin: float = _skin.num(&"board_margin")
 	var gap: float = _skin.num(&"space_s")
@@ -407,6 +481,74 @@ func layout_in(screen: Rect2, column: Rect2) -> void:
 		height = _board.preferred_height(width)
 	_board.position = Vector2(inner.position.x + (inner.size.x - width) * 0.5, region_top + maxf(0.0, region_height - height) * 0.5)
 	_board.size = Vector2(width, height)
+	_place_coffee(inner, safe.position.x - screen.position.x)
+	_update_coffee()
+	_update_clear_rects()
+
+
+## DESIGN_SYSTEM.md 7.15, from the rects just placed. The touch area reaches
+## space_s past the button's content on each side (coffee_button.gd).
+## 1. Below the board when the space D from the board's bottom to the bar's
+##    top is at least touch_min plus 2 x space_s: centered in the column and
+##    vertically in D, so the gaps to the board and the bar are equal and at
+##    least space_s each.
+## 2. Else in the left gutter (the safe area's left edge to the column's)
+##    when it is at least the content width plus 2 x space_s: centered in
+##    the gutter and on the bar.
+## 3. Else nowhere. With the offer open this is not the plain play screen,
+##    so nowhere either (the button is hidden then anyway).
+func _place_coffee(inner: Rect2, safe_left: float) -> void:
+	_coffee_place = CoffeePlace.NONE
+	if _offer.visible:
+		return
+	var gap: float = _skin.num(&"space_s")
+	var button_size: Vector2 = _coffee.call(&"content_size")
+	_coffee.size = button_size
+	var board_bottom: float = _board.position.y + _board.size.y
+	var below: float = _bar.position.y - board_bottom
+	var gutter: float = inner.position.x - safe_left
+	if below >= button_size.y + 2.0 * gap:
+		_coffee_place = CoffeePlace.BELOW_BOARD
+		_coffee.position = Vector2(inner.position.x + (inner.size.x - button_size.x) * 0.5, board_bottom + (below - button_size.y) * 0.5)
+	elif gutter >= button_size.x + 2.0 * gap:
+		_coffee_place = CoffeePlace.GUTTER
+		_coffee.position = Vector2(safe_left + (gutter - button_size.x) * 0.5, _bar.position.y + (_bar.size.y - button_size.y) * 0.5)
+
+
+## Shows the coffee button when it has a place and nothing hides it, else
+## hides it. Inside the tree it fades on screen_fade. On hiding it ignores
+## touches at once and drops a press already on it, so no release counts.
+func _update_coffee() -> void:
+	if _coffee == null or _offer == null:
+		return
+	var targeting: bool = _session != null and _session.targeting_booster() != &""
+	var wanted: bool = _coffee_place != CoffeePlace.NONE and not _covered and not _offer.visible and not targeting
+	if wanted == _coffee_shown:
+		return
+	_coffee_shown = wanted
+	var animate: bool = is_inside_tree() and _skin != null
+	if wanted:
+		_coffee.visible = true
+		_coffee.mouse_filter = Control.MOUSE_FILTER_PASS
+		if animate:
+			_coffee.modulate.a = 0.0
+			Motion.fade(_coffee, _skin, 1.0)
+		else:
+			_coffee.modulate.a = 1.0
+	else:
+		_coffee.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_coffee.call(&"cancel_hold")
+		if animate and _coffee.visible:
+			Motion.fade(_coffee, _skin, 0.0).finished.connect(_end_coffee_fade)
+		else:
+			_coffee.visible = false
+			_coffee.modulate.a = 0.0
+	_update_clear_rects()
+
+
+func _end_coffee_fade() -> void:
+	if not _coffee_shown:
+		_coffee.visible = false
 
 
 ## The board width whose preferred height is height, at most width. A board's

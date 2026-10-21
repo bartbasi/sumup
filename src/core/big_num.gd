@@ -19,8 +19,21 @@ const _LOG2_10: float = 3.321928094887362
 ## caller from building a number that would take minutes.
 const _POW2_GUARD: int = 1 << 20
 ## pow2 keeps at most this many large powers, so repeated costs and points
-## on a board of huge tiles are worked out once.
+## on a board of huge tiles are worked out once. When it is full the oldest
+## entry goes, so a chain of many different exponents never empties it
+## (SEC-06).
 const _POW2_CACHE_SIZE: int = 64
+## pow2 builds 2^e from a cached power at most this many bits away, by
+## shifting it a few bits per pass, before it falls back to squaring. A
+## board's tiles and a huge score sit close together, so after the first
+## large power the others come from it in a few linear passes (SEC-06).
+const _POW2_NEAR: int = 300
+## Bits moved per shifting pass. A limb is below 10^9, under 2^30, so a limb
+## times 2^30 plus a carry stays far below 2^63.
+const _SHIFT_STEP: int = 30
+## Squaring splits numbers of at least this many limbs in two (Karatsuba),
+## which is much faster than schoolbook squaring for the largest powers.
+const _KARATSUBA_MIN: int = 96
 
 static var _pow2_cache: Dictionary[int, BigNum] = {}
 ## ASCII digits from start to end and nothing else (\z, unlike $, allows no final newline).
@@ -59,13 +72,23 @@ static func pow2(exponent: int) -> BigNum:
 		return from_int(1 << exponent)
 	if _pow2_cache.has(exponent):
 		return _pow2_cache[exponent]
-	# 2^e = (2^(e/2))^2, times 2 when e is odd.
-	var result: BigNum = pow2(exponent >> 1)._squared()
-	if exponent & 1 == 1:
-		result = result.add(result)
+	var result: BigNum = null
+	# The closest cached power within _POW2_NEAR bits, shifted to exponent.
+	var near: int = -1
+	for cached: int in _pow2_cache:
+		if absi(cached - exponent) <= _POW2_NEAR and (near < 0 or absi(cached - exponent) < absi(near - exponent)):
+			near = cached
+	if near >= 0:
+		result = _pow2_cache[near]._shifted(exponent - near)
+	else:
+		# 2^e = (2^(e/2))^2, times 2 when e is odd.
+		result = pow2(exponent >> 1)._squared()
+		if exponent & 1 == 1:
+			result = result.add(result)
 	result._bits = exponent + 1
 	if _pow2_cache.size() >= _POW2_CACHE_SIZE:
-		_pow2_cache.clear()
+		# Dictionaries keep insertion order, so the first key is the oldest.
+		_pow2_cache.erase(_pow2_cache.keys()[0])
 	_pow2_cache[exponent] = result
 	return result
 
@@ -214,11 +237,117 @@ static func _make(limbs: PackedInt64Array) -> BigNum:
 	return number
 
 
-## This number squared, by schoolbook multiplication. Only pow2 uses it.
+## This number times 2^bits, or divided by 2^-bits (rounded down) when bits
+## is negative. Linear passes of at most _SHIFT_STEP bits each, so a shift
+## by a few hundred bits costs a few passes. pow2 uses it to build a power
+## from a cached neighbour, where the division is always exact.
+func _shifted(bits: int) -> BigNum:
+	var result: BigNum = self
+	var rest: int = bits
+	while rest > 0:
+		var step: int = mini(rest, _SHIFT_STEP)
+		result = result._times_small(1 << step)
+		rest -= step
+	while rest < 0:
+		var step: int = mini(-rest, _SHIFT_STEP)
+		result = result._divided_small(1 << step)
+		rest += step
+	return result
+
+
+## This number times factor, for 0 < factor <= 2^30. Each limb times factor
+## is below 2^60, plus a carry below 2^31, so nothing overflows.
+func _times_small(factor: int) -> BigNum:
+	var limbs: PackedInt64Array = PackedInt64Array()
+	limbs.resize(_limbs.size())
+	var carry: int = 0
+	for position: int in _limbs.size():
+		var total: int = _limbs[position] * factor + carry
+		@warning_ignore("integer_division")
+		carry = total / _BASE
+		limbs[position] = total - carry * _BASE
+	while carry > 0:
+		limbs.append(carry % _BASE)
+		@warning_ignore("integer_division")
+		carry = carry / _BASE
+	return _make(limbs)
+
+
+## This number divided by divisor, rounded down, for 0 < divisor <= 2^30.
+## The remainder stays below divisor, so remainder times 10^9 plus a limb is
+## below 2^60.
+func _divided_small(divisor: int) -> BigNum:
+	var limbs: PackedInt64Array = PackedInt64Array()
+	limbs.resize(_limbs.size())
+	var remainder: int = 0
+	for position: int in range(_limbs.size() - 1, -1, -1):
+		var total: int = remainder * _BASE + _limbs[position]
+		@warning_ignore("integer_division")
+		var quotient: int = total / divisor
+		limbs[position] = quotient
+		remainder = total - quotient * divisor
+	return _make(limbs)
+
+
+## This number times other, by schoolbook multiplication: linear when other
+## has only a few limbs, which is how CoreRules builds a chain's points
+## (a small number times one power of two). Every total is below
+## 10^9 + (10^9 - 1)^2 + 10^9, so it fits in 64 bits. Internal to core.
+func _times(other: BigNum) -> BigNum:
+	if _limbs.is_empty() or other._limbs.is_empty():
+		return zero()
+	var mine: PackedInt64Array = _limbs
+	var theirs: PackedInt64Array = other._limbs
+	var limbs: PackedInt64Array = PackedInt64Array()
+	limbs.resize(mine.size() + theirs.size())
+	limbs.fill(0)
+	for j: int in theirs.size():
+		var factor: int = theirs[j]
+		if factor == 0:
+			continue
+		var carry: int = 0
+		for i: int in mine.size():
+			var total: int = limbs[i + j] + mine[i] * factor + carry
+			@warning_ignore("integer_division")
+			carry = total / _BASE
+			limbs[i + j] = total - carry * _BASE
+		limbs[j + mine.size()] = carry
+	return _make(limbs)
+
+
+## This number moved up by count whole limbs: times 10^(9 * count).
+func _limb_shifted(count: int) -> BigNum:
+	if _limbs.is_empty():
+		return self
+	var limbs: PackedInt64Array = PackedInt64Array()
+	limbs.resize(count)
+	limbs.fill(0)
+	limbs.append_array(_limbs)
+	return _make(limbs)
+
+
+## This number squared. Only pow2 uses it. Large numbers split in two halves,
+## low and high, and use (low + high)^2 - low^2 - high^2 = 2 * low * high,
+## so three half size squares replace four (Karatsuba). Small ones use
+## schoolbook squaring.
+func _squared() -> BigNum:
+	var count: int = _limbs.size()
+	if count < _KARATSUBA_MIN:
+		return _squared_schoolbook()
+	var half: int = count >> 1
+	var low: BigNum = _make(_limbs.slice(0, half))
+	var high: BigNum = _make(_limbs.slice(half))
+	var low_squared: BigNum = low._squared()
+	var high_squared: BigNum = high._squared()
+	var middle: BigNum = low.add(high)._squared().sub(low_squared).sub(high_squared)
+	return low_squared.add(middle._limb_shifted(half)).add(high_squared._limb_shifted(half * 2))
+
+
+## This number squared, by schoolbook multiplication.
 ## Each cross product a[i] * a[j] with i < j is added once, the total is
 ## doubled, then the squares a[i] * a[i] are added. Every intermediate total
 ## is below 10^9 + (10^9 - 1)^2 + 2 * 10^9, so it fits in 64 bits.
-func _squared() -> BigNum:
+func _squared_schoolbook() -> BigNum:
 	var count: int = _limbs.size()
 	if count == 0:
 		return zero()

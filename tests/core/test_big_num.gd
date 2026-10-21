@@ -229,3 +229,99 @@ func test_ceiling_sizes_are_quick() -> void:
 	for repeat: int in 100:
 		BigNum.pow2(65535)
 	assert_true(Time.get_ticks_usec() - start < 100000, "pow2(65535) is cached")
+
+
+# SEC-06: building large powers quickly
+
+## A random number of exactly limbs base 10^9 limbs, with some zero limbs
+## and some limbs at 10^9 - 1, the values most likely to break a carry.
+func _random_limbs(rng: RandomNumberGenerator, limbs: int) -> BigNum:
+	var text: String = str(rng.randi_range(1, 9))
+	for digit: int in limbs * 9 - 1:
+		var kind: int = rng.randi_range(0, 9)
+		text += "0" if kind == 0 else ("9" if kind == 1 else str(rng.randi_range(0, 9)))
+	return _n(text)
+
+
+## pow2 builds a power from a cached one up to 300 bits away by shifting.
+## Every such power equals the same power built by squaring from nothing.
+func test_sec_06_pow2_from_a_neighbour_matches_squaring() -> void:
+	for offset: int in [-300, -299, -61, -31, -30, -29, -1, 1, 29, 30, 31, 61, 299, 300, 301, 450]:
+		BigNum._pow2_cache.clear()
+		var squared: BigNum = BigNum.pow2(5000 + offset)
+		BigNum._pow2_cache.clear()
+		BigNum.pow2(5000)
+		var shifted: BigNum = BigNum.pow2(5000 + offset)
+		assert_true(shifted.equals(squared), "2^%d from 2^5000" % (5000 + offset))
+		assert_eq(shifted.bit_length(), 5001 + offset, "2^%d bit length" % (5000 + offset))
+	# The ceiling sizes against the reference digits, built from each other.
+	BigNum._pow2_cache.clear()
+	BigNum.pow2(65600)
+	assert_eq(BigNum.pow2(65535).to_decimal().md5_text(), POWERS[1][2], "2^65535 from 2^65600")
+	BigNum._pow2_cache.clear()
+	BigNum.pow2(65535)
+	assert_eq(BigNum.pow2(65600).to_decimal().md5_text(), POWERS[2][2], "2^65600 from 2^65535")
+
+
+## The cache drops its oldest entry when full, never everything at once, so
+## the power made last is still there.
+func test_sec_06_pow2_cache_drops_only_the_oldest() -> void:
+	BigNum._pow2_cache.clear()
+	for step: int in range(1, 81):
+		BigNum.pow2(step * 1000)
+		assert_true(BigNum._pow2_cache.size() <= 64, "at most 64 entries after 2^%d" % (step * 1000))
+		assert_true(BigNum._pow2_cache.has(step * 1000), "2^%d is kept" % (step * 1000))
+	assert_true(BigNum._pow2_cache.has(79000), "the one before is kept too")
+	assert_eq(BigNum.pow2(80000).bit_length(), 80001, "and is right")
+
+
+## Karatsuba squaring gives exactly what schoolbook squaring gives, on random
+## numbers either side of the split size and far above it.
+func test_sec_06_karatsuba_squaring_matches_schoolbook() -> void:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 606
+	for limbs: int in [1, 2, 47, 48, 49, 95, 96, 97, 150, 193, 400]:
+		var value: BigNum = _random_limbs(rng, limbs)
+		assert_true(value._squared().equals(value._squared_schoolbook()), "%d limbs squared" % limbs)
+	var nines: BigNum = BigNum.pow2(10000).sub(BigNum.from_int(1))
+	assert_true(nines._squared().equals(nines._squared_schoolbook()), "(2^10000 - 1) squared")
+
+
+## The internal multiply and shifts agree with each other and with squaring.
+func test_sec_06_multiply_and_shift_helpers() -> void:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 607
+	for trial: int in 40:
+		var a: BigNum = _random_limbs(rng, rng.randi_range(1, 60))
+		var b: BigNum = _random_limbs(rng, rng.randi_range(1, 4))
+		var bits: int = rng.randi_range(1, 30)
+		var factor: int = 1 << bits
+		assert_true(a._times_small(factor).equals(a._times(BigNum.from_int(factor))), "times 2^%d two ways" % bits)
+		assert_true(a._times_small(factor)._divided_small(factor).equals(a), "times then divided by 2^%d" % bits)
+		assert_true(a._shifted(bits * 3)._shifted(-bits * 3).equals(a), "shifted up and back by %d" % (bits * 3))
+		assert_true(a._times(b).equals(b._times(a)), "multiply either way round")
+		# (a + b)^2 = a^2 + 2ab + b^2
+		var left: BigNum = a.add(b)._squared_schoolbook()
+		var ab: BigNum = a._times(b)
+		var right: BigNum = a._squared_schoolbook().add(ab).add(ab).add(b._squared_schoolbook())
+		assert_true(left.equals(right), "(a + b)^2 trial %d" % trial)
+	assert_true(BigNum.from_int(7)._times(BigNum.zero()).is_zero(), "times zero")
+	assert_eq(BigNum.from_int(999999999)._times(BigNum.from_int(999999999)).to_decimal(), "999999998000000001", "one limb each")
+	assert_eq(BigNum.from_int(1000)._divided_small(8).to_int(), 125, "1000 / 8")
+	assert_eq(BigNum.from_int(1001)._divided_small(8).to_int(), 125, "rounded down")
+
+
+## The first large power of a session is built by squaring in well under
+## 400 ms on the development PC (about 50 ms), and every power near it then
+## comes from it in a few milliseconds.
+func test_sec_06_first_huge_power_and_its_neighbours_are_quick() -> void:
+	BigNum._pow2_cache.clear()
+	var start: int = Time.get_ticks_usec()
+	BigNum.pow2(65535)
+	var cold: int = Time.get_ticks_usec() - start
+	assert_true(cold < 400000, "the first 2^65535 took %d us" % cold)
+	for exponent: int in [65490, 65528, 65536, 65599, 65600]:
+		start = Time.get_ticks_usec()
+		BigNum.pow2(exponent)
+		var near: int = Time.get_ticks_usec() - start
+		assert_true(near < 100000, "2^%d next to it took %d us" % [exponent, near])

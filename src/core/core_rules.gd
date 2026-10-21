@@ -258,21 +258,53 @@ static func step_chain(cells: PackedInt64Array, score: BigNum, chain: Array[Vect
 
 ## The points of tiles with these exponents: the sum of 2^k. Every value must
 ## be positive and at most max_exponent. Internal to core: RunRules uses it.
+## Worked out as small times 2^lowest, where small is the sum of
+## 2^(k - lowest). A chain's exponents differ by at most its length, so small
+## has only a few limbs and the cost is one cached power and one linear pass,
+## even for tiles near the ceiling (SEC-06).
 static func _points_of(values: PackedInt64Array) -> BigNum:
-	var total: BigNum = BigNum.zero()
+	if values.is_empty():
+		return BigNum.zero()
+	var lowest: int = values[0]
 	for value: int in values:
-		total = total.add(BigNum.pow2(value))
-	return total
+		lowest = mini(lowest, value)
+	var small: BigNum = BigNum.zero()
+	for value: int in values:
+		small = small.add(BigNum.pow2(value - lowest))
+	return small._times(BigNum.pow2(lowest))
+
+
+## The headroom below the score ceiling: 2^limit - 1 - score, the largest
+## number of points that still fits, or null when the score is already at
+## 2^limit or above. The last answer is kept, keyed by the score object and
+## the limit. BigNum never changes, so the same object always gives the same
+## headroom, and a move check over many pairs works it out once (SEC-06).
+static var _room_score: BigNum = null
+static var _room_limit: int = -1
+static var _room: BigNum = null
+
+
+static func _headroom(score: BigNum, limit: int) -> BigNum:
+	if score != _room_score or limit != _room_limit:
+		var below: BigNum = BigNum.pow2(limit).sub(score)   # null when score is above 2^limit
+		_room = null if below == null or below.is_zero() else below.sub(BigNum.from_int(1))
+		_room_score = score
+		_room_limit = limit
+	return _room
 
 
 ## The one fit test (D-37, SEC-01, section 17) for tiles with these
 ## exponents: every value from 1 to max_exponent, the merge result at most max_exponent,
 ## and score plus the points below 2^max_score_bits. A null score is a
 ## programming error: it is reported and nothing fits.
-## The points are below 2^(merge + 1), so when the score and the points are
-## both below 2^(max_score_bits - 1) the sum fits without working it out.
-## Only a score that big, which only a tampered save can give, takes the exact
-## path. Internal to core: RunRules relies on it through is_valid_chain.
+## The points P lie between 2^merge and 2^(merge + 1) - 1. So when the score
+## and the points are both below 2^(max_score_bits - 1) the sum fits without
+## working anything out. Otherwise the sum fits exactly when P is at most
+## the headroom (see _headroom), and bit lengths decide that unless the
+## headroom has merge + 1 bits too; only then are the points worked out and
+## compared. Each path is exact, so every caller gets the same answer the
+## full sum would give (SEC-06). Internal to core: RunRules relies on it
+## through is_valid_chain.
 static func _chain_fits(values: PackedInt64Array, score: BigNum, config: GameConfig) -> bool:
 	for value: int in values:
 		if value <= 0 or value > config.max_exponent:
@@ -284,10 +316,15 @@ static func _chain_fits(values: PackedInt64Array, score: BigNum, config: GameCon
 		push_error("CoreRules: the fit test needs the run's score")
 		return false
 	var limit: int = config.max_score_bits
-	var start: BigNum = score
-	if start.bit_length() < limit and merge + 2 <= limit:
+	if score.bit_length() < limit and merge + 2 <= limit:
 		return true
-	return start.add(_points_of(values)).bit_length() <= limit
+	var room: BigNum = _headroom(score, limit)
+	if room == null:
+		return false
+	var room_bits: int = room.bit_length()
+	if room_bits != merge + 1:
+		return room_bits > merge + 1
+	return _points_of(values).compare(room) <= 0
 
 
 ## The bit length minus 1 of the sum of 2^k over values, all positive: a

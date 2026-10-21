@@ -6,7 +6,10 @@ extends Control
 ##               block's center as a share of the screen height and the
 ##               coffee button's rect
 ##   splash_first  the same with no best tile yet
-##   play        the play screen mid game
+##   play        the play screen mid game; prints where the coffee button
+##               went (DESIGN_SYSTEM.md 7.15). The Fold5 cover and inner
+##               pages set the insets of 7.15 and are captured at 1080x2767
+##               and 1999x2400
 ##   pause       Pause over the play screen
 ##   settings    Settings over the play screen
 ##   offer       the out of moves offer, Shuffle suggested
@@ -110,6 +113,9 @@ const NO_MOVES_SCORE: int = 1200
 ## When above 0, touch_min and button_height take this value on a copy of the
 ## skin, to measure the panels before QA6-05 (144) against now (160).
 @export var touch_px: float = 0.0
+## The simulated safe area: top and bottom insets in px. The Fold5 pages
+## use the insets of DESIGN_SYSTEM.md 7.15 (tools/coffee_space.gd).
+@export var insets: Vector2 = SAFE_INSETS
 
 var _skin: SkinData = null
 var _app: App = null
@@ -129,7 +135,7 @@ func _ready() -> void:
 	if page == "first_launch":
 		_first_launch()
 		return
-	SafeArea.simulated_insets = SAFE_INSETS
+	SafeArea.simulated_insets = insets
 	_skin = SkinCatalog.get_skin(skin_id)
 	if touch_px > 0.0:
 		_skin = _skin.duplicate(true) as SkinData
@@ -265,6 +271,12 @@ func _measure() -> void:
 	if page == "about" and _shown is AboutPanel:
 		var copyright: Rect2 = (_shown as AboutPanel).copyright_label().get_global_rect()
 		print("%s: the attribution ends %.0f px down the screen" % [tag, copyright.end.y])
+	if page == "play" and _game_screen != null:
+		var coffee: Control = _game_screen.coffee_button()
+		print("%s: coffee %s, shown %s, rect %s; board %s, bar %s, HUD %s" % [tag, GameScreen.CoffeePlace.keys()[_game_screen.coffee_place()], _game_screen.is_coffee_shown(), coffee.get_global_rect(), _game_screen.board().get_global_rect(), _game_screen.booster_bar().get_global_rect(), _game_screen.hud().get_global_rect()])
+	if page == "pause" and _shown is PausePanel:
+		var settings_button: Control = _shown.find_child("Settings", true, false) as Control
+		print("%s: pause coffee %s, Settings %s" % [tag, (_shown as PausePanel).coffee_button().get_global_rect(), settings_button.get_global_rect()])
 	if page.begins_with("offer") and _game_screen != null:
 		var offer: OfferPanel = _game_screen.offer_panel()
 		print("%s: offer panel %.0f px tall, buy button '%s'" % [tag, offer.size.y, offer.buy_button().text if offer.buy_button() != null else "none"])

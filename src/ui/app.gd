@@ -155,6 +155,7 @@ func _show_game() -> void:
 	_game.setup(session, settings, audio, skin)
 	_game.board().set_show_gate(save.is_idle)
 	_game.pause_requested.connect(open_pause)
+	_sync_cover()
 
 
 ## Shows the splash anew, with its entrance (launch and Home).
@@ -202,6 +203,7 @@ func _open_panel(scene: PackedScene) -> Control:
 	var panel: Control = scene.instantiate() as Control
 	_panel_layer.add_child(panel)
 	_panels.append(panel)
+	_sync_cover()
 	return panel
 
 
@@ -210,6 +212,14 @@ func _close_panel(panel: Control) -> void:
 		return
 	_panels.erase(panel)
 	panel.call(&"close")
+	_sync_cover()
+
+
+## The play screen's coffee button hides while any panel is open over it
+## (GDD 15.5, DESIGN_SYSTEM.md 7.15).
+func _sync_cover() -> void:
+	if _game != null:
+		_game.set_covered(not _panels.is_empty())
 
 
 func _close_all_panels() -> void:

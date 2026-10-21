@@ -89,6 +89,21 @@ func setup(skin: SkinData, title: String = Copy.COFFEE, _no_detail: String = "")
 	_apply_look()
 
 
+## The button's size where no container sizes it (the play screen, 7.15):
+## its minimum size, but never less wide than the icon, the gap and the label
+## measured in the skin's body font, and never less than touch_min tall. A
+## label measures nothing until its theme reaches it in the tree, so the
+## width is worked out from the font too and a layout before that is right.
+func content_size() -> Vector2:
+	var size_now: Vector2 = get_combined_minimum_size()
+	if _skin == null or _title == null:
+		return size_now
+	var font_px: int = _skin.font_size(&"body")
+	var text: float = UiParts.text_width(_skin, &"MutedLabel", _title.text, font_px)
+	var width: float = float(font_px) + float(roundi(ICON_GAP * float(font_px))) + text
+	return Vector2(maxf(size_now.x, width), maxf(size_now.y, _skin.num(&"touch_min")))
+
+
 ## The coffee icon. For tests.
 func icon() -> SkinIcon:
 	return _icon

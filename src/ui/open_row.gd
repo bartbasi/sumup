@@ -79,6 +79,12 @@ func is_held() -> bool:
 	return _down
 
 
+## Drops a press already on the row, so its release does nothing. For a
+## screen that hides the row while a finger may be on it.
+func cancel_hold() -> void:
+	_cancel()
+
+
 func _gui_input(event: InputEvent) -> void:
 	var button: InputEventMouseButton = event as InputEventMouseButton
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT:

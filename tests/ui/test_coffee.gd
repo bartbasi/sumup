@@ -343,7 +343,7 @@ func test_attribution_reads_play_inc() -> void:
 		assert_true(width <= 1080.0 - 2.0 * skin.num(&"board_margin") - 2.0 * skin.num(&"space_m"), "%s: one line at 1080 px (%d px)" % [skin_id, roundi(width)])
 
 
-func test_coffee_button_only_on_splash_and_about() -> void:
+func test_coffee_button_only_where_specified() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var app: App = _start(skin_id)
@@ -355,9 +355,12 @@ func test_coffee_button_only_on_splash_and_about() -> void:
 		U.stop_app(_app)
 		_app = U.start_app(_dir, _quits)
 		U.play(_app)
-		assert_true(_coffee_nodes(_app.game_screen()).is_empty(), "%s: not on the play screen" % skin_id)
+		# Since 2026-10-21 the play screen has one (shown only where 7.15 finds
+		# room, test_coffee_play_screen.gd) and Pause has one (7.3).
+		assert_eq(_coffee_nodes(_app.game_screen()).size(), 1, "%s: one on the play screen" % skin_id)
 		_app.open_pause()
-		assert_true(_coffee_nodes(_app.top_panel()).is_empty(), "%s: not in Pause" % skin_id)
+		assert_eq(_coffee_nodes(_app.top_panel()).size(), 1, "%s: one in Pause" % skin_id)
+		assert_false(_app.game_screen().is_coffee_shown(), "%s: the play screen's hidden behind Pause" % skin_id)
 		_app.open_settings()
 		assert_true(_coffee_nodes(_app.top_panel()).is_empty(), "%s: not in Settings over Pause" % skin_id)
 		var offer_session: GameSession = GameSession.new()
