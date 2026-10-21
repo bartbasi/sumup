@@ -120,6 +120,8 @@ func _assert_button(button: Control, skin: SkinData, label: String) -> void:
 		return
 	assert_eq(String(button.name), "Coffee", "%s: named Coffee" % label)
 	assert_true(button.get_script() == CoffeeButton, "%s: the one button script" % label)
+	assert_false(bool(button.call(&"is_stacked")), "%s: the one line form (QA21-05)" % label)
+	assert_eq((button.call(&"labels") as Array).size(), 1, "%s: one label" % label)
 	var text: Label = button.call(&"label") as Label
 	assert_eq(text.text, "Buy me a coffee", "%s: reads as written, never cased" % label)
 	assert_eq(text.theme_type_variation, &"MutedLabel", "%s: MutedLabel" % label)

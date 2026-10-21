@@ -12,4 +12,4 @@ grow_vertical = 2
 script = ExtResource("1_review")
 skin_id = &"gumdrop"
 page = "play"
-insets = Vector2(116, 64)
+insets = Vector2(94, 64)

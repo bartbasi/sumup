@@ -243,46 +243,183 @@ func test_random_play_with_free_boosters_held() -> void:
 	assert_true(tally["refused"] > 100, "refusals were really tried (%d)" % tally["refused"])
 
 
-## The rules model half of AT-168 (D-37) with the constants lowered (TH4):
-## MAX_EXPONENT 8 and MAX_SCORE_BITS 12, so tiles stop at 256 and the score
-## stays below 4,096. Each seed starts from a random score from 0 to 4,095.
-## At every step the move check, outcome() and the commit agree, no tile
-## passes 2^8, the score stays below 2^12 and never below zero, and a run
-## with no move is never left in play. The highlight half is a core test.
-func test_at_168_random_play_at_a_lowered_ceiling() -> void:
+## AT-168 seeds. The GDD allows at least 10 in the automated test; QA runs
+## 200 by hand. 500 actions each, as written.
+const AT_168_SEEDS: int = 10
+const AT_168_ACTIONS: int = 500
+const NEIGHBORS: Array[Vector2i] = [
+	Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1), Vector2i(-1, 0),
+	Vector2i(1, 0), Vector2i(-1, 1), Vector2i(0, 1), Vector2i(1, 1),
+]
+
+
+## AT-168 (D-04, D-37, D-40) with the constants lowered (TH4): MAX_EXPONENT 8
+## and MAX_SCORE_BITS 12, so tiles stop at 256 and the score stays below
+## 4,096. Each seed starts from a random score from 0 to 4,095; even seeds
+## start just below 4,095 so blocked boards come up. 500 actions per seed mix
+## drags (up to 15 finger moves onto touching cells, with backtracks, then a
+## lift) with all five boosters on random targets. The action right after an
+## accepted booster is always a drag. At every finger position every touching
+## tile not in the chain is tried on a copy: a highlighted tile joins and the
+## commit accepts the chain with it, any other tile does not join and the
+## commit refuses it. Every lift of 2 or more tiles is accepted. At every
+## action the move check, outcome() and the commit agree, no tile passes 2^8,
+## the score stays below 2^12 and never below zero, and a run with no move is
+## never left in play.
+func test_at_168_highlight_and_commit_agree_through_drags_and_boosters() -> void:
 	config.max_exponent = 8
 	config.max_score_bits = 12
 	var tally: Dictionary[String, int] = _new_tally()
+	var counts: Dictionary[String, int] = {
+		"neighbors": 0, "highlighted": 0, "lifts": 0, "short_lifts": 0,
+		"backtracks": 0, "after_booster": 0, "blocked": 0, "offers": 0, "ended": 0, "at_top": 0,
+	}
 	var result: Array[MoveResult] = []
-	var blocked: int = 0
-	var at_top: int = 0
-	for seed_value: int in range(1, 201):
+	var scratch: RunRandom = F.seeded(1)
+	var started: int = Time.get_ticks_msec()
+	for seed_value: int in range(1, AT_168_SEEDS + 1):
 		var rng: RunRandom = F.seeded(seed_value)
 		var pick: RandomNumberGenerator = RandomNumberGenerator.new()
 		pick.seed = seed_value * 3571
 		var records: Records = Records.new()
 		var fresh: RunState = RunRules.new_run(rng, records, config)
-		# Even seeds start just below the score ceiling, so blocked boards come up.
 		var start: int = pick.randi_range(0, 4095) if seed_value % 2 == 1 else 4095 - pick.randi_range(0, 63)
 		var state: RunState = RunState.create(fresh.cells, F.big(start))
+		records.update_from(state)
 		var valid: bool = CoreRules.has_valid_move(state.cells, state.score, config)
-		for action: int in 500:
+		var after_booster: bool = false
+		for action: int in AT_168_ACTIONS:
 			var problem: String = _move_check_problem(state, records)
-			if not valid:
-				blocked += 1
 			if state.highest() == config.max_exponent:
-				at_top += 1
-			if problem.is_empty() and not valid and BoosterRules.outcome(state, config) == BoosterRules.Outcome.END:
-				break
+				counts["at_top"] += 1
+			if problem.is_empty() and not valid:
+				counts["blocked"] += 1
+				if BoosterRules.outcome(state, config) == BoosterRules.Outcome.END:
+					counts["ended"] += 1
+					break
+				counts["offers"] += 1
 			if problem.is_empty():
-				problem = _random_action(state, records, rng, pick, valid, tally, result)
+				result.clear()
+				if after_booster or pick.randi_range(0, 1) == 0:
+					if after_booster:
+						counts["after_booster"] += 1
+					after_booster = false
+					problem = _drag(state, records, rng, scratch, pick, counts, result)
+				else:
+					var accepted_before: int = tally["accepted"]
+					# valid false makes _random_action call a booster, never a chain.
+					problem = _random_action(state, records, rng, pick, false, tally, result)
+					after_booster = tally["accepted"] > accepted_before
+			valid = CoreRules.has_valid_move(state.cells, state.score, config)
+			if problem.is_empty() and not result.is_empty() and result[0].accepted and result[0].has_valid_move != valid:
+				problem = "the move result says has_valid_move %s, the move check says %s" % [result[0].has_valid_move, valid]
 			if not problem.is_empty():
 				fail("seed %d, action %d: %s" % [seed_value, action, problem])
 				return
-			valid = result[0].has_valid_move
-	assert_true(tally["accepted"] > 1000, "boosters were really used (%d)" % tally["accepted"])
-	assert_true(blocked > 20, "boards with no move came up (%d)" % blocked)
-	assert_true(at_top > 100, "tiles reached the lowered ceiling (%d)" % at_top)
+	print("    AT-168: %d ms, %d seeds, %d neighbor checks (%d highlighted), %d lifts, %d short lifts, %d backtracks, %d accepted boosters, %d drags right after one, %d offers, %d ended, %d blocked steps, %d steps at 2^8" % [
+		Time.get_ticks_msec() - started, AT_168_SEEDS, counts["neighbors"], counts["highlighted"], counts["lifts"], counts["short_lifts"],
+		counts["backtracks"], tally["accepted"], counts["after_booster"], counts["offers"], counts["ended"],
+		counts["blocked"], counts["at_top"]])
+	assert_true(counts["neighbors"] > 50000, "plenty of neighbors tried (%d)" % counts["neighbors"])
+	assert_true(counts["highlighted"] > 5000, "plenty of highlighted tiles tried (%d)" % counts["highlighted"])
+	assert_true(counts["lifts"] > 500, "plenty of lifts (%d)" % counts["lifts"])
+	assert_true(counts["backtracks"] > 500, "plenty of backtracks (%d)" % counts["backtracks"])
+	assert_true(tally["accepted"] > 200, "boosters were really used (%d)" % tally["accepted"])
+	assert_true(counts["after_booster"] > 200, "drags right after a booster (%d)" % counts["after_booster"])
+	assert_true(counts["blocked"] > 0, "boards with no move came up (%d)" % counts["blocked"])
+	assert_true(counts["at_top"] > 0, "tiles reached the lowered ceiling (%d)" % counts["at_top"])
+
+
+## One drag for AT-168: the finger lands on a random tile (half the time one
+## the highlight would extend from), makes 1 to 15 moves onto touching cells
+## (half of them aimed at a highlighted tile when there is one, and a quarter
+## back onto the previous tile once the chain has 2), and lifts. The aiming
+## only makes chains long enough for the board to reach the ceiling. The highlight is checked at every finger
+## position, the last one included. A lift of 2 or more tiles must be
+## accepted. result receives the commit's result, if there was one.
+func _drag(state: RunState, records: Records, rng: RunRandom, scratch: RunRandom, pick: RandomNumberGenerator, counts: Dictionary[String, int], result: Array[MoveResult]) -> String:
+	var chain: Array[Vector2i] = []
+	var landing: Vector2i = Vector2i(pick.randi_range(0, config.columns - 1), pick.randi_range(0, config.rows - 1))
+	if pick.randi_range(0, 1) == 0:
+		landing = _tile_with_a_partner(state, pick, landing)
+	chain = CoreRules.step_chain(state.cells, state.score, chain, landing, config)
+	if chain.size() != 1:
+		return "the finger landed on %s and the chain is %s" % [landing, chain]
+	var moves: int = pick.randi_range(1, 15)
+	for move: int in moves + 1:
+		var problem: String = _highlight_problem(state, records, chain, scratch, counts)
+		if not problem.is_empty():
+			return "drag after %d finger moves, chain %s: %s" % [move, chain, problem]
+		if move == moves:
+			break
+		var target: Vector2i = chain[chain.size() - 1] + NEIGHBORS[pick.randi_range(0, NEIGHBORS.size() - 1)]
+		var shown: Array[Vector2i] = CoreRules.joinable_cells(state.cells, state.score, chain, config)
+		if not shown.is_empty() and pick.randi_range(0, 1) == 0:
+			target = shown[pick.randi_range(0, shown.size() - 1)]
+		if chain.size() >= 2 and pick.randi_range(0, 3) == 0:
+			target = chain[chain.size() - 2]
+			counts["backtracks"] += 1
+		chain = CoreRules.step_chain(state.cells, state.score, chain, target, config)
+	if chain.size() < 2:
+		counts["short_lifts"] += 1
+		return ""
+	var score_before: BigNum = state.score
+	var moved: MoveResult = RunRules.commit_chain(state, records, chain, rng, config)
+	result.append(moved)
+	if not moved.accepted:
+		return "the lift of %s, built only from highlighted tiles, was refused" % [chain]
+	counts["lifts"] += 1
+	if not state.score.equals(score_before.add(moved.points)):
+		return "a chain took the score from %s to %s, not adding its points %s" % [score_before.to_decimal(), state.score.to_decimal(), moved.points.to_decimal()]
+	return _board_problem(state, records)
+
+
+## The first tile from a random index on that has something highlighted
+## once the finger lands on it, or fallback when no tile has.
+func _tile_with_a_partner(state: RunState, pick: RandomNumberGenerator, fallback: Vector2i) -> Vector2i:
+	var size: int = state.cells.size()
+	var offset: int = pick.randi_range(0, size - 1)
+	for step: int in size:
+		var cell: Vector2i = CoreRules.cell_of((offset + step) % size, config.columns)
+		var alone: Array[Vector2i] = [cell]
+		if not CoreRules.joinable_cells(state.cells, state.score, alone, config).is_empty():
+			return cell
+	return fallback
+
+
+## AT-168 at one finger position: the highlight (CoreRules.joinable_cells,
+## what GameSession.joinable_cells hands the board) holds only touching tiles
+## not in the chain, and every touching tile not in the chain is tried on a
+## copy. Highlighted: the finger adds it and the commit accepts the chain with
+## it. Not highlighted: the finger leaves the chain as it is and the commit
+## refuses the chain with it.
+func _highlight_problem(state: RunState, records: Records, chain: Array[Vector2i], scratch: RunRandom, counts: Dictionary[String, int]) -> String:
+	var shown: Array[Vector2i] = CoreRules.joinable_cells(state.cells, state.score, chain, config)
+	var last: Vector2i = chain[chain.size() - 1]
+	for cell: Vector2i in shown:
+		if not CoreRules.in_bounds(cell, config) or not CoreRules.touching(last, cell) or chain.has(cell):
+			return "the highlight shows %s, not a touching tile outside the chain" % [cell]
+	for step: Vector2i in NEIGHBORS:
+		var cell: Vector2i = last + step
+		if not CoreRules.in_bounds(cell, config) or chain.has(cell):
+			continue
+		counts["neighbors"] += 1
+		var longer: Array[Vector2i] = chain.duplicate()
+		longer.append(cell)
+		var accepted: bool = RunRules.commit_chain(state.copy(), records.copy(), longer, scratch, config).accepted
+		var stepped: Array[Vector2i] = CoreRules.step_chain(state.cells, state.score, chain, cell, config)
+		if shown.has(cell):
+			counts["highlighted"] += 1
+			if not accepted:
+				return "%s is highlighted but the commit refuses the chain with it" % [cell]
+			if stepped != longer:
+				return "%s is highlighted but does not join when the finger reaches it" % [cell]
+		else:
+			if accepted:
+				return "%s is not highlighted but the commit accepts the chain with it" % [cell]
+			if stepped != chain:
+				return "%s is not highlighted but joins when the finger reaches it" % [cell]
+	return ""
 
 
 ## Random intents on GameSession, checking after each one that the flow state

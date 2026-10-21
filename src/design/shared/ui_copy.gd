@@ -26,6 +26,7 @@ const BOOSTER_NAMES: Dictionary[StringName, String] = {
 ## cased with the skin's rule for role. Only the words take the case rule: the
 ## values keep the tile label format exactly, so 2K never becomes 2k and 64aa
 ## never becomes 64AA (DESIGN_SYSTEM.md 2.5). The plural "s" after a value is
+## never cased, in any skin, so Slate reads "NO MORE 2Ks" (QA21-04). It is
 ## left out when its label ends in a lowercase letter: "No more 64Qs", but
 ## "No more 64aa" and "No more 128aa to 512aa" (7.10). "" for no values.
 static func clear_notice(skin: SkinData, role: StringName, values: PackedInt64Array) -> String:
@@ -69,8 +70,10 @@ static func booster_name(skin: SkinData, role: StringName, booster_id: StringNam
 
 
 ## The template with {a} and {b} replaced by the labels and every other part
-## cased. With plurals, the "s" right after a placeholder is dropped when the
-## label ends in a lowercase letter, since "1as" would read as the label 1as.
+## cased. With plurals, the "s" right after a placeholder belongs to the value
+## and is never cased: it is a literal lowercase "s", so Slate reads
+## "NO MORE 8Qs", not "8QS" (DESIGN_SYSTEM.md 7.10, QA21-04). It is dropped
+## when the label ends in a lowercase letter, since "1as" would read as 1as.
 static func _fill(skin: SkinData, role: StringName, template: String, a: String, b: String, plurals: bool = false) -> String:
 	var out: String = ""
 	var rest: String = template
@@ -85,8 +88,10 @@ static func _fill(skin: SkinData, role: StringName, template: String, a: String,
 		var value: String = a if key == "a" else b
 		out += value
 		rest = rest.substr(finish + 1)
-		if plurals and rest.begins_with("s") and _ends_lowercase(value):
+		if plurals and rest.begins_with("s"):
 			rest = rest.substr(1)
+			if not _ends_lowercase(value):
+				out += "s"
 	return out
 
 

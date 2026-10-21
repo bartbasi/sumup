@@ -866,8 +866,8 @@ A committed chain settles in about 0.45 s.
 
 **Clear notice (AT-104)**
 - It takes the HUD's context row for its hold time: a full width bar in badge.
-- Content: the values the notice names (4.7: every value that left the spawn window) as small tiles (`notice_tile_scale` of `notice_height`) with a `notice_strike` px badge_ink strike line, corner to corner from bottom left to top right, then the text in the label role, badge_ink, in capitals: "NO MORE 2S". Padding `space_m` on the left, items `space_xs` apart.
-- Stars earned: as 4.7, in the label role: "NO MORE 2S  +1" and the star, `space_s` after the copy.
+- Content: the values the notice names (4.7: every value that left the spawn window) as small tiles (`notice_tile_scale` of `notice_height`) with a `notice_strike` px badge_ink strike line, corner to corner from bottom left to top right, then the text in the label role, badge_ink, in capitals: "NO MORE 2s" (the words in capitals; the value and its plural "s" are never cased, 7.10). Padding `space_m` on the left, items `space_xs` apart.
+- Stars earned: as 4.7, in the label role: "NO MORE 2s  +1" and the star, `space_s` after the copy.
 - Motion: it cuts in and out with `clear_notice`, its own curve both ways.
 - While the context row is busy (a chain being dragged, or a targeting hint), the notice waits until the row is free. Its hold counts only while it shows.
 
@@ -1416,7 +1416,7 @@ These numbers are the same in every skin and are not tokens. The components hold
 
 | Where | Copy |
 |---|---|
-| Clear notice | "No more {v}s" / "No more {a}s or {b}s" / "No more {low}s to {high}s" (Slate in capitals, Nova lowercase, values never cased). The plural "s" follows a value only when its label ends in a digit or a capital: "No more 64Qs", but "No more 64aa" and "No more 128aa to 512aa", because an "s" after a lowercase suffix reads as one more suffix letter ("1as" would read as the label 1as) |
+| Clear notice | "No more {v}s" / "No more {a}s or {b}s" / "No more {low}s to {high}s" (Slate in capitals, Nova lowercase). Only the words are cased: a value and the plural "s" after it are never cased, in any skin (QA21-04, 2026-10-21). Slate reads "NO MORE 2s", "NO MORE 2Ks", "NO MORE 8Qs", "NO MORE 1024s OR 2Ks", "NO MORE 32Qs TO 128Qs"; a capital "S" against a capital suffix ("8QS") would read as a two letter suffix, which GDD 14.1 rules out. The plural "s" follows a value only when its label ends in a digit or a capital: "No more 64Qs", but "No more 64aa" and "No more 128aa to 512aa", because an "s" after a lowercase suffix reads as one more suffix letter ("1as" would read as the label 1as) |
 | Suggested badge | "Suggested" |
 | New best badge | "New best" |
 | Targeting hints | "Tap a tile to smash it" (Hammer), "Tap two tiles to swap them" (Swap), "Tap a tile to double it" (Double) |
@@ -1446,6 +1446,7 @@ These numbers are the same in every skin and are not tokens. The components hold
 | Godot parts | each copyright line as "Copyright {line}"; each license as "License: {name}" |
 | **2026-10-17 Buy me a coffee** | |
 | Splash and About button | "Buy me a coffee" (body role, as written in every skin) |
+| Play screen button in the side gutter (7.15, QA21-05) | two lines, "Buy me" over "a coffee" (body role, as written in every skin); below the board it is the one line "Buy me a coffee" |
 | About, section "Supporting SumUp" | heading "Supporting SumUp"; text, Bart's wording, exactly: "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated." |
 | License view, a file that cannot be read (missing, or not itself) | "This text could not be read in this copy of SumUp. Installing the game again should bring it back." In the reading role, in place of that file's paragraphs; the headings around it stay (approved as built, 2026-10-13 review) |
 
@@ -1564,21 +1565,35 @@ One reading screen per license, opened from its About row. Title: "SumUp license
 
 Bart asked for the Buy me a coffee button on the play screen too, never in the way of play. It goes only where the screen already has room that nothing uses; it never moves or shrinks the board, the HUD or the booster bar, and on a phone with no such room it is not shown.
 
-**The button.** The splash button exactly (7.2): the cup icon and "Buy me a coffee" in ink_muted, no face at rest, the RowButton pressed fill, `touch_min` tall, content plus `space_s` each side wide, the same tap rule and hand off, the same component (src/ui/coffee_button.gd). Its color pairs are the splash's (4.3, 5.3, 6.3: ink_muted on bg at rest, on surface_raised or surface pressed); the play screen's backdrop is the splash's, so nothing new. Icon and label, not the icon alone: a lone cup is easy to read as "take a break", while the label says what it does, and the quiet muted look already keeps it from competing with play.
+**The button.** The splash button exactly (7.2): the cup icon and "Buy me a coffee" in ink_muted, no face at rest, the RowButton pressed fill, `touch_min` tall, content plus `space_s` each side wide (this one line form goes below the board; the side gutter takes the stacked form below), the same tap rule and hand off, the same component (src/ui/coffee_button.gd). Its color pairs are the splash's (4.3, 5.3, 6.3: ink_muted on bg at rest, on surface_raised or surface pressed); the play screen's backdrop is the splash's, so nothing new. Icon and label, not the icon alone: a lone cup is easy to read as "take a break", while the label says what it does, and the quiet muted look already keeps it from competing with play.
 
 **Where, in this order** (worked out in GameScreen's layout, from the same rects it already places):
-1. *Below the board.* The board sits centered in the region between HUD and bar (2.3), so on tall phones there is room between the board's bottom and the bar's top. Call that space D (the slack below the board plus the `space_s` gap above the bar). When D is at least `touch_min` + 2 x `space_s`, the button goes there: centered horizontally in the content column, its touch area centered vertically in D, so it sits the same distance from the board and from the bar, at least `space_s` from each (on the Fold5 cover: 31 px Gumdrop, 29.5 Slate, 53 Nova, about 9 to 17 dp). The drawn content (about 46 px tall) then sits optically centered between the board and the bar. Revised 2026-10-21 after the first build, which centered it in the slack alone and left only 19 px to the board in Gumdrop and Slate: the board side matters most, since that is where a tap meant for the bottom row lands. The space above the board is never used: the merge preview (Gumdrop, Nova), the clear notice and the flying star live there.
-2. *Else, in the left side gutter.* On wide screens the content column leaves the backdrop on both sides (2.8). When the gutter (the safe area's left edge to the column's left edge) is at least the button's content width plus 2 x `space_s`, the button goes there: centered horizontally in the gutter and vertically on the booster bar's rect. It stays outside the column, so it can never overlap the board, the bar or the HUD.
-3. *Else it is not shown.* No smaller variant, no icon only, no shrinking of anything else.
+1. *Below the board.* The board sits centered in the region between HUD and bar (2.3), so on tall phones there is room between the board's bottom and the bar's top. Call that space D (the slack below the board plus the `space_s` gap above the bar). When D is at least `touch_min` + 2 x `space_s`, the button goes there, in its one line form: centered horizontally in the content column, its touch area centered vertically in D, so it sits the same distance from the board and from the bar, at least `space_s` from each. The drawn content (about 46 px tall) then sits optically centered between the board and the bar. Revised 2026-10-21 after the first build, which centered it in the slack alone and left only 19 px to the board in Gumdrop and Slate: the board side matters most, since that is where a tap meant for the bottom row lands. The space above the board is never used: the merge preview (Gumdrop, Nova), the clear notice and the flying star live there.
+2. *Else, in the left side gutter, stacked* (QA21-05, 2026-10-21). On wide screens the content column leaves the backdrop on both sides (2.8). In the gutter the button takes its stacked form, below. It goes there when the gutter (the safe area's left edge to the column's left edge) is at least the stacked touch width (content plus `space_s` each side) plus 2 x `space_m`, so its touch area is at least `space_m` (36, 40, 44 px) clear of the safe edge and of the column. It is centered horizontally in the gutter and vertically on the booster bar's rect. It stays outside the column, so it can never overlap the board, the bar or the HUD.
+3. *Else it is not shown.* No icon only form, no shrinking of anything else.
 
-**Measured** (tools/coffee_space.gd, logical px; the system bars assumed as in 2.4: a 40 dp status bar and a 22 dp gesture bar, and 24 dp and a 48 dp button bar on 16:9):
+**The stacked form (gutter only).** The one line button needed 414 to 436 px, so on the Fold5 inner screen it fit by only 2 to 31 px, and lost its place in Gumdrop and Nova once the gesture hint was hidden (QA21-05). Stacked, it needs about half the width. Same component, same look, colors, tap rule and hand off; only the content is arranged in a column, everything centered horizontally:
+- the cup icon, a square of the body role's font size, centered;
+- a gap of `roundi(0.25 x body font size)` (the 7.9 icon gap, now vertical);
+- "Buy me", then "a coffee" directly under it (two MutedLabels, body role, as written in every skin, each one line, centered, no extra spacing between them).
+- Width: the widest of the icon and the two lines; the touch area reaches `space_s` past it on both sides, like the one line form. Height: the content's height, never less than `touch_min`; the touch area is the full height. Measured (tools/coffee_space.gd): content 168 x 174 px (Gumdrop), 158 x 175 (Slate, Segoe UI; Roboto is narrower), 156 x 167 (Nova); touch areas 216, 198 and 212 px wide, all taller and wider than `touch_min`. Every bar is taller than the button (272, 192, 254 px), so centered on the bar it stays inside the bar's height.
+- The pressed fill covers the touch area, as in the one line form.
+- The form follows the place at every layout: stacked in the gutter, one line below the board (a fold or unfold can move it between the two).
 
-| Phone | Canvas | Slack below the board: Gumdrop, Slate, Nova | Side gutter | Result |
+**Measured** (tools/coffee_space.gd, logical px). Fold5 numbers read from Bart's phone by adb on 2026-10-21: inner screen 1812 x 2176 px, cover 904 x 2316 px, density 420 (2.625), the cover's camera cutout inset 85 px. The phone does not report the gesture hint's own inset, so it is taken as 22 dp (58 px), as in 2.4, and the inner screen's status inset as the cover's 85 px. "No insets" is the bound for every case with smaller bars, immersive mode included: a taller safe area only narrows the gutter (the column follows the safe area's height, 2.8), so this is the worst case the gutter can meet.
+
+| Phone and insets (physical px) | Canvas | D below the board: Gumdrop, Slate, Nova | Left gutter | Result |
 |---|---|---|---|---|
-| 20:9, 1080 x 2400 at 3.0 (360 x 800 dp) | 1080 x 2400 | 19, 19, 58 (D 43, 39, 86) | 0 | Not shown: the board fills the height, and 160 px would take tiles below 56 dp |
-| Fold5 cover, 904 x 2316 at 2.625 | 1080 x 2767 | 198, 199, 238 | 0 | Below the board in every skin: D is 222, 219 and 266 against 208, 200 and 216 needed; the touch area clears the board and the bar by 31, 29.5 and 53 px |
-| Fold5 inner, 1812 x 2176 at 2.625 | 1999 x 2400 | 0, 0, 0 | 445, 445, 421 | In the left gutter in every skin. Content plus margins needs 436 (Gumdrop), 414 (Slate, Segoe UI; Roboto is narrower) and 419 (Nova): Nova fits by 2 px |
-| 16:9, 1080 x 1920 at 3.0, button bar | 1350 x 2400 | 0, 0, 0 | 149, 149, 125 | Not shown |
+| 20:9, 1080 x 2400 at 3.0, status 40 dp, gesture 22 dp | 1080 x 2400 | 43, 39, 86 | 0 | Not shown: the board fills the height, and 160 px would take tiles below 56 dp. With no insets D is 136, 132, 179: still not shown |
+| Fold5 cover, top 85, gesture hint 58 | 1080 x 2767 | 234, 230, 277 | 0 | Below the board in every skin (208, 200, 216 needed); the touch area clears the board and the bar by 37, 35 and 59 px |
+| Fold5 cover, top 85, hint hidden | 1080 x 2767 | 269, 265, 312 | 0 | Below the board; 54, 52 and 76 px clear |
+| Fold5 inner, top 85, gesture hint 58 | 1999 x 2400 | 24, 20, 28 | 438, 438, 414 | In the gutter, stacked, in every skin (288, 278, 300 needed). Touch area 111, 120 and 101 px from the safe edge and from the column |
+| Fold5 inner, top 85, hint hidden | 1999 x 2400 | 24, 20, 28 | 418, 418, 394 | In the gutter, stacked; 101, 110 and 91 px clear |
+| Fold5 inner, no insets (the bound) | 1999 x 2400 | 24, 20, 28 | 389, 389, 365 | In the gutter, stacked; 87, 96 and 76 px clear |
+| Fold5 inner, top 85, taskbar 48 dp (126) | 1999 x 2400 | 24, 20, 28 | 462, 462, 437 | In the gutter, stacked; 123, 132 and 113 px clear |
+| 16:9, 1080 x 1920 at 3.0, status 24 dp, button bar 48 dp | 1350 x 2400 | 24, 20, 28 | 149, 149, 125 | Not shown |
+
+So on the Fold5 inner screen the button shows in every skin with the hint shown or hidden and with the taskbar, at least 76 px (26 dp) clear on both sides, and the gutter has 65 to 111 px to spare over the rule even in the bound case. The earlier one line figures (margins of 9, 31 and 2 px with a 40 dp status bar) are replaced.
 
 The rule is checked at layout time, so other shapes fall out of it: a taller phone gets it below the board, a tablet in the gutter, everything else nothing. Phones with smaller system bars than assumed get a little more slack.
 
@@ -1843,7 +1858,7 @@ Every label of every kind fits inside `label_fit` with no clipping, on both scre
 
 **This does not meet GDD 14.1 as written for every 4 character label.** GDD A-1 asks for 12 dp on labels of up to 4 characters, and the 4 character labels with letters (16aa to 64zz, 1aaa to 8zzz) reach only 9.8 to 11.9 dp at the worst pair "mm". The letters take the width the digits had. Meeting 12 dp would need a smaller label set or a larger tile, both outside this design. The recommendation, passed to the lead-game-designer through the DM: the 12 dp floor applies to labels with no suffix letters or one capital, which is every label up to 512Q, and labels with lowercase letters follow the 15% rule above. Until that is settled the label check holds the rule above.
 
-**Casing.** Suffix letters are lowercase in every skin, on tiles and in text, Slate's capitals and Nova's lowercase included (2.5). In Slate a value inside capitals reads "NO MORE 128aa TO 512aa"; the lowercase is what tells a letter suffix from a word, so it stays.
+**Casing.** Suffix letters are lowercase in every skin, on tiles and in text, Slate's capitals and Nova's lowercase included (2.5). In Slate a value inside capitals reads "NO MORE 128aa TO 512aa"; the lowercase is what tells a letter suffix from a word, so it stays. The plural "s" belongs to the value and is never cased either (QA21-04): "NO MORE 8Qs", "NO MORE 2Ks", "NO MORE 32Qs TO 128Qs", so a named suffix is always exactly one capital, as GDD 14.1 asks. The lowercase "s" is narrower than "S", so every Slate notice is as wide as before or narrower.
 
 **Where else a label shows:**
 
@@ -1888,6 +1903,7 @@ So every score of up to 15 characters fits every place at or above `display_fit_
 | Gumdrop's HUD Best pill fit | 4.7 |
 | Record row mini tiles 96 px | 7.9 |
 | The clear notice's plural, its mini tiles without long labels | 4.7, 7.10 |
+| The plural "s" never cased, Slate included (QA21-04) | 5.7, 7.10, 14.1 |
 | Colors by exponent | 3.3, 14.3 |
 
 ### 14.5 Who builds what

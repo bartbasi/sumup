@@ -15,13 +15,18 @@ const Copy := preload("res://src/ui/screen_copy.gd")
 const CoffeeButton := preload("res://src/ui/coffee_button.gd")
 
 ## Phones of DESIGN_SYSTEM.md 7.15 as tools/coffee_space.gd works them out:
-## physical px, density, status bar dp, bottom bar dp, and where the button
-## goes in every skin.
+## physical px, density, the status inset and the bottom inset in physical
+## px (the Fold5 numbers read from Bart's phone), and where the button goes
+## in every skin. The first four keep their order, so COVER and INNER keep
+## their indexes.
 const PHONES: Array[Dictionary] = [
-	{"name": "20:9 1080 x 2400", "px": Vector2(1080, 2400), "density": 3.0, "top_dp": 40.0, "bottom_dp": 22.0, "place": GameScreen.CoffeePlace.NONE},
-	{"name": "Fold5 cover", "px": Vector2(904, 2316), "density": 2.625, "top_dp": 40.0, "bottom_dp": 22.0, "place": GameScreen.CoffeePlace.BELOW_BOARD},
-	{"name": "Fold5 inner", "px": Vector2(1812, 2176), "density": 2.625, "top_dp": 40.0, "bottom_dp": 22.0, "place": GameScreen.CoffeePlace.GUTTER},
-	{"name": "16:9 with button bar", "px": Vector2(1080, 1920), "density": 3.0, "top_dp": 24.0, "bottom_dp": 48.0, "place": GameScreen.CoffeePlace.NONE},
+	{"name": "20:9 1080 x 2400", "px": Vector2(1080, 2400), "density": 3.0, "top_px": 120.0, "bottom_px": 66.0, "place": GameScreen.CoffeePlace.NONE},
+	{"name": "Fold5 cover, hint shown", "px": Vector2(904, 2316), "density": 2.625, "top_px": 85.0, "bottom_px": 58.0, "place": GameScreen.CoffeePlace.BELOW_BOARD},
+	{"name": "Fold5 inner, hint shown", "px": Vector2(1812, 2176), "density": 2.625, "top_px": 85.0, "bottom_px": 58.0, "place": GameScreen.CoffeePlace.GUTTER},
+	{"name": "16:9 with button bar", "px": Vector2(1080, 1920), "density": 3.0, "top_px": 72.0, "bottom_px": 144.0, "place": GameScreen.CoffeePlace.NONE},
+	{"name": "Fold5 cover, hint hidden", "px": Vector2(904, 2316), "density": 2.625, "top_px": 85.0, "bottom_px": 0.0, "place": GameScreen.CoffeePlace.BELOW_BOARD},
+	{"name": "Fold5 inner, hint hidden", "px": Vector2(1812, 2176), "density": 2.625, "top_px": 85.0, "bottom_px": 0.0, "place": GameScreen.CoffeePlace.GUTTER},
+	{"name": "Fold5 inner, no insets", "px": Vector2(1812, 2176), "density": 2.625, "top_px": 0.0, "bottom_px": 0.0, "place": GameScreen.CoffeePlace.GUTTER},
 ]
 const COVER: int = 1
 const INNER: int = 2
@@ -203,9 +208,9 @@ func _canvas(phone: Dictionary) -> Vector2:
 func _safe(phone: Dictionary) -> Rect2:
 	var px: Vector2 = phone["px"]
 	var canvas: Vector2 = _canvas(phone)
-	var per_dp: float = float(phone["density"]) * canvas.x / px.x
-	var top: float = float(phone["top_dp"]) * per_dp
-	var bottom: float = float(phone["bottom_dp"]) * per_dp
+	var per_px: float = canvas.x / px.x
+	var top: float = float(phone["top_px"]) * per_px
+	var bottom: float = float(phone["bottom_px"]) * per_px
 	return Rect2(0.0, top, canvas.x, canvas.y - top - bottom)
 
 
@@ -321,7 +326,7 @@ func _layout_before(game: GameScreen, phone: Dictionary) -> Dictionary:
 
 # AT-155: placement.
 
-func test_at_155_placement_on_the_four_phones_in_every_skin() -> void:
+func test_at_155_placement_on_every_phone_in_every_skin() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var skin: SkinData = SkinCatalog.get_skin(skin_id)
 		var gap: float = skin.num(&"space_s")
@@ -353,7 +358,6 @@ func test_at_155_placement_on_the_four_phones_in_every_skin() -> void:
 			assert_true(coffee.get_index() == 1 and game.get_child(0).name == &"Backdrop", "%s: just above the backdrop" % label)
 			assert_true(coffee.get_index() < game.offer_panel().get_index() and coffee.get_index() < game.notice_layer().get_index(), "%s: under the offer and the notice layer" % label)
 			var touch: Rect2 = _touch_rect(game, game)
-			assert_near(touch.size.y, skin.num(&"touch_min"), 0.01, "%s: touch_min tall" % label)
 			assert_false(touch.intersects(board), "%s: off the board" % label)
 			assert_false(touch.intersects(bar), "%s: off the bar" % label)
 			assert_false(touch.intersects(hud), "%s: off the HUD" % label)
@@ -362,7 +366,12 @@ func test_at_155_placement_on_the_four_phones_in_every_skin() -> void:
 				var space: float = bar.position.y - board.end.y
 				var to_board: float = touch.position.y - board.end.y
 				var to_bar: float = bar.position.y - touch.end.y
-				var expected_gap: Dictionary[StringName, float] = {&"gumdrop": 31.0, &"slate": 29.5, &"nova": 53.0}
+				var hint_hidden: bool = float(phone["bottom_px"]) == 0.0
+				var expected_gap: Dictionary[StringName, float] = {&"gumdrop": 37.1, &"slate": 35.2, &"nova": 58.7}
+				if hint_hidden:
+					expected_gap = {&"gumdrop": 54.4, &"slate": 52.5, &"nova": 76.0}
+				assert_false(bool(coffee.call(&"is_stacked")), "%s: the one line form" % label)
+				assert_near(touch.size.y, skin.num(&"touch_min"), 0.01, "%s: touch_min tall" % label)
 				assert_true(space >= skin.num(&"touch_min") + 2.0 * gap, "%s: room for touch_min plus space_s each side" % label)
 				assert_true(touch.position.y >= board.end.y + gap - 0.01, "%s: at least space_s below the board" % label)
 				assert_true(touch.end.y <= bar.position.y - gap + 0.01, "%s: at least space_s above the bar" % label)
@@ -371,6 +380,10 @@ func test_at_155_placement_on_the_four_phones_in_every_skin() -> void:
 				assert_near(touch.get_center().x, column.get_center().x, 0.01, "%s: centered in the column" % label)
 				print("  %s: below the board, %d px from board to bar, gaps %.1f and %.1f px (space_s %d)" % [label, roundi(space), to_board, to_bar, roundi(gap)])
 			else:
+				assert_true(bool(coffee.call(&"is_stacked")), "%s: the stacked form" % label)
+				assert_true(touch.size.y >= skin.num(&"touch_min"), "%s: at least touch_min tall" % label)
+				assert_near(touch.size.y, coffee.size.y, 0.01, "%s: the touch area is the button's full height" % label)
+				assert_true(touch.size.x >= skin.num(&"touch_min"), "%s: at least touch_min wide" % label)
 				assert_true(touch.end.x <= column.position.x, "%s: entirely left of the column" % label)
 				assert_true(touch.position.x >= safe.position.x, "%s: right of the safe area's edge" % label)
 				assert_near(touch.get_center().x, (safe.position.x + column.position.x) * 0.5, 0.01, "%s: centered in the gutter" % label)
@@ -381,12 +394,13 @@ func test_at_155_placement_on_the_four_phones_in_every_skin() -> void:
 func test_placement_follows_a_live_resize() -> void:
 	for skin_id: StringName in SkinCatalog.IDS:
 		var game: GameScreen = _game(skin_id, PHONES[INNER])
-		for index: int in [COVER, 0, INNER, 3, COVER]:
+		for index: int in [COVER, 0, INNER, 3, 4, 5, 6, COVER, INNER]:
 			var phone: Dictionary = PHONES[index]
 			_lay_out(game, phone)
 			var label: String = "%s %s after a resize" % [skin_id, phone["name"]]
 			assert_eq(game.coffee_place(), phone["place"], "%s: placed for the new size" % label)
 			assert_eq(game.is_coffee_shown(), phone["place"] != GameScreen.CoffeePlace.NONE, "%s: shown only with a place" % label)
+			_assert_form(game, label)
 			var before: Dictionary = _layout_before(game, phone)
 			_assert_rect(_rect(game.board(), game), before["board"], "%s: the board as before" % label)
 			_assert_rect(_rect(game.booster_bar(), game), before["bar"], "%s: the bar as before" % label)
@@ -396,11 +410,104 @@ func test_a_skin_switch_keeps_one_button() -> void:
 	var game: GameScreen = _game(&"gumdrop", PHONES[COVER])
 	game.apply_skin(SkinCatalog.get_skin(&"nova"))
 	_lay_out(game, PHONES[COVER])
+	_assert_form(game, "below the board after the switch")
 	assert_eq(game.find_children("Coffee", "", true, false).size(), 1, "one button after the switch")
 	assert_eq(game.coffee_button().get_index(), 1, "still just above the new backdrop")
 	assert_true(game.is_coffee_shown(), "and shown")
 	var icon: SkinIcon = game.coffee_button().call(&"icon") as SkinIcon
 	assert_eq(icon.get(&"_override"), SkinCatalog.get_skin(&"nova").color(&"ink_muted"), "in the new skin's ink_muted")
+	# In the gutter, a switch keeps the stacked form, in the new skin.
+	var wide: GameScreen = _game(&"gumdrop", PHONES[INNER])
+	_assert_form(wide, "gumdrop in the gutter")
+	wide.apply_skin(SkinCatalog.get_skin(&"slate"))
+	_lay_out(wide, PHONES[INNER])
+	assert_eq(wide.coffee_place(), GameScreen.CoffeePlace.GUTTER, "slate: still in the gutter")
+	_assert_form(wide, "slate in the gutter after the switch")
+	assert_eq(wide.find_children("Coffee", "", true, false).size(), 1, "one button after the switch in the gutter")
+	var lines: Array[Label] = wide.coffee_button().call(&"labels")
+	assert_eq(lines.size(), 2, "two lines after the switch")
+	assert_eq(lines[0].text, "Buy me", "the top line as written")
+	assert_eq(lines[1].text, "a coffee", "the bottom line as written")
+
+
+## The form follows the place: stacked in the gutter, one line below the
+## board (and left as it was with no place).
+func _assert_form(game: GameScreen, label: String) -> void:
+	var stacked: bool = bool(game.coffee_button().call(&"is_stacked"))
+	match game.coffee_place():
+		GameScreen.CoffeePlace.GUTTER:
+			assert_true(stacked, "%s: stacked in the gutter" % label)
+		GameScreen.CoffeePlace.BELOW_BOARD:
+			assert_false(stacked, "%s: one line below the board" % label)
+
+
+# QA21-05: the stacked form in the Fold5 inner screen's gutter.
+
+func test_qa21_05_fold5_inner_gutter_has_room_in_every_skin() -> void:
+	# 7.15 Measured, the touch area's clearance on both sides, per inset case.
+	var expected: Dictionary[int, Dictionary] = {
+		INNER: {&"gumdrop": 111.0, &"slate": 120.0, &"nova": 101.0},
+		5: {&"gumdrop": 101.0, &"slate": 110.0, &"nova": 91.0},
+		6: {&"gumdrop": 87.0, &"slate": 96.0, &"nova": 76.0},
+	}
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		for index: int in expected:
+			var phone: Dictionary = PHONES[index]
+			var label: String = "%s %s" % [skin_id, phone["name"]]
+			assert_near(_canvas(phone).x, 1998.5, 0.05, "%s: the inner screen's logical width" % label)
+			var game: GameScreen = _game(skin_id, phone)
+			assert_eq(game.coffee_place(), GameScreen.CoffeePlace.GUTTER, "%s: in the gutter" % label)
+			assert_true(game.is_coffee_shown(), "%s: shown" % label)
+			var coffee: Control = game.coffee_button()
+			assert_true(bool(coffee.call(&"is_stacked")), "%s: stacked" % label)
+			var lines: Array[Label] = coffee.call(&"labels")
+			assert_eq(lines.size(), 2, "%s: two lines" % label)
+			if lines.size() == 2:
+				assert_eq(lines[0].text, "Buy me", "%s: the top line as written" % label)
+				assert_eq(lines[1].text, "a coffee", "%s: the bottom line as written" % label)
+			var icon: SkinIcon = coffee.call(&"icon") as SkinIcon
+			assert_eq(icon.get(&"_icon"), &"coffee", "%s: the coffee icon" % label)
+			assert_eq(icon.get(&"_override"), skin.color(&"ink_muted"), "%s: in ink_muted" % label)
+			var safe: Rect2 = _safe(phone)
+			var column: Rect2 = SafeArea.column_in(safe, skin)
+			var touch: Rect2 = _touch_rect(game, game)
+			var to_safe: float = touch.position.x - safe.position.x
+			var to_column: float = column.position.x - touch.end.x
+			assert_true(to_safe >= 24.0, "%s: at least 24 px from the safe edge" % label)
+			assert_true(to_column >= 24.0, "%s: at least 24 px from the column" % label)
+			assert_true(to_safe >= skin.num(&"space_m") - 0.01 and to_column >= skin.num(&"space_m") - 0.01, "%s: at least space_m on both sides" % label)
+			var wanted: float = float(expected[index][skin_id])
+			assert_near(to_safe, wanted, 2.0, "%s: the clearance to the safe edge 7.15 measures" % label)
+			assert_near(to_column, wanted, 2.0, "%s: the clearance to the column 7.15 measures" % label)
+			var before: Dictionary = _layout_before(game, phone)
+			_assert_rect(_rect(game.board(), game), before["board"], "%s: the board as before" % label)
+			_assert_rect(_rect(game.hud(), game), before["hud"], "%s: the HUD as before" % label)
+			_assert_rect(_rect(game.booster_bar(), game), before["bar"], "%s: the bar as before" % label)
+			print("  %s: gutter %.1f px, stacked %d x %d, touch %.1f px wide, clear %.1f px of the safe edge and %.1f px of the column" % [label, column.position.x - safe.position.x, roundi(coffee.size.x), roundi(coffee.size.y), touch.size.x, to_safe, to_column])
+
+
+func test_setting_the_current_form_does_nothing() -> void:
+	var host: Control = U.stage(Vector2i(1080, 2400), &"gumdrop")
+	_hosts.append(host)
+	var button: Control = CoffeeButton.new()
+	host.add_child(button)
+	button.call(&"setup", SkinCatalog.get_skin(&"gumdrop"))
+	var changes: Array[int] = []
+	var count: Callable = func() -> void: changes.append(1)
+	button.minimum_size_changed.connect(count)
+	var title: Label = button.call(&"label") as Label
+	button.call(&"set_stacked", false)
+	assert_eq(changes.size(), 0, "one line to one line: no size change")
+	assert_eq(button.call(&"label"), title, "and no rebuild")
+	button.call(&"set_stacked", true)
+	assert_true(bool(button.call(&"is_stacked")), "stacked")
+	var top: Label = button.call(&"label") as Label
+	changes.clear()
+	button.call(&"set_stacked", true)
+	assert_eq(changes.size(), 0, "stacked to stacked: no size change")
+	assert_eq(button.call(&"label"), top, "and no rebuild")
+	button.minimum_size_changed.disconnect(count)
 
 
 # AT-155: hidden while something is open over the play screen.

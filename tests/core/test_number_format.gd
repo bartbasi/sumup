@@ -161,18 +161,16 @@ func test_at_165_a_shown_score_never_exceeds_the_real_one() -> void:
 	for n: int in range(1, 61):
 		texts.append("9".repeat(n))
 		texts.append("1" + "0".repeat(n))
+	var top: BigNum = BigNum.pow2(65600)
 	for seed_value: int in range(1, 1001):
 		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 		rng.seed = seed_value
-		var length: int = rng.randi_range(1, 19748) if seed_value % 10 == 0 else rng.randi_range(1, 60)
-		var lead: int = rng.randi_range(1, 3) if length == 19748 else rng.randi_range(1, 9)
-		var parts: PackedStringArray = PackedStringArray([str(lead)])
-		var written: int = 1
-		while written < length:
-			var chunk: String = str(rng.randi_range(0, 999999999)).pad_zeros(9)
-			parts.append(chunk.left(mini(9, length - written)))
-			written += mini(9, length - written)
-		texts.append("".join(parts))
+		var length: int = rng.randi_range(1, 19748)
+		var text: String = _random_digits(rng, length)
+		# A 19,748 digit draw can land above 2^65600; draw again until below.
+		while BigNum.parse(text, 20000).compare(top) >= 0:
+			text = _random_digits(rng, length)
+		texts.append(text)
 	for text: String in texts:
 		var value: BigNum = BigNum.parse(text, 20000)
 		if value == null or value.bit_length() > 65600:
@@ -182,39 +180,52 @@ func test_at_165_a_shown_score_never_exceeds_the_real_one() -> void:
 		var digits: int = 0
 		while digits < shown.length() and "0123456789,".contains(shown[digits]):
 			digits += 1
-		var number: String = shown.left(digits).replace(",", "")
+		var grouped: String = shown.left(digits)
+		var number: String = grouped.replace(",", "")
 		var suffix: String = shown.substr(digits)
 		var steps: int = 0 if suffix.is_empty() else _steps_of(suffix)
 		var problem: bool = not text.begins_with(number) or number.length() > 10 or steps < 0
 		problem = problem or (steps > 0 and number.length() < 8) or text.length() - number.length() != steps * 3
 		problem = problem or (text.length() <= 10 and not suffix.is_empty())
+		problem = problem or grouped != _with_commas(number)
 		if problem:
 			fail("%d digits starting %s gave %s" % [text.length(), text.left(12), shown])
 			return
 
 
+## length random decimal digits with no leading zero.
+func _random_digits(rng: RandomNumberGenerator, length: int) -> String:
+	var parts: PackedStringArray = PackedStringArray([str(rng.randi_range(1, 9))])
+	var written: int = 1
+	while written < length:
+		var chunk: String = str(rng.randi_range(0, 999999999)).pad_zeros(9)
+		parts.append(chunk.left(mini(9, length - written)))
+		written += mini(9, length - written)
+	return "".join(parts)
+
+
+## Digits with a comma between each group of three, counted from the right.
+func _with_commas(number: String) -> String:
+	var groups: PackedStringArray = PackedStringArray()
+	var end: int = number.length()
+	while end > 3:
+		groups.insert(0, number.substr(end - 3, 3))
+		end -= 3
+	groups.insert(0, number.left(end))
+	return ",".join(groups)
+
+
 func test_at_166_tiles_and_scores_share_one_suffix_sequence() -> void:
-	# Exponent 10 shows in full (1024), so step 1 is read from 2^11, "2K".
-	assert_eq(NumberFormat.tile_label(11, config).substr(1), NumberFormat._suffix(1, config), "step 1")
-	for steps: int in range(2, 6554):
-		var tile: String = NumberFormat.tile_label(steps * 10, config).substr(1)
-		var expected: String = NumberFormat._suffix(steps, config)
-		if tile != expected or tile.contains("l") or tile.contains("o"):
-			fail("step %d: tile suffix %s, sequence %s" % [steps, tile, expected])
-			return
-	# The score side for every step would build 6,553 numbers of up to 19,668
-	# digits; every step to 700, then every 37th, and the last ones, cover each
-	# suffix length and every letter position.
-	var checked: Array[int] = []
-	for steps: int in range(1, 701):
-		checked.append(steps)
-	for steps: int in range(701, 6554, 37):
-		checked.append(steps)
-	checked.append_array([6553, 6580])
-	for steps: int in checked:
+	for steps: int in range(1, 6554):
+		# Exponent 10 shows in full (1024), so step 1 is read from 2^11, "2K".
+		var tile: String = NumberFormat.tile_label(11, config).substr(1) if steps == 1 else NumberFormat.tile_label(steps * 10, config).substr(1)
 		var shown: String = _score("1" + "0".repeat(3 * steps + 9))
-		if shown != "1,000,000,000" + NumberFormat._suffix(steps, config):
-			fail("step %d: score shows %s" % [steps, shown])
+		var score: String = shown.trim_prefix("1,000,000,000") if shown.begins_with("1,000,000,000") else "(%s)" % shown
+		if tile != score or tile.is_empty() or tile.contains("l") or tile.contains("o"):
+			fail("step %d: tile suffix %s, score suffix %s" % [steps, tile, score])
+			return
+		if tile != NumberFormat._suffix(steps, config):
+			fail("step %d: suffix %s, sequence %s" % [steps, tile, NumberFormat._suffix(steps, config)])
 			return
 	var named: PackedStringArray = PackedStringArray()
 	for steps: int in range(1, 6):
@@ -225,6 +236,7 @@ func test_at_166_tiles_and_scores_share_one_suffix_sequence() -> void:
 	assert_eq(NumberFormat._suffix(582), "aaa", "582 steps")
 	assert_eq(NumberFormat._suffix(6553), "kiv", "the ceiling tile")
 	assert_eq(NumberFormat._suffix(6580), "kjy", "the largest score")
+	assert_eq(_score("1" + "0".repeat(3 * 6580 + 9)), "1,000,000,000kjy", "the score side at 6,580 steps")
 	assert_eq(NumberFormat._suffix(0), "", "no steps, no suffix")
 
 

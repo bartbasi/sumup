@@ -182,7 +182,7 @@ func test_clear_notice_plural_after_suffix_letters() -> void:
 	]
 	var expected: Dictionary[StringName, PackedStringArray] = {
 		&"gumdrop": PackedStringArray(["No more 64Qs", "No more 64aa", "No more 128aa to 512aa", "No more 512Qs or 1aa", "No more 32Qs to 128Qs"]),
-		&"slate": PackedStringArray(["NO MORE 64QS", "NO MORE 64aa", "NO MORE 128aa TO 512aa", "NO MORE 512QS OR 1aa", "NO MORE 32QS TO 128QS"]),
+		&"slate": PackedStringArray(["NO MORE 64Qs", "NO MORE 64aa", "NO MORE 128aa TO 512aa", "NO MORE 512Qs OR 1aa", "NO MORE 32Qs TO 128Qs"]),
 		&"nova": PackedStringArray(["no more 64Qs", "no more 64aa", "no more 128aa to 512aa", "no more 512Qs or 1aa", "no more 32Qs to 128Qs"]),
 	}
 	for skin_id: StringName in SkinCatalog.IDS:
@@ -194,6 +194,24 @@ func test_clear_notice_plural_after_suffix_letters() -> void:
 			hud.show_clear_notice(cases[i], BOARD)
 			var notice: Control = hud.call(&"clear_notice") as Control
 			assert_eq(notice.get(&"text"), expected[skin_id][i], "%s notice for %s" % [skin_id, cases[i]])
+
+
+## QA21-04: the plural "s" is never cased. For every skin and every exponent
+## from 1 to 200, the notice ends with the exact tile label followed by
+## nothing (lowercase suffix) or one lowercase "s", and Slate never shows a
+## capital suffix followed by "S" after a digit.
+func test_clear_notice_plural_s_is_never_cased() -> void:
+	var pair: RegEx = RegEx.create_from_string("[0-9][A-Z]S")
+	for skin_id: StringName in SkinCatalog.IDS:
+		var skin: SkinData = SkinCatalog.get_skin(skin_id)
+		var role: StringName = &"body" if skin_id == &"gumdrop" else &"label"
+		for exponent: int in range(1, 201):
+			var label: String = NumberFormat.tile_label(exponent)
+			var last: String = label.right(1)
+			var tail: String = label if last != last.to_upper() else label + "s"
+			var text: String = UiCopy.clear_notice(skin, role, PackedInt64Array([exponent]))
+			assert_true(text.ends_with(" " + tail), "%s notice for %d ends with %s: %s" % [skin_id, exponent, tail, text])
+			assert_true(pair.search(text) == null, "%s notice for %d has no cased plural: %s" % [skin_id, exponent, text])
 
 
 ## 14.1: costs use the tile label of the cost exponent, never cased, and the

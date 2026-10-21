@@ -422,67 +422,95 @@ func test_pair_fits_edges() -> void:
 ## as the highlight says; every lift of a dragged chain commits; and the move
 ## check says yes exactly when some touching equal pair would commit. The
 ## boosters half is in tests/boosters.
+## Seeds for AT-168. The GDD allows at least 10 in the automated test; QA's
+## full run of 200 seeds stays a manual check (QA21-02).
+const AT_168_SEEDS: int = 10
+const AT_168_ACTIONS: int = 500
+const AT_168_MOVES: int = 15
+
+
 func test_at_168_the_highlight_never_shows_a_tile_the_commit_would_refuse() -> void:
 	config.max_exponent = 8
 	config.max_score_bits = 12
 	var lifts: int = 0
 	var highlighted_seen: int = 0
 	var refusals_seen: int = 0
-	for seed_value: int in range(1, 201):
+	var backtracks: int = 0
+	var blocked: int = 0
+	for seed_value: int in range(1, AT_168_SEEDS + 1):
 		var moves: RandomNumberGenerator = RandomNumberGenerator.new()
 		moves.seed = seed_value
 		var rng: RunRandom = F.seeded(seed_value)
 		var records: Records = Records.new()
 		var state: RunState = RunRules.new_run(rng, records, config)
 		state.score = BigNum.from_int(moves.randi_range(0, 4095))
-		for action: int in 15:
+		for action: int in AT_168_ACTIONS:
+			var where: String = "seed %d action %d" % [seed_value, action]
 			var chain: Array[Vector2i] = []
 			chain = CoreRules.step_chain(state.cells, state.score, chain, Vector2i(moves.randi_range(0, 4), moves.randi_range(0, 7)), config)
-			for step: int in moves.randi_range(1, 15):
+			if chain.size() != 1:
+				fail("%s: the first touch did not start a chain" % where)
+				return
+			# A move onto a tile that does not join leaves the chain as it was,
+			# so the same board and chain would give the same answers again;
+			# each chain is tried once and later steps on it only move on.
+			var tried: Array[Vector2i] = []
+			for step: int in moves.randi_range(1, AT_168_MOVES):
 				var shown: Array[Vector2i] = CoreRules.joinable_cells(state.cells, state.score, chain, config)
 				var oracle: Array[Vector2i] = _oracle_joinable(state, chain)
 				if shown != oracle:
-					fail("seed %d action %d: highlight %s, rules say %s" % [seed_value, action, shown, oracle])
+					fail("%s: highlight %s, rules say %s" % [where, shown, oracle])
 					return
+				# Every touching tile not in the chain, tried on a copy.
 				var last: Vector2i = chain[chain.size() - 1]
-				var others: Array[Vector2i] = []
+				var touching: Array[Vector2i] = []
+				var fresh: bool = chain != tried
+				tried = chain
 				for dy: int in range(-1, 2):
 					for dx: int in range(-1, 2):
 						var cell: Vector2i = last + Vector2i(dx, dy)
-						if cell != last and CoreRules.in_bounds(cell, config) and not chain.has(cell) and not shown.has(cell):
-							others.append(cell)
-				if chain.size() >= 1 and not shown.is_empty():
-					var pick: Vector2i = shown[moves.randi_range(0, shown.size() - 1)]
-					if not _commits_on_copy(state, chain, pick, rng):
-						fail("seed %d action %d: highlighted %s does not commit" % [seed_value, action, pick])
-						return
-					highlighted_seen += 1
-				if not others.is_empty():
-					var other: Vector2i = others[moves.randi_range(0, others.size() - 1)]
-					if _commits_on_copy(state, chain, other, rng):
-						fail("seed %d action %d: %s commits but is not highlighted" % [seed_value, action, other])
-						return
-					refusals_seen += 1
-				var target: Vector2i = last + Vector2i(moves.randi_range(-1, 1), moves.randi_range(-1, 1))
+						if cell == last or not CoreRules.in_bounds(cell, config):
+							continue
+						touching.append(cell)
+						if chain.has(cell) or not fresh:
+							continue
+						var commits: bool = _commits_on_copy(state, chain, cell, rng)
+						if commits != shown.has(cell):
+							fail("%s: %s highlighted %s, commit accepts %s" % [where, cell, shown.has(cell), commits])
+							return
+						if commits:
+							highlighted_seen += 1
+						else:
+							refusals_seen += 1
+				# The next finger move: back onto the previous tile, or onto any
+				# touching cell (joinable or not).
+				var target: Vector2i = touching[moves.randi_range(0, touching.size() - 1)]
 				if chain.size() >= 2 and moves.randi_range(0, 3) == 0:
 					target = chain[chain.size() - 2]
+					backtracks += 1
 				chain = CoreRules.step_chain(state.cells, state.score, chain, target, config)
 			if chain.size() >= 2:
 				var result: MoveResult = RunRules.commit_chain(state, records, chain, rng, config)
 				if not result.accepted:
-					fail("seed %d action %d: a dragged chain %s was refused" % [seed_value, action, chain])
+					fail("%s: a dragged chain %s was refused" % [where, chain])
 					return
 				lifts += 1
 			var problem: String = _check_move_check_and_limits(state)
 			if not problem.is_empty():
-				fail("seed %d action %d: %s" % [seed_value, action, problem])
+				fail("%s: %s" % [where, problem])
 				return
+			# The offer and the end of run are booster tests (tests/boosters/);
+			# here a blocked board starts a new run, so play never stalls.
 			if not CoreRules.has_valid_move(state.cells, state.score, config):
+				blocked += 1
 				state = RunRules.new_run(rng, records, config)
 				state.score = BigNum.from_int(moves.randi_range(0, 4095))
-	assert_true(lifts > 500, "plenty of lifts (%d)" % lifts)
-	assert_true(highlighted_seen > 500, "plenty of highlighted tiles tried (%d)" % highlighted_seen)
-	assert_true(refusals_seen > 500, "plenty of other tiles tried (%d)" % refusals_seen)
+	var floor_count: int = AT_168_SEEDS * 100
+	assert_true(lifts > floor_count, "plenty of lifts (%d)" % lifts)
+	assert_true(highlighted_seen > floor_count, "plenty of highlighted tiles tried (%d)" % highlighted_seen)
+	assert_true(refusals_seen > floor_count, "plenty of other tiles tried (%d)" % refusals_seen)
+	assert_true(backtracks > floor_count, "plenty of backtracks (%d)" % backtracks)
+	assert_true(blocked > 0, "some boards blocked by the score ceiling (%d)" % blocked)
 
 
 ## GDD 6.1 conditions 1 to 5 with plain ints, for the lowered constants.

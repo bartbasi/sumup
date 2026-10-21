@@ -24,10 +24,11 @@ class_name GameScreen extends Control
 ## its own, so this keeps only the latest, never a count.
 ##
 ## The Buy me a coffee button (DESIGN_SYSTEM.md 7.15, GDD 15.5) sits in room
-## nothing else uses: below the board when the space between the board and
-## the bar holds touch_min plus space_s each side, else in the left gutter
-## beside the column when it is wide enough, else nowhere. It never moves or
-## shrinks anything else. It is hidden
+## nothing else uses: below the board, in its one line form, when the space
+## between the board and the bar holds touch_min plus space_s each side,
+## else in the left gutter beside the column, in its stacked form, when the
+## gutter leaves space_m clear on both sides of its touch area, else nowhere.
+## It never moves or shrinks anything else. It is hidden
 ## while the offer, targeting or any App panel over this screen (Pause and
 ## what opens from it, the new game confirmation, the end of run screen) is
 ## open. It reacts only to a touch that went down and came up on it: Godot
@@ -492,26 +493,39 @@ func layout_in(screen: Rect2, column: Rect2, safe: Rect2 = Rect2()) -> void:
 ##    top is at least touch_min plus 2 x space_s: centered in the column and
 ##    vertically in D, so the gaps to the board and the bar are equal and at
 ##    least space_s each.
-## 2. Else in the left gutter (the safe area's left edge to the column's)
-##    when it is at least the content width plus 2 x space_s: centered in
-##    the gutter and on the bar.
-## 3. Else nowhere. With the offer open this is not the plain play screen,
-##    so nowhere either (the button is hidden then anyway).
+##    The button takes its one line form.
+## 2. Else in the left gutter (the safe area's left edge to the column's), in
+##    the stacked form, when the gutter is at least the stacked content
+##    width plus 2 x space_s plus 2 x space_m, so the touch area is at least
+##    space_m clear of the safe edge and of the column: centered in the
+##    gutter and on the bar.
+## 3. Else nowhere, the form left as it was. With the offer open this is not
+##    the plain play screen, so nowhere either (the button is hidden then
+##    anyway).
+## The form follows the place at every layout, so a fold or unfold moves it
+## between the two. Setting the form it already has does nothing.
 func _place_coffee(inner: Rect2, safe_left: float) -> void:
 	_coffee_place = CoffeePlace.NONE
 	if _offer.visible:
 		return
 	var gap: float = _skin.num(&"space_s")
-	var button_size: Vector2 = _coffee.call(&"content_size")
-	_coffee.size = button_size
+	var clear: float = _skin.num(&"space_m")
+	var line_size: Vector2 = _coffee.call(&"size_for", false)
+	var stacked_size: Vector2 = _coffee.call(&"size_for", true)
 	var board_bottom: float = _board.position.y + _board.size.y
 	var below: float = _bar.position.y - board_bottom
 	var gutter: float = inner.position.x - safe_left
-	if below >= button_size.y + 2.0 * gap:
+	if below >= line_size.y + 2.0 * gap:
 		_coffee_place = CoffeePlace.BELOW_BOARD
+		_coffee.call(&"set_stacked", false)
+		var button_size: Vector2 = _coffee.call(&"content_size")
+		_coffee.size = button_size
 		_coffee.position = Vector2(inner.position.x + (inner.size.x - button_size.x) * 0.5, board_bottom + (below - button_size.y) * 0.5)
-	elif gutter >= button_size.x + 2.0 * gap:
+	elif gutter >= stacked_size.x + 2.0 * gap + 2.0 * clear:
 		_coffee_place = CoffeePlace.GUTTER
+		_coffee.call(&"set_stacked", true)
+		var button_size: Vector2 = _coffee.call(&"content_size")
+		_coffee.size = button_size
 		_coffee.position = Vector2(safe_left + (gutter - button_size.x) * 0.5, _bar.position.y + (_bar.size.y - button_size.y) * 0.5)
 
 

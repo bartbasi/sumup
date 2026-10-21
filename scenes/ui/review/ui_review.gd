@@ -9,7 +9,8 @@ extends Control
 ##   play        the play screen mid game; prints where the coffee button
 ##               went (DESIGN_SYSTEM.md 7.15). The Fold5 cover and inner
 ##               pages set the insets of 7.15 and are captured at 1080x2767
-##               and 1999x2400
+##               and 1999x2400; the fold_inner_hint_hidden pages set the
+##               inner screen's insets with the gesture hint hidden (94, 0)
 ##   pause       Pause over the play screen
 ##   settings    Settings over the play screen
 ##   offer       the out of moves offer, Shuffle suggested

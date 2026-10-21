@@ -138,7 +138,7 @@ func test_clear_notice_copy_matches_the_design() -> void:
 	]
 	var expected: Dictionary[StringName, PackedStringArray] = {
 		&"gumdrop": PackedStringArray(["No more 2s", "No more 2s or 4s", "No more 2s to 8s", "No more 2s to 32s", "No more 2Ks", "No more 1024s or 2Ks"]),
-		&"slate": PackedStringArray(["NO MORE 2S", "NO MORE 2S OR 4S", "NO MORE 2S TO 8S", "NO MORE 2S TO 32S", "NO MORE 2KS", "NO MORE 1024S OR 2KS"]),
+		&"slate": PackedStringArray(["NO MORE 2s", "NO MORE 2s OR 4s", "NO MORE 2s TO 8s", "NO MORE 2s TO 32s", "NO MORE 2Ks", "NO MORE 1024s OR 2Ks"]),
 		&"nova": PackedStringArray(["no more 2s", "no more 2s or 4s", "no more 2s to 8s", "no more 2s to 32s", "no more 2Ks", "no more 1024s or 2Ks"]),
 	}
 	for skin_id: StringName in SkinCatalog.IDS:

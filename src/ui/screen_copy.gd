@@ -47,6 +47,10 @@ const SOURCE_CODE: String = "Source code: github.com/bartbasi/sumup"
 const COFFEE_URL: String = "https://buymeacoffee.com/playinc"
 ## The Buy me a coffee button (DESIGN_SYSTEM.md 7.2): body role, as written.
 const COFFEE: String = "Buy me a coffee"
+## The play screen button's stacked form in the side gutter (7.10, 7.15): two
+## lines, body role, as written.
+const COFFEE_TOP: String = "Buy me"
+const COFFEE_BOTTOM: String = "a coffee"
 const VERSION: String = "Version %s"
 const MADE_BY: String = "Made by Bart Basi"
 ## A license term (NOTICE, term 1): shown exactly, never cased.
