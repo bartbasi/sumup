@@ -134,3 +134,4 @@ Parts made by others have their own licenses:
 
 - The Outfit font, used by the Gumdrop and Nova skins, is under the SIL Open Font License, version 1.1. Its license is in [src/design/fonts/OFL.txt](src/design/fonts/OFL.txt).
 - The Godot Engine is under the MIT license. The About screen shows the engine's license and the notices for the parts it includes.
+- On Android, the engine's Android build adds the AndroidX libraries, the Kotlin standard library, kotlinx.coroutines and the JetBrains Java Annotations, all under the Apache License 2.0, and LLVM libc++, under the Apache License 2.0 with LLVM exceptions. They are listed in [NOTICE](NOTICE) and in the About screen.

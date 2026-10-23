@@ -461,7 +461,7 @@ func test_about_wordmark_and_rows() -> void:
 	assert_eq(rows.keys(), [&"game", &"godot", &"outfit"], "three license rows in order")
 	assert_eq(rows[&"godot"].call(&"detail_text"), "MIT license and its parts", "Nova keeps the names' capitals")
 	var slate: AboutPanel = _about(&"slate")
-	assert_eq(slate.license_rows()[&"game"].call(&"detail_text"), "GNU GPL VERSION 3, TWO ADDED TERMS", "Slate capitals may apply")
+	assert_eq(slate.license_rows()[&"game"].call(&"detail_text"), "GNU GPL VERSION 3, ADDED TERMS", "Slate capitals may apply")
 	for id: StringName in rows:
 		var row: Control = rows[id]
 		assert_true(row.custom_minimum_size.y >= skin.num(&"touch_min"), "%s: at least touch_min tall" % id)
@@ -502,6 +502,12 @@ func test_at_142_godot_license_matches_the_engine() -> void:
 			for line: String in part["copyright"]:
 				parts.append("Copyright " + line)
 			parts.append("License: " + String(part["license"]))
+	parts.append(skin.cased(&"heading", "Android libraries"))
+	parts.append("The Android version of SumUp also includes these libraries, which the Godot Engine's Android build adds.")
+	for library: Array in [["AndroidX libraries", "The Android Open Source Project", "Apache-2.0"], ["Kotlin standard library", "JetBrains s.r.o. and Kotlin Programming Language contributors", "Apache-2.0"], ["kotlinx.coroutines", "JetBrains s.r.o. and contributors", "Apache-2.0"], ["JetBrains Java Annotations", "JetBrains s.r.o.", "Apache-2.0"], ["LLVM libc++", "The LLVM Project contributors", "Apache-2.0 WITH LLVM-exception"]]:
+		parts.append(String(library[0]))
+		parts.append("Copyright " + String(library[1]))
+		parts.append("License: " + String(library[2]))
 	parts.append(skin.cased(&"heading", "License texts"))
 	var licenses: Dictionary = Engine.get_license_info()
 	for license_name: String in licenses:

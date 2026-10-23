@@ -5,7 +5,8 @@ extends RefCounted
 ##   COPYING;
 ## - &"godot": "Godot Engine license" and Engine.get_license_text(), then
 ##   "Third party parts" (each part of Engine.get_copyright_info() by name,
-##   with "Copyright {line}" and "License: {name}"), then "License texts"
+##   with "Copyright {line}" and "License: {name}"), then "Android libraries"
+##   (the intro and each of Copy.ANDROID_PARTS the same way), then "License texts"
 ##   (each text of Engine.get_license_info() by name);
 ## - &"outfit": OFL.txt.
 ## The files are read at runtime (the export packs them as plain files). A
@@ -70,6 +71,12 @@ static func blocks(id: StringName) -> Array[Dictionary]:
 					for line: Variant in part.get("copyright", []):
 						_add(out, Kind.PARAGRAPH, Copy.PART_COPYRIGHT % String(line))
 					_add(out, Kind.PARAGRAPH, Copy.PART_LICENSE % String(part.get("license", "")))
+			_add(out, Kind.HEADING, Copy.ANDROID_HEADING)
+			_add(out, Kind.PARAGRAPH, Copy.ANDROID_INTRO)
+			for library: Dictionary in Copy.ANDROID_PARTS:
+				_add(out, Kind.NAME, String(library["name"]))
+				_add(out, Kind.PARAGRAPH, Copy.PART_COPYRIGHT % String(library["copyright"]))
+				_add(out, Kind.PARAGRAPH, Copy.PART_LICENSE % String(library["license"]))
 			_add(out, Kind.HEADING, Copy.GODOT_TEXTS_HEADING)
 			var licenses: Dictionary = Engine.get_license_info()
 			for license_name: Variant in licenses:

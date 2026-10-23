@@ -52,6 +52,14 @@ SumUp is built with the Godot Engine, which is under the MIT license, with
 notices for the parts the engine includes. The About screen shows the full
 engine license and every notice, read from the engine itself.
 
+On Android, SumUp also includes libraries that the Godot Engine's Android
+build adds: the AndroidX libraries (The Android Open Source Project), the
+Kotlin standard library, kotlinx.coroutines and the JetBrains Java
+Annotations (JetBrains s.r.o. and contributors), all under the Apache
+License, version 2.0, and LLVM libc++ (The LLVM Project contributors), under
+the Apache License, version 2.0, with LLVM exceptions. The About screen
+lists them with the license text.
+
 The Gumdrop and Nova skins use the Outfit font, under the SIL Open Font
 License, version 1.1. The license is in src/design/fonts/OFL.txt and in the
 About screen.

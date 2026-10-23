@@ -4,7 +4,7 @@ class_name AboutPanel extends "res://src/ui/reading_screen.gd"
 ## - the brand block on the backdrop in every skin: the drawn wordmark
 ##   (UiKit.make_wordmark) at the display size, "Version {version}" (the
 ##   version the Settings line shows), space_m, then "Made by Bart Basi" and
-##   "Copyright 2026 Bart Basi" in the body role, then space_m and the source
+##   "Copyright 2026 Play, Inc." in the body role, then space_m and the source
 ##   code line in the body role, ink_muted, plain text and never cased. The
 ##   attribution is a license term: never cased, muted, shrunk or truncated,
 ##   and in the first screenful;

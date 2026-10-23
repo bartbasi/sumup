@@ -609,10 +609,10 @@ func _about() -> void:
 	var licenses: Array = Kit.section(_skin)
 	var inner: VBoxContainer = licenses[1]
 	inner.add_child(Kit.heading(_skin, "Licenses"))
-	inner.add_child(Kit.reading("SumUp is free software: you can share and change it under the GNU General Public License, version 3, with two additional terms. Every copy keeps the attribution above, and changed versions are marked as changed. SumUp comes with no warranty."))
+	inner.add_child(Kit.reading("SumUp is free software: you can share and change it under the GNU General Public License, version 3, with additional terms (see the SumUp license below). Any work based on SumUp keeps its attribution, and changed versions are marked as changed. SumUp comes with no warranty."))
 	inner.add_child(Kit.spacer(_skin.num(&"space_s")))
 	var rows: Array[Array] = [
-		["SumUp", "GNU GPL version 3, two added terms"],
+		["SumUp", "GNU GPL version 3, added terms"],
 		["Godot Engine", "MIT license and its parts"],
 		["Outfit font", "SIL Open Font License 1.1"],
 	]

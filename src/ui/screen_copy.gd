@@ -59,11 +59,11 @@ const ABOUT_SECTIONS: Array[Dictionary] = [
 	{"title": "What it is", "text": "SumUp is a number merge puzzle. Join touching tiles of the same number into bigger ones and see how high you can go."},
 	{"title": "Offline, no data", "text": "SumUp works fully offline. It collects no data, has no ads or accounts and asks for no permissions. The Buy me a coffee button only opens a web page in your phone's browser, and the game itself sends nothing."},
 	{"title": "Supporting SumUp", "text": "SumUp is free, with no ads and no tracking, and it always will be. If you'd like to support more games like it, you can buy me a coffee. Never expected, always appreciated.", "coffee": true},
-	{"title": "Licenses", "text": "SumUp is free software: you can share and change it under the GNU General Public License, version 3, with two additional terms. Every copy keeps the attribution above, and changed versions are marked as changed. SumUp comes with no warranty."},
+	{"title": "Licenses", "text": "SumUp is free software: you can share and change it under the GNU General Public License, version 3, with additional terms (see the SumUp license below). Any work based on SumUp keeps its attribution, and changed versions are marked as changed. SumUp comes with no warranty."},
 ]
 ## The license rows, in order: id, title, detail line.
 const LICENSE_ROWS: Array[Dictionary] = [
-	{"id": &"game", "title": "SumUp", "detail": "GNU GPL version 3, two added terms"},
+	{"id": &"game", "title": "SumUp", "detail": "GNU GPL version 3, added terms"},
 	{"id": &"godot", "title": "Godot Engine", "detail": "MIT license and its parts"},
 	{"id": &"outfit", "title": "Outfit font", "detail": "SIL Open Font License 1.1"},
 ]
@@ -77,6 +77,18 @@ const GPL_HEADING: String = "GNU General Public License"
 const GODOT_LICENSE_HEADING: String = "Godot Engine license"
 const GODOT_PARTS_HEADING: String = "Third party parts"
 const GODOT_TEXTS_HEADING: String = "License texts"
+## What the Android build adds on top of the engine's own parts, which
+## Engine.get_copyright_info() does not list (checked against the APK on
+## 2026-10-23). Each license text is under "License texts".
+const ANDROID_HEADING: String = "Android libraries"
+const ANDROID_INTRO: String = "The Android version of SumUp also includes these libraries, which the Godot Engine's Android build adds."
+const ANDROID_PARTS: Array[Dictionary] = [
+	{"name": "AndroidX libraries", "copyright": "The Android Open Source Project", "license": "Apache-2.0"},
+	{"name": "Kotlin standard library", "copyright": "JetBrains s.r.o. and Kotlin Programming Language contributors", "license": "Apache-2.0"},
+	{"name": "kotlinx.coroutines", "copyright": "JetBrains s.r.o. and contributors", "license": "Apache-2.0"},
+	{"name": "JetBrains Java Annotations", "copyright": "JetBrains s.r.o.", "license": "Apache-2.0"},
+	{"name": "LLVM libc++", "copyright": "The LLVM Project contributors", "license": "Apache-2.0 WITH LLVM-exception"},
+]
 const PART_COPYRIGHT: String = "Copyright %s"
 const PART_LICENSE: String = "License: %s"
 ## Shown in a license view instead of a text that is missing or damaged in
